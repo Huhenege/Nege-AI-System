@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, onSnapshot, writeBatch, setDoc } from 'firebase/firestore';
-import { JobApplication, Vacancy, RecruitmentStage, Candidate, Scorecard, MessageTemplate } from '@/types/recruitment';
+import { JobApplication, Vacancy, RecruitmentStage, Candidate, Scorecard, MessageTemplate, ApplicationFile } from '@/types/recruitment';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { format } from 'date-fns';
 import {
     Loader2,
@@ -26,6 +27,11 @@ import {
     StickyNote,
     ChevronDown,
     ChevronUp,
+    Upload,
+    Pencil,
+    Link as LinkIcon,
+    Globe,
+    User as UserIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,8 +42,12 @@ import { EmployeeCard, EmployeeCardEmployee } from '@/components/employees/emplo
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -168,7 +178,7 @@ function Section({ title, icon: Icon, children, defaultOpen = false, count, acti
 export default function CandidateDetailPage() {
     const { applicationId } = useParams();
     const router = useRouter();
-    const { firestore, user } = useFirebase();
+    const { firestore, storage, user } = useFirebase();
     const { toast } = useToast();
 
     // --- State ---
@@ -210,6 +220,19 @@ export default function CandidateDetailPage() {
     // Hire confirmation
     const [showHireConfirm, setShowHireConfirm] = useState(false);
     const [isHiring, setIsHiring] = useState(false);
+
+    // Edit Candidate
+    const [isEditCandidateOpen, setIsEditCandidateOpen] = useState(false);
+    const [editCandidate, setEditCandidate] = useState({
+        firstName: '', lastName: '', email: '', phone: '',
+        linkedinUrl: '', portfolioUrl: '', source: '', notes: '',
+    });
+    const [savingCandidate, setSavingCandidate] = useState(false);
+
+    // File Upload
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingFile, setUploadingFile] = useState(false);
+    const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
 
     // Message Preview
     const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
@@ -477,6 +500,53 @@ export default function CandidateDetailPage() {
         } finally { setSendingMessage(false); }
     };
 
+    const openEditCandidate = () => {
+        if (!candidate) return;
+        setEditCandidate({
+            firstName: candidate.firstName || '',
+            lastName: candidate.lastName || '',
+            email: candidate.email || '',
+            phone: candidate.phone || '',
+            linkedinUrl: candidate.linkedinUrl || '',
+            portfolioUrl: candidate.portfolioUrl || '',
+            source: candidate.source || '',
+            notes: candidate.notes || '',
+        });
+        setIsEditCandidateOpen(true);
+    };
+
+    const handleSaveCandidate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!firestore || !candidate) return;
+        if (!editCandidate.firstName.trim() || !editCandidate.lastName.trim()) {
+            toast({ title: 'Нэр овог заавал оруулна уу', variant: 'destructive' });
+            return;
+        }
+        setSavingCandidate(true);
+        try {
+            const updates: Record<string, any> = {
+                firstName: editCandidate.firstName.trim(),
+                lastName: editCandidate.lastName.trim(),
+                email: editCandidate.email.trim(),
+                phone: editCandidate.phone.trim(),
+                linkedinUrl: editCandidate.linkedinUrl.trim() || null,
+                portfolioUrl: editCandidate.portfolioUrl.trim() || null,
+                source: editCandidate.source.trim() || null,
+                notes: editCandidate.notes.trim() || null,
+                updatedAt: new Date().toISOString(),
+            };
+            await updateDoc(doc(firestore, 'candidates', candidate.id), updates);
+            setCandidate(prev => prev ? { ...prev, ...updates } : null);
+            await logEvent('SYSTEM', 'Горилогчийн мэдээлэл засагдсан', `${updates.lastName} ${updates.firstName}`);
+            toast({ title: 'Мэдээлэл шинэчлэгдлээ' });
+            setIsEditCandidateOpen(false);
+        } catch (error: any) {
+            toast({ title: 'Алдаа гарлаа', description: error.message, variant: 'destructive' });
+        } finally {
+            setSavingCandidate(false);
+        }
+    };
+
     const handleAddTag = async () => {
         if (!firestore || !candidate || !tagInput.trim()) return;
         const newTag = tagInput.trim();
@@ -519,6 +589,72 @@ export default function CandidateDetailPage() {
         } catch (error: any) {
             toast({ title: 'Алдаа', description: error.message, variant: 'destructive' });
         } finally { setSubmittingScorecard(false); }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0 || !firestore || !storage || !applicationId) return;
+
+        setUploadingFile(true);
+        try {
+            const newFiles: ApplicationFile[] = [];
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const uniqueName = `${Date.now()}-${file.name}`;
+                const storageRef = ref(storage, `applications/${applicationId}/${uniqueName}`);
+                await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(storageRef);
+                newFiles.push({
+                    id: `file-${Date.now()}-${i}`,
+                    name: file.name,
+                    url: downloadURL,
+                    size: file.size,
+                    type: file.type,
+                    stageId: selectedStageId || application?.currentStageId,
+                    uploadedAt: new Date().toISOString(),
+                    uploadedBy: user?.displayName || 'Unknown',
+                });
+            }
+
+            const existingFiles = application?.files || [];
+            const updatedFiles = [...existingFiles, ...newFiles];
+            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+                files: updatedFiles,
+                updatedAt: new Date().toISOString(),
+            });
+            setApplication(prev => prev ? { ...prev, files: updatedFiles } : null);
+            await logEvent('SYSTEM', 'Файл хавсарсан', newFiles.map(f => f.name).join(', '));
+            toast({ title: 'Файл амжилттай хавсаргалаа', description: `${newFiles.length} файл нэмэгдлээ.` });
+        } catch (error: any) {
+            console.error("File upload error:", error);
+            toast({ title: 'Файл хавсаргахад алдаа гарлаа', description: error.message, variant: 'destructive' });
+        } finally {
+            setUploadingFile(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleDeleteFile = async (fileToDelete: ApplicationFile) => {
+        if (!firestore || !storage || !applicationId || !application) return;
+        setDeletingFileId(fileToDelete.id);
+        try {
+            try {
+                const storageRef = ref(storage, fileToDelete.url);
+                await deleteObject(storageRef);
+            } catch {}
+
+            const updatedFiles = (application.files || []).filter(f => f.id !== fileToDelete.id);
+            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+                files: updatedFiles,
+                updatedAt: new Date().toISOString(),
+            });
+            setApplication(prev => prev ? { ...prev, files: updatedFiles } : null);
+            toast({ title: 'Файл устгагдлаа' });
+        } catch (error: any) {
+            toast({ title: 'Файл устгахад алдаа гарлаа', description: error.message, variant: 'destructive' });
+        } finally {
+            setDeletingFileId(null);
+        }
     };
 
     const handleDeleteApplication = async () => {
@@ -591,38 +727,75 @@ export default function CandidateDetailPage() {
                 <aside className="w-[340px] shrink-0 bg-white border-r flex flex-col z-20">
                             <ScrollArea className="flex-1">
                                 <div className="p-4 space-y-5">
-                                    <EmployeeCard
-                                        variant="detailed"
-                                        asLink={false}
-                                        showQuestionnaireAction={false}
-                                        showProgressRing={false}
-                                        employee={{
-                                            id: candidate.id,
-                                            firstName: candidate.firstName,
-                                            lastName: candidate.lastName,
-                                            email: candidate.email,
-                                            phoneNumber: candidate.phone,
-                                            status: application.status === 'HIRED' ? 'active_recruitment' : 'candidate',
-                                            lifecycleStage: application.status === 'HIRED' ? 'onboarding' : 'recruitment',
-                                            jobTitle: vacancy?.title || '',
-                                        } as EmployeeCardEmployee}
-                                        footer={
-                                            <div className="flex items-center justify-between w-full">
-                                                <Badge variant="outline" className={cn(
-                                                    "bg-white font-medium text-[10px]",
-                                                    application.status === 'ACTIVE' && "text-blue-600 border-blue-200",
-                                                    application.status === 'HIRED' && "text-emerald-600 border-emerald-200",
-                                                    application.status === 'REJECTED' && "text-red-600 border-red-200",
-                                                    application.status === 'WITHDRAWN' && "text-slate-500 border-slate-200",
-                                                )}>
-                                                    {{ ACTIVE: 'Идэвхтэй', HIRED: 'Ажилд авсан', REJECTED: 'Татгалзсан', WITHDRAWN: 'Нэрээ татсан' }[application.status]}
-                                                </Badge>
-                                                <span className="text-[10px] text-muted-foreground">
-                                                    {currentStage?.title}
-                                                </span>
+                                    <div className="relative group">
+                                        <EmployeeCard
+                                            variant="detailed"
+                                            asLink={false}
+                                            showQuestionnaireAction={false}
+                                            showProgressRing={false}
+                                            employee={{
+                                                id: candidate.id,
+                                                firstName: candidate.firstName,
+                                                lastName: candidate.lastName,
+                                                email: candidate.email,
+                                                phoneNumber: candidate.phone,
+                                                status: application.status === 'HIRED' ? 'active_recruitment' : 'candidate',
+                                                lifecycleStage: application.status === 'HIRED' ? 'onboarding' : 'recruitment',
+                                                jobTitle: vacancy?.title || '',
+                                            } as EmployeeCardEmployee}
+                                            footer={
+                                                <div className="flex items-center justify-between w-full">
+                                                    <Badge variant="outline" className={cn(
+                                                        "bg-white font-medium text-[10px]",
+                                                        application.status === 'ACTIVE' && "text-blue-600 border-blue-200",
+                                                        application.status === 'HIRED' && "text-emerald-600 border-emerald-200",
+                                                        application.status === 'REJECTED' && "text-red-600 border-red-200",
+                                                        application.status === 'WITHDRAWN' && "text-slate-500 border-slate-200",
+                                                    )}>
+                                                        {{ ACTIVE: 'Идэвхтэй', HIRED: 'Ажилд авсан', REJECTED: 'Татгалзсан', WITHDRAWN: 'Нэрээ татсан' }[application.status]}
+                                                    </Badge>
+                                                    <span className="text-[10px] text-muted-foreground">
+                                                        {currentStage?.title}
+                                                    </span>
+                                                </div>
+                                            }
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                                            onClick={openEditCandidate}
+                                        >
+                                            <Pencil className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+
+                                    {/* Candidate Extra Info */}
+                                    {(candidate.linkedinUrl || candidate.portfolioUrl || candidate.source || candidate.notes) && (
+                                        <div className="space-y-2 px-1">
+                                            <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Нэмэлт мэдээлэл</span>
+                                            <div className="space-y-1.5">
+                                                {candidate.linkedinUrl && (
+                                                    <a href={candidate.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
+                                                        <LinkIcon className="h-3 w-3" /> LinkedIn
+                                                    </a>
+                                                )}
+                                                {candidate.portfolioUrl && (
+                                                    <a href={candidate.portfolioUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
+                                                        <Globe className="h-3 w-3" /> Портфолио
+                                                    </a>
+                                                )}
+                                                {candidate.source && (
+                                                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                                                        <UserIcon className="h-3 w-3" /> Эх сурвалж: {candidate.source}
+                                                    </div>
+                                                )}
+                                                {candidate.notes && (
+                                                    <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-2 italic">{candidate.notes}</p>
+                                                )}
                                             </div>
-                                        }
-                                    />
+                                        </div>
+                                    )}
 
                                     {/* Tags */}
                                     <div className="space-y-2 px-1">
@@ -950,7 +1123,7 @@ export default function CandidateDetailPage() {
                             </Section>
 
                             {/* Files Section */}
-                            <Section title="Файлууд" icon={Files} count={candidate.resumeUrl ? 1 : 0}>
+                            <Section title="Файлууд" icon={Files} count={(candidate.resumeUrl ? 1 : 0) + (application.files?.length || 0)}>
                                 <div className="space-y-3">
                                     {candidate.resumeUrl && (
                                         <a href={candidate.resumeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 hover:border-blue-200 group transition-all">
@@ -958,15 +1131,70 @@ export default function CandidateDetailPage() {
                                                 <FileText className="h-5 w-5" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold text-slate-700">Resume.pdf</p>
+                                                <p className="text-sm font-semibold text-slate-700">{candidate.resumeName || 'Resume.pdf'}</p>
                                                 <p className="text-xs text-slate-400">CV / Resume</p>
                                             </div>
                                             <Download className="h-4 w-4 text-slate-300 group-hover:text-blue-500" />
                                         </a>
                                     )}
-                                    <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all">
-                                        <Files className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                                        <p className="text-xs text-slate-500 font-medium">+ Файл хавсаргах</p>
+
+                                    {(application.files || []).map((file) => (
+                                        <div key={file.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 group transition-all">
+                                            <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500 shrink-0">
+                                                <FileText className="h-5 w-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-slate-700 truncate">{file.name}</p>
+                                                <p className="text-xs text-slate-400">
+                                                    {(file.size / 1024).toFixed(0)} KB
+                                                    {file.uploadedBy && <span> • {file.uploadedBy}</span>}
+                                                    {file.uploadedAt && <span> • {format(new Date(file.uploadedAt), 'yyyy.MM.dd')}</span>}
+                                                </p>
+                                            </div>
+                                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-blue-500">
+                                                    <Download className="h-4 w-4" />
+                                                </Button>
+                                            </a>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0"
+                                                onClick={() => handleDeleteFile(file)}
+                                                disabled={deletingFileId === file.id}
+                                            >
+                                                {deletingFileId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
+                                    ))}
+
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleFileUpload}
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.txt,.csv,.zip"
+                                    />
+                                    <div
+                                        onClick={() => !uploadingFile && fileInputRef.current?.click()}
+                                        className={cn(
+                                            "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 hover:border-blue-300 transition-all",
+                                            uploadingFile && "pointer-events-none opacity-60"
+                                        )}
+                                    >
+                                        {uploadingFile ? (
+                                            <>
+                                                <Loader2 className="h-8 w-8 mx-auto mb-2 text-blue-400 animate-spin" />
+                                                <p className="text-xs text-blue-500 font-medium">Хавсаргаж байна...</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                                                <p className="text-xs text-slate-500 font-medium">+ Файл хавсаргах</p>
+                                                <p className="text-[10px] text-slate-400 mt-1">PDF, Word, Excel, Зураг гэх мэт</p>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </Section>
@@ -1130,6 +1358,61 @@ export default function CandidateDetailPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Edit Candidate Dialog */}
+            <Dialog open={isEditCandidateOpen} onOpenChange={setIsEditCandidateOpen}>
+                <DialogContent className="sm:max-w-[480px]">
+                    <DialogHeader>
+                        <DialogTitle>Горилогчийн мэдээлэл засах</DialogTitle>
+                        <DialogDescription>
+                            Горилогчийн үндсэн мэдээлэлд өөрчлөлт оруулах.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSaveCandidate} className="space-y-4 py-2">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="edit-lastName">Овог <span className="text-red-500">*</span></Label>
+                                <Input id="edit-lastName" value={editCandidate.lastName} onChange={e => setEditCandidate(prev => ({ ...prev, lastName: e.target.value }))} placeholder="Овог" autoFocus />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="edit-firstName">Нэр <span className="text-red-500">*</span></Label>
+                                <Input id="edit-firstName" value={editCandidate.firstName} onChange={e => setEditCandidate(prev => ({ ...prev, firstName: e.target.value }))} placeholder="Нэр" />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="edit-email">Имэйл</Label>
+                            <Input id="edit-email" type="email" value={editCandidate.email} onChange={e => setEditCandidate(prev => ({ ...prev, email: e.target.value }))} placeholder="example@mail.com" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="edit-phone">Утас</Label>
+                            <Input id="edit-phone" value={editCandidate.phone} onChange={e => setEditCandidate(prev => ({ ...prev, phone: e.target.value }))} placeholder="99112233" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="edit-linkedin">LinkedIn</Label>
+                            <Input id="edit-linkedin" value={editCandidate.linkedinUrl} onChange={e => setEditCandidate(prev => ({ ...prev, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/in/..." />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="edit-portfolio">Портфолио / Вэбсайт</Label>
+                            <Input id="edit-portfolio" value={editCandidate.portfolioUrl} onChange={e => setEditCandidate(prev => ({ ...prev, portfolioUrl: e.target.value }))} placeholder="https://..." />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="edit-source">Эх сурвалж</Label>
+                            <Input id="edit-source" value={editCandidate.source} onChange={e => setEditCandidate(prev => ({ ...prev, source: e.target.value }))} placeholder="LinkedIn, Referral, Job Fair гэх мэт" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="edit-notes">Тэмдэглэл</Label>
+                            <Textarea id="edit-notes" value={editCandidate.notes} onChange={e => setEditCandidate(prev => ({ ...prev, notes: e.target.value }))} placeholder="Горилогчийн талаарх тэмдэглэл..." className="min-h-[80px]" />
+                        </div>
+                        <DialogFooter className="pt-2">
+                            <Button type="button" variant="outline" onClick={() => setIsEditCandidateOpen(false)}>Болих</Button>
+                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700 gap-2" disabled={savingCandidate}>
+                                {savingCandidate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                Хадгалах
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation */}
             <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>

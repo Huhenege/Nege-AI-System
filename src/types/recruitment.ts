@@ -48,6 +48,17 @@ export interface Candidate {
     notes?: string;
 }
 
+export interface ApplicationFile {
+    id: string;
+    name: string;
+    url: string;
+    size: number;
+    type: string;
+    stageId?: string;
+    uploadedAt: string;
+    uploadedBy?: string;
+}
+
 export interface JobApplication {
     id: string;
     vacancyId: string;
@@ -58,6 +69,7 @@ export interface JobApplication {
     status: 'ACTIVE' | 'REJECTED' | 'WITHDRAWN' | 'HIRED';
     /** Татгалзсан шалтгаан */
     rejectionReason?: string;
+    files?: ApplicationFile[];
     appliedAt: string;
     updatedAt: string;
     candidate?: Candidate; // For easier displaying in lists
