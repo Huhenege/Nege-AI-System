@@ -98,15 +98,15 @@ export async function sendSMS(
 
         const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to send SMS');
+        if (!response.ok || !data.success) {
+            const detail = data.details || data.error || 'SMS илгээж чадсангүй';
+            throw new Error(detail);
         }
 
         console.log('[Notification Service] SMS sent successfully:', data);
         return true;
     } catch (error) {
         console.error('[Notification Service] Failed to send SMS:', error);
-        // We re-throw the error so the UI can handle it and show a toast
         throw error;
     }
 }

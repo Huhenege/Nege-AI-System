@@ -96,6 +96,14 @@ service firebase.storage {
         && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
     }
 
+    // Өргөдлийн хавсралт файлууд — нэвтэрсэн унших, админ бичих
+    match /applications/{applicationId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+
     // Онооны шагналын зураг
     match /rewards/{fileName} {
       allow read: if request.auth != null;

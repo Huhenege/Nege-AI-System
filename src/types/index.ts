@@ -119,9 +119,10 @@ export interface Employee {
 
 /**
  * "Идэвхтэй" төлөвийн бүх хувилбаруудыг шалгах helper.
+ * active_recruitment: Сонгон шалгаруулалтаас ажилд авсан, томилогдоогүй
  */
 export function isActiveStatus(status: string | undefined | null): boolean {
-    return status === 'active' || status === 'active_probation' || status === 'active_permanent';
+    return status === 'active' || status === 'active_probation' || status === 'active_permanent' || status === 'active_recruitment';
 }
 
 export interface AttendanceRecord {
