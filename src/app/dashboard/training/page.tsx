@@ -4,6 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useFirebase, useCollection, addDocumentNonBlocking } from '@/firebase';
+import type { Department, PositionLevel, Position } from '@/app/dashboard/organization/types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
@@ -65,17 +66,33 @@ export default function TrainingPage() {
         [firestore]
     );
 
+    const departmentsQuery = useMemo(() =>
+        firestore ? collection(firestore, 'departments') : null,
+        [firestore]
+    );
+    const positionLevelsQuery = useMemo(() =>
+        firestore ? collection(firestore, 'positionLevels') : null,
+        [firestore]
+    );
+    const positionsQuery = useMemo(() =>
+        firestore ? collection(firestore, 'positions') : null,
+        [firestore]
+    );
+
     // ── Data ─────────────────────────────────────────
     const { data: courses, isLoading: coursesLoading } = useCollection<TrainingCourse>(coursesQuery);
     const { data: plansRaw, isLoading: plansLoading } = useCollection<TrainingPlan>(plansQuery);
     const plans = useMemo(() => {
-        const d = (p: TrainingPlan) => p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? p.createdAt ?? '';
-        return [...plansRaw].sort((a, b) => d(b).localeCompare(d(a)));
+        const sortKey = (p: TrainingPlan) => p.scheduledQuarter ?? p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? p.createdAt ?? '';
+        return [...plansRaw].sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
     }, [plansRaw]);
     const { data: assessments, isLoading: assessmentsLoading } = useCollection<SkillAssessment>(assessmentsQuery);
     const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
     const { data: skills } = useCollection<SkillInventoryItem>(skillsQuery);
     const { data: categories, isLoading: categoriesLoading } = useCollection<TrainingCategory>(categoriesQuery);
+    const { data: departments } = useCollection<Department>(departmentsQuery);
+    const { data: positionLevels } = useCollection<PositionLevel>(positionLevelsQuery);
+    const { data: positions } = useCollection<Position>(positionsQuery);
 
     const isLoadingDashboard = coursesLoading || plansLoading || assessmentsLoading;
 
@@ -90,7 +107,6 @@ export default function TrainingPage() {
         if (!firestore || !user) return;
 
         const now = new Date().toISOString();
-        const scheduledStr = values.scheduledAt.toISOString();
         const participantNames = values.participantIds.map(empId => {
             const emp = employees.find(e => e.id === empId);
             return emp ? `${emp.lastName?.charAt(0) || ''}. ${emp.firstName}` : '';
@@ -99,7 +115,7 @@ export default function TrainingPage() {
         const data: Record<string, unknown> = {
             courseId: values.courseId,
             courseName,
-            scheduledAt: scheduledStr,
+            scheduledQuarter: values.scheduledQuarter,
             participantIds: values.participantIds,
             participantNames,
             status: 'scheduled',
@@ -117,6 +133,7 @@ export default function TrainingPage() {
         if (values.format != null) data.format = values.format;
         if (values.locationOrLink != null && values.locationOrLink !== '') data.locationOrLink = values.locationOrLink;
         if (values.assessmentMethod != null) data.assessmentMethod = values.assessmentMethod;
+        if (values.providerType != null && values.providerType !== '') data.providerType = values.providerType;
 
         addDocumentNonBlocking(collection(firestore, 'training_plans'), data);
 
@@ -163,6 +180,9 @@ export default function TrainingPage() {
                             plans={plans}
                             courses={courses}
                             employees={activeEmployees}
+                            departments={departments}
+                            positionLevels={positionLevels}
+                            positions={positions}
                             skills={skills}
                             isLoading={plansLoading}
                             onCreatePlan={handleCreatePlan}

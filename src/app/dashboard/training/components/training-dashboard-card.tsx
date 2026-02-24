@@ -29,12 +29,20 @@ export function TrainingDashboardCard({
         return SKILL_LEVEL_VALUE[a.requiredLevel] > SKILL_LEVEL_VALUE[a.currentLevel];
     }).length;
 
-    const planDate = (p: TrainingPlan) => p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? '';
+    const planSortKey = (p: TrainingPlan) => p.scheduledQuarter ?? p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? '';
     const planParticipantCount = (p: TrainingPlan) =>
         (p.participantIds?.length ?? 0) || (p.employeeId ? 1 : 0);
+    const formatPlanSchedule = (p: TrainingPlan) => {
+        if (p.scheduledQuarter) {
+            const [y, q] = p.scheduledQuarter.split('-');
+            return q && y ? `${q} ${y}` : p.scheduledQuarter;
+        }
+        const d = p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? '';
+        return d ? new Date(d).toLocaleDateString('mn-MN') : '—';
+    };
     const recentPlans = [...plans]
-        .filter(p => planDate(p))
-        .sort((a, b) => planDate(b).localeCompare(planDate(a)))
+        .filter(p => planSortKey(p))
+        .sort((a, b) => planSortKey(b).localeCompare(planSortKey(a)))
         .slice(0, 5);
 
     const statusColor: Record<string, string> = {
@@ -42,6 +50,7 @@ export function TrainingDashboardCard({
         in_progress: 'bg-amber-500/90',
         completed: 'bg-emerald-500/90',
         cancelled: 'bg-slate-500/70',
+        published: 'bg-emerald-500/90',
         assigned: 'bg-blue-500/90',
         overdue: 'bg-rose-500/90',
     };
@@ -139,7 +148,7 @@ export function TrainingDashboardCard({
                                     <div>
                                         <p className="text-sm font-medium text-white">{plan.courseName}</p>
                                         <p className="text-[11px] text-slate-500">
-                                            {new Date(planDate(plan)).toLocaleDateString('mn-MN')} · {planParticipantCount(plan)} оролцогч
+                                            {formatPlanSchedule(plan)} · {planParticipantCount(plan)} оролцогч
                                         </p>
                                     </div>
                                     <span

@@ -99,7 +99,7 @@ export type TrainingCourseFormValues = z.infer<typeof trainingCourseSchema>;
 // TRAINING PLAN (per-training: one plan = one scheduled course + participants)
 // ============================================
 
-export const PLAN_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'] as const;
+export const PLAN_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled', 'published'] as const;
 export type PlanStatus = (typeof PLAN_STATUSES)[number];
 
 /** Status shown in UI; includes legacy values from old per-employee plans */
@@ -110,9 +110,19 @@ export const PLAN_STATUS_LABELS: Record<string, string> = {
     in_progress: 'Явагдаж буй',
     completed: 'Дууссан',
     cancelled: 'Цуцалсан',
-    // Legacy
+    published: 'Зарлагдсан',
     assigned: 'Оноогдсон',
     overdue: 'Хугацаа хэтэрсэн',
+};
+
+/** Quarter for planning: "2026-Q1" format */
+export const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'] as const;
+export type Quarter = (typeof QUARTERS)[number];
+export const QUARTER_LABELS: Record<Quarter, string> = {
+    Q1: 'Q1 (1-3 сар)',
+    Q2: 'Q2 (4-6 сар)',
+    Q3: 'Q3 (7-9 сар)',
+    Q4: 'Q4 (10-12 сар)',
 };
 
 export const PLAN_TRIGGERS = ['skill_gap', 'onboarding', 'manual', 'position_change'] as const;
@@ -169,8 +179,10 @@ export interface TrainingPlan {
     id: string;
     courseId: string;
     courseName: string;
-    /** When the training is scheduled (ISO date or datetime) */
+    /** When the training is scheduled (ISO date or datetime) — legacy */
     scheduledAt?: string;
+    /** Төлөвлөгөөний хугацаа: "2026-Q1" (жил-улирал) */
+    scheduledQuarter?: string;
     /** Legacy: old per-employee plan had dueDate */
     dueDate?: string;
     /** Budget in MNT or other currency (optional) */
@@ -200,20 +212,30 @@ export interface TrainingPlan {
     targetAudience?: string;
     /** Төрөл: soft_skill, mandatory, ... */
     planType?: PlanType;
-    /** Хариуцсан эзэн (HR/L&D, HSE manager гэх мэт) */
+    /** Хариуцсан эзэн (HR/L&D гэх мэт) — курсын providerName-тай уялдаатай */
     owner?: string;
-    /** Формат: workshop, classroom, ... */
+    /** Формат: workshop, classroom, ... — курсын type-тай уялдаатай */
     format?: PlanFormat;
     /** Байршил эсвэл холбоос */
     locationOrLink?: string;
     /** Үнэлгээний арга */
     assessmentMethod?: AssessmentMethod;
+    /** Сурагт авах байдал: гаднаас/дотоод — курсын providerType-тай уялдаатай */
+    providerType?: PlanProviderType;
 }
+
+/** Сурагт авах байдал — сургагч багшийн төрөл */
+export const PLAN_PROVIDER_TYPES = ['external', 'internal'] as const;
+export type PlanProviderType = (typeof PLAN_PROVIDER_TYPES)[number];
+export const PLAN_PROVIDER_LABELS: Record<PlanProviderType, string> = {
+    external: 'Гаднаас (гадны сургагч багш)',
+    internal: 'Дотоод (дотоод сургагч багш)',
+};
 
 /** Form values for creating one unified plan (course + when + budget + who) */
 export const createPlanSchema = z.object({
     courseId: z.string().min(1, 'Сургалт сонгоно уу'),
-    scheduledAt: z.date({ required_error: 'Хэзээ явуулахыг сонгоно уу' }),
+    scheduledQuarter: z.string().min(1, 'Хугацаа (улирал) сонгоно уу'),
     budget: z.coerce.number().min(0).optional(),
     participantIds: z.array(z.string()).min(1, 'Дор хаяж нэг оролцогч сонгоно уу'),
     trigger: z.enum(PLAN_TRIGGERS).default('manual'),
@@ -225,6 +247,7 @@ export const createPlanSchema = z.object({
     format: z.enum(PLAN_FORMATS).optional(),
     locationOrLink: z.string().optional(),
     assessmentMethod: z.enum(ASSESSMENT_METHODS).optional(),
+    providerType: z.enum(PLAN_PROVIDER_TYPES).optional(),
 });
 
 export type CreatePlanFormValues = z.infer<typeof createPlanSchema>;

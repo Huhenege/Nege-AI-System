@@ -16,7 +16,7 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
     DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
-import { Search, ClipboardList, Play, CheckCircle2, XCircle, Users, Trash2, Pencil } from 'lucide-react';
+import { Search, ClipboardList, Users, Trash2, Pencil, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
     TrainingPlan,
@@ -39,10 +39,29 @@ interface SkillItem {
     name: string;
 }
 
+interface DepartmentOption {
+    id: string;
+    name: string;
+}
+
+interface PositionLevelOption {
+    id: string;
+    name: string;
+}
+
+interface PositionOption {
+    id: string;
+    levelId?: string;
+    departmentId?: string;
+}
+
 interface TrainingPlansProps {
     plans: TrainingPlan[];
     courses: TrainingCourse[];
     employees: Employee[];
+    departments?: DepartmentOption[];
+    positionLevels?: PositionLevelOption[];
+    positions?: PositionOption[];
     skills?: SkillItem[];
     isLoading: boolean;
     onCreatePlan: (values: import('../types').CreatePlanFormValues, courseName: string) => void;
@@ -52,6 +71,9 @@ export function TrainingPlans({
     plans,
     courses,
     employees,
+    departments = [],
+    positionLevels = [],
+    positions = [],
     skills = [],
     isLoading,
     onCreatePlan,
@@ -63,8 +85,6 @@ export function TrainingPlans({
     const [createOpen, setCreateOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<TrainingPlan | null>(null);
 
-    const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
-    const [completingPlan, setCompletingPlan] = useState<TrainingPlan | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [planToDelete, setPlanToDelete] = useState<TrainingPlan | null>(null);
 
@@ -96,10 +116,17 @@ export function TrainingPlans({
         const course = courseMap.get(plan.courseId);
         return course ? COURSE_TYPE_LABELS[course.type] : '—';
     };
-    const formatScheduleMonth = (iso?: string) => {
+    const formatScheduleQuarter = (plan: TrainingPlan) => {
+        if (plan.scheduledQuarter) {
+            const [y, q] = plan.scheduledQuarter.split('-');
+            return q && y ? `${q} ${y}` : plan.scheduledQuarter;
+        }
+        const iso = planDate(plan);
         if (!iso) return '—';
         const d = new Date(iso);
-        return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const m = d.getMonth() + 1;
+        const q = m <= 3 ? 'Q1' : m <= 6 ? 'Q2' : m <= 9 ? 'Q3' : 'Q4';
+        return `${q} ${d.getFullYear()}`;
     };
 
     const filteredPlans = useMemo(() => {
@@ -130,20 +157,13 @@ export function TrainingPlans({
         toast({ title: 'Төлөв шинэчлэгдлээ' });
     };
 
-    const openCompleteDialog = (plan: TrainingPlan) => {
-        setCompletingPlan(plan);
-        setCompleteDialogOpen(true);
-    };
-
-    const handleComplete = () => {
-        if (!firestore || !completingPlan) return;
-        updateDocumentNonBlocking(doc(firestore, 'training_plans', completingPlan.id), {
-            status: 'completed' as PlanStatus,
+    const handlePublishPlan = (plan: TrainingPlan) => {
+        if (!firestore) return;
+        updateDocumentNonBlocking(doc(firestore, 'training_plans', plan.id), {
+            status: 'published' as PlanStatus,
             completedAt: new Date().toISOString(),
         });
-        toast({ title: 'Сургалт дууслаа', description: completingPlan.courseName });
-        setCompleteDialogOpen(false);
-        setCompletingPlan(null);
+        toast({ title: 'Сургалт зарлагдлаа', description: plan.courseName });
     };
 
     const openDeleteDialog = (plan: TrainingPlan) => {
@@ -166,7 +186,6 @@ export function TrainingPlans({
 
     const handleUpdatePlan = (planId: string, values: import('../types').CreatePlanFormValues, courseName: string) => {
         if (!firestore) return;
-        const scheduledStr = values.scheduledAt.toISOString();
         const participantNames = values.participantIds.map(empId => {
             const emp = employees.find(e => e.id === empId);
             return emp ? `${emp.lastName?.charAt(0) || ''}. ${emp.firstName}` : '';
@@ -174,7 +193,7 @@ export function TrainingPlans({
         const updates: Record<string, unknown> = {
             courseId: values.courseId,
             courseName,
-            scheduledAt: scheduledStr,
+            scheduledQuarter: values.scheduledQuarter,
             participantIds: values.participantIds,
             participantNames,
             trigger: values.trigger,
@@ -188,6 +207,7 @@ export function TrainingPlans({
         if (values.format != null) updates.format = values.format;
         if (values.locationOrLink != null) updates.locationOrLink = values.locationOrLink;
         if (values.assessmentMethod != null) updates.assessmentMethod = values.assessmentMethod;
+        if (values.providerType != null) updates.providerType = values.providerType;
         updateDocumentNonBlocking(doc(firestore, 'training_plans', planId), updates);
         toast({ title: 'Төлөвлөгөө шинэчлэгдлээ', description: courseName });
         setEditingPlan(null);
@@ -199,6 +219,7 @@ export function TrainingPlans({
         in_progress: 'bg-amber-100 text-amber-700',
         completed: 'bg-emerald-100 text-emerald-700',
         cancelled: 'bg-slate-100 text-slate-500',
+        published: 'bg-emerald-100 text-emerald-700',
     };
 
     const statusCounts = useMemo(() => {
@@ -316,7 +337,7 @@ export function TrainingPlans({
                                         <span className="text-sm">{getLevel(plan)}</span>
                                     </TableCell>
                                     <TableCell>
-                                        <span className="text-sm text-muted-foreground">{formatScheduleMonth(planDate(plan) || undefined)}</span>
+                                        <span className="text-sm text-muted-foreground">{formatScheduleQuarter(plan)}</span>
                                     </TableCell>
                                     <TableCell>
                                         <span className="text-sm">{plan.owner || '—'}</span>
@@ -349,38 +370,16 @@ export function TrainingPlans({
                                             >
                                                 <Pencil className="h-3.5 w-3.5" />
                                             </Button>
-                                            {(plan.status === 'scheduled' || plan.status === 'assigned') && (
+                                            {(plan.status === 'scheduled' || plan.status === 'assigned' || plan.status === 'in_progress' || plan.status === 'overdue') && (
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 text-blue-600"
-                                                    title="Эхлүүлэх"
-                                                    onClick={() => handleStatusChange(plan.id, 'in_progress')}
+                                                    className="h-8 w-8 text-emerald-600"
+                                                    title="Сургалт зарлах"
+                                                    onClick={() => handlePublishPlan(plan)}
                                                 >
-                                                    <Play className="h-3.5 w-3.5" />
+                                                    <Send className="h-3.5 w-3.5" />
                                                 </Button>
-                                            )}
-                                            {(plan.status === 'scheduled' || plan.status === 'in_progress' || plan.status === 'assigned' || plan.status === 'overdue') && (
-                                                <>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-emerald-600"
-                                                        title="Дуусгах"
-                                                        onClick={() => openCompleteDialog(plan)}
-                                                    >
-                                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-red-500"
-                                                        title="Цуцлах"
-                                                        onClick={() => handleStatusChange(plan.id, 'cancelled')}
-                                                    >
-                                                        <XCircle className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </>
                                             )}
                                             <Button
                                                 variant="ghost"
@@ -411,22 +410,10 @@ export function TrainingPlans({
                 editingPlan={editingPlan}
                 employees={employees}
                 courses={courses}
+                departments={departments}
+                positionLevels={positionLevels}
+                positions={positions}
             />
-
-            <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
-                <DialogContent className="sm:max-w-[400px]">
-                    <DialogHeader>
-                        <DialogTitle>Сургалт дуусгах</DialogTitle>
-                        <DialogDescription>
-                            {completingPlan?.courseName} — {completingPlan ? planParticipantIds(completingPlan).length : 0} оролцогч
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setCompleteDialogOpen(false)}>Болих</Button>
-                        <Button onClick={handleComplete}>Дуусгах</Button>
-                            </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <DialogContent className="sm:max-w-[400px]">
