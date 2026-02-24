@@ -80,12 +80,12 @@ export function InterviewScorecard({ candidateName, onSubmit, onCancel, isLoadin
     };
 
     return (
-        <Card className="border-dashed">
-            <CardHeader className="pb-3 text-center border-b">
+        <Card className="border-dashed w-full max-w-full min-w-0 overflow-hidden">
+            <CardHeader className="pb-3 text-center border-b px-4 pt-4">
                 <CardTitle className="text-base font-bold text-slate-900">Ярилцлагын үнэлгээний хуудас</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">{candidateName}</p>
+                <p className="text-xs text-muted-foreground mt-1 truncate">{candidateName}</p>
             </CardHeader>
-            <CardContent className="space-y-6 pt-6">
+            <CardContent className="space-y-6 pt-6 px-4 pb-4">
                 {loadingCriteria ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-3">
                         <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -93,12 +93,12 @@ export function InterviewScorecard({ candidateName, onSubmit, onCancel, isLoadin
                     </div>
                 ) : (
                     <>
-                        <div className="space-y-6">
+                        <div className="space-y-6 min-w-0">
                             {criteria.map((criterion) => (
-                                <div key={criterion.id} className="space-y-1.5">
-                                    <div className="flex justify-between items-center">
-                                        <Label className="text-sm font-medium">{criterion.name}</Label>
-                                        <div className="flex gap-1">
+                                <div key={criterion.id} className="space-y-1.5 min-w-0">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center min-w-0">
+                                        <Label className="text-sm font-medium shrink-0">{criterion.name}</Label>
+                                        <div className="flex gap-1 shrink-0">
                                             {[1, 2, 3, 4, 5].map((star) => (
                                                 <button
                                                     key={star}
@@ -128,27 +128,27 @@ export function InterviewScorecard({ candidateName, onSubmit, onCancel, isLoadin
                             )}
                         </div>
 
-                        <div className="space-y-4 pt-4 border-t">
-                            <div className="flex justify-between items-center">
-                                <Label>Нэмэлт тэмдэглэл</Label>
-                                <span className="text-sm font-semibold text-blue-600">Дундаж: {calculateAverage()} / 5.0</span>
+                        <div className="space-y-4 pt-4 border-t min-w-0">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center min-w-0">
+                                <Label className="shrink-0">Нэмэлт тэмдэглэл</Label>
+                                <span className="text-sm font-semibold text-blue-600 shrink-0">Дундаж: {calculateAverage()} / 5.0</span>
                             </div>
                             <Textarea
                                 placeholder="Горилогчийн давуу болон сул тал, анхаарах зүйлс..."
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
-                                className="min-h-[100px] resize-none"
+                                className="min-h-[100px] resize-none w-full min-w-0"
                             />
                         </div>
                     </>
                 )}
 
-                <div className="flex justify-end gap-2 pt-2 border-t">
-                    <Button variant="ghost" onClick={onCancel} size="sm" disabled={externalLoading || loadingCriteria}>Болих</Button>
+                <div className="flex flex-col-reverse gap-2 pt-2 border-t sm:flex-row sm:justify-end min-w-0">
+                    <Button variant="ghost" onClick={onCancel} size="sm" disabled={externalLoading || loadingCriteria} className="w-full sm:w-auto">Болих</Button>
                     <Button
                         onClick={handleSubmit}
                         size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 shadow-md gap-2"
+                        className="bg-blue-600 hover:bg-blue-700 shadow-md gap-2 w-full sm:w-auto"
                         disabled={externalLoading || loadingCriteria || criteria.length === 0}
                     >
                         {externalLoading ? (

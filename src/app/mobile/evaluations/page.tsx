@@ -18,17 +18,18 @@ import {
     MapPin,
     Video,
     FileText,
-    Download,
+    Eye,
     StickyNote,
     Briefcase,
     Phone,
     Mail,
-    ExternalLink,
+    X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { createPortal } from 'react-dom';
+import { useMobileContainer } from '../hooks/use-mobile-container';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +56,7 @@ export default function MobileEvaluationsPage() {
     const { firestore } = useFirebase();
     const { user, employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
+    const mobileContainer = useMobileContainer();
 
     const [groups, setGroups] = useState<CandidateGroup[]>([]);
     const [loading, setLoading] = useState(true);
@@ -67,6 +69,9 @@ export default function MobileEvaluationsPage() {
     const [savingNote, setSavingNote] = useState(false);
     const [myNotes, setMyNotes] = useState<{ id: string; text: string; authorName: string; authorPhotoURL?: string; authorId?: string; createdAt: string }[]>([]);
     const [loadingNotes, setLoadingNotes] = useState(false);
+
+    // File viewer state
+    const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
 
     useEffect(() => {
         if (!firestore || !user?.uid) {
@@ -209,15 +214,19 @@ export default function MobileEvaluationsPage() {
                 }
             }));
 
-            // Sort: candidates with pending actions first
-            groupArr.sort((a, b) => {
+            const activeGroups = groupArr.filter(g => {
+                const appStatus = g.application?.status;
+                return appStatus !== 'HIRED' && appStatus !== 'REJECTED';
+            });
+
+            activeGroups.sort((a, b) => {
                 const aPending = a.evaluations.filter(e => e.status === 'pending').length + a.interviews.filter(i => i.status === 'SCHEDULED').length;
                 const bPending = b.evaluations.filter(e => e.status === 'pending').length + b.interviews.filter(i => i.status === 'SCHEDULED').length;
                 return bPending - aPending;
             });
 
             if (!cancelled) {
-                setGroups(groupArr);
+                setGroups(activeGroups);
                 setLoading(false);
             }
         };
@@ -598,20 +607,18 @@ export default function MobileEvaluationsPage() {
                                 {hasResume && (
                                     <div className="mb-3">
                                         <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1.5">CV / Анкет</p>
-                                        <a href={candidate!.resumeUrl} target="_blank" rel="noopener noreferrer">
-                                            <Card className="cursor-pointer hover:bg-slate-50 transition-colors">
-                                                <CardContent className="p-3 flex items-center gap-3">
-                                                    <div className="h-9 w-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
-                                                        <FileText className="h-4 w-4 text-red-500" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium text-slate-900 truncate">{candidate?.resumeName || 'Resume'}</p>
-                                                        <p className="text-[11px] text-slate-400">Горилогчийн анкет</p>
-                                                    </div>
-                                                    <ExternalLink className="h-4 w-4 text-slate-400 shrink-0" />
-                                                </CardContent>
-                                            </Card>
-                                        </a>
+                                        <Card className="cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setViewingFile({ url: candidate!.resumeUrl!, name: candidate?.resumeName || 'Resume' })}>
+                                            <CardContent className="p-3 flex items-center gap-3">
+                                                <div className="h-9 w-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                                                    <FileText className="h-4 w-4 text-red-500" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-slate-900 truncate">{candidate?.resumeName || 'Resume'}</p>
+                                                    <p className="text-[11px] text-slate-400">Горилогчийн анкет</p>
+                                                </div>
+                                                <Eye className="h-4 w-4 text-slate-400 shrink-0" />
+                                            </CardContent>
+                                        </Card>
                                     </div>
                                 )}
 
@@ -621,24 +628,22 @@ export default function MobileEvaluationsPage() {
                                         <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-1.5">{stage.title}</p>
                                         <div className="space-y-2">
                                             {filesByStage.get(stage.id)!.map(file => (
-                                                <a key={file.id} href={file.url} target="_blank" rel="noopener noreferrer">
-                                                    <Card className="cursor-pointer hover:bg-slate-50 transition-colors">
-                                                        <CardContent className="p-3 flex items-center gap-3">
-                                                            <div className="h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                                                                <FileText className="h-4 w-4 text-indigo-500" />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-                                                                <p className="text-[11px] text-slate-400">
-                                                                    {(file.size / 1024).toFixed(0)} KB
-                                                                    {file.uploadedBy && ` • ${file.uploadedBy}`}
-                                                                    {file.uploadedAt && ` • ${format(new Date(file.uploadedAt), 'MM/dd')}`}
-                                                                </p>
-                                                            </div>
-                                                            <Download className="h-4 w-4 text-slate-400 shrink-0" />
-                                                        </CardContent>
-                                                    </Card>
-                                                </a>
+                                                <Card key={file.id} className="cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setViewingFile({ url: file.url, name: file.name })}>
+                                                    <CardContent className="p-3 flex items-center gap-3">
+                                                        <div className="h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                                                            <FileText className="h-4 w-4 text-indigo-500" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
+                                                            <p className="text-[11px] text-slate-400">
+                                                                {(file.size / 1024).toFixed(0)} KB
+                                                                {file.uploadedBy && ` • ${file.uploadedBy}`}
+                                                                {file.uploadedAt && ` • ${format(new Date(file.uploadedAt), 'MM/dd')}`}
+                                                            </p>
+                                                        </div>
+                                                        <Eye className="h-4 w-4 text-slate-400 shrink-0" />
+                                                    </CardContent>
+                                                </Card>
                                             ))}
                                         </div>
                                     </div>
@@ -652,24 +657,22 @@ export default function MobileEvaluationsPage() {
                                         )}
                                         <div className="space-y-2">
                                             {unstaged.map(file => (
-                                                <a key={file.id} href={file.url} target="_blank" rel="noopener noreferrer">
-                                                    <Card className="cursor-pointer hover:bg-slate-50 transition-colors">
-                                                        <CardContent className="p-3 flex items-center gap-3">
-                                                            <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                                                                <FileText className="h-4 w-4 text-slate-500" />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-                                                                <p className="text-[11px] text-slate-400">
-                                                                    {(file.size / 1024).toFixed(0)} KB
-                                                                    {file.uploadedBy && ` • ${file.uploadedBy}`}
-                                                                    {file.uploadedAt && ` • ${format(new Date(file.uploadedAt), 'MM/dd')}`}
-                                                                </p>
-                                                            </div>
-                                                            <Download className="h-4 w-4 text-slate-400 shrink-0" />
-                                                        </CardContent>
-                                                    </Card>
-                                                </a>
+                                                <Card key={file.id} className="cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setViewingFile({ url: file.url, name: file.name })}>
+                                                    <CardContent className="p-3 flex items-center gap-3">
+                                                        <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                                                            <FileText className="h-4 w-4 text-slate-500" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
+                                                            <p className="text-[11px] text-slate-400">
+                                                                {(file.size / 1024).toFixed(0)} KB
+                                                                {file.uploadedBy && ` • ${file.uploadedBy}`}
+                                                                {file.uploadedAt && ` • ${format(new Date(file.uploadedAt), 'MM/dd')}`}
+                                                            </p>
+                                                        </div>
+                                                        <Eye className="h-4 w-4 text-slate-400 shrink-0" />
+                                                    </CardContent>
+                                                </Card>
                                             ))}
                                         </div>
                                     </div>
@@ -740,20 +743,67 @@ export default function MobileEvaluationsPage() {
                     </div>
                 </div>
 
-                {/* Scorecard Dialog */}
-                <Dialog open={!!activeRequest} onOpenChange={(open) => { if (!open) setActiveRequest(null); }}>
-                    <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-none shadow-2xl">
-                        <DialogTitle className="sr-only">Үнэлгээний хуудас</DialogTitle>
-                        {activeRequest && (
+                {/* Scorecard Overlay - мобайл контейнер дотор render хийгдэнэ */}
+                {!!activeRequest && mobileContainer && createPortal(
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3 overflow-hidden">
+                        <div
+                            className="w-full max-h-[85dvh] overflow-y-auto overflow-x-hidden rounded-2xl shadow-2xl bg-white"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <InterviewScorecard
                                 candidateName={selectedGroup.candidateName}
                                 onSubmit={handleScorecardSubmit}
                                 onCancel={() => setActiveRequest(null)}
                                 isLoading={submitting}
                             />
-                        )}
-                    </DialogContent>
-                </Dialog>
+                        </div>
+                    </div>,
+                    mobileContainer
+                )}
+                {!!activeRequest && !mobileContainer && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
+                        <div className="w-full max-w-md max-h-[85dvh] overflow-y-auto overflow-x-hidden rounded-2xl shadow-2xl bg-white">
+                            <InterviewScorecard
+                                candidateName={selectedGroup.candidateName}
+                                onSubmit={handleScorecardSubmit}
+                                onCancel={() => setActiveRequest(null)}
+                                isLoading={submitting}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* File Viewer Overlay */}
+                {viewingFile && (() => {
+                    const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(viewingFile.url);
+                    const gviewUrl = `https://docs.google.com/gview?url=${encodeURIComponent(viewingFile.url)}&embedded=true`;
+                    const viewerContent = (
+                        <div className="absolute inset-0 z-50 flex flex-col bg-white">
+                            <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
+                                <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => setViewingFile(null)}>
+                                    <X className="h-5 w-5" />
+                                </Button>
+                                <p className="text-sm font-semibold text-slate-900 truncate flex-1">{viewingFile.name}</p>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                {isImage ? (
+                                    <div className="w-full h-full overflow-auto flex items-start justify-center p-2 bg-slate-50">
+                                        <img src={viewingFile.url} alt={viewingFile.name} className="max-w-full object-contain" />
+                                    </div>
+                                ) : (
+                                    <iframe
+                                        src={gviewUrl}
+                                        title={viewingFile.name}
+                                        className="w-full h-full border-none"
+                                    />
+                                )}
+                            </div>
+                        </div>
+                    );
+                    return mobileContainer ? createPortal(viewerContent, mobileContainer) : (
+                        <div className="fixed inset-0 z-50">{viewerContent}</div>
+                    );
+                })()}
             </div>
         );
     }

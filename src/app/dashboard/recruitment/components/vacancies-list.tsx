@@ -99,28 +99,9 @@ export function VacanciesList() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-semibold tracking-tight">Ажлын байрны зарууд</h2>
-                    <p className="text-sm text-muted-foreground">Нээлттэй болон ноорог зарууд.</p>
-                </div>
-                <AddActionButton
-                    label="Шинэ зар"
-                    description="Нээлттэй ажлын байр нэмэх"
-                    onClick={() => setIsCreateOpen(true)}
-                />
-            </div>
-            <CreateVacancyDialog
-                departments={departments || []}
-                open={isCreateOpen}
-                onOpenChange={setIsCreateOpen}
-                hideTrigger={true}
-            />
-
-            {/* Filters */}
             <Card className="p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="relative flex-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="relative flex-1 min-w-0">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             value={search}
@@ -180,8 +161,20 @@ export function VacanciesList() {
                             </SelectContent>
                         </Select>
                     </div>
+                    <AddActionButton
+                        label="Шинэ зар"
+                        description="Нээлттэй ажлын байр нэмэх"
+                        onClick={() => setIsCreateOpen(true)}
+                        className="shrink-0"
+                    />
                 </div>
             </Card>
+            <CreateVacancyDialog
+                departments={departments || []}
+                open={isCreateOpen}
+                onOpenChange={setIsCreateOpen}
+                hideTrigger={true}
+            />
 
             {!filtered.length ? (
                 <div className="rounded-2xl border bg-muted/20 text-center py-16 text-muted-foreground">

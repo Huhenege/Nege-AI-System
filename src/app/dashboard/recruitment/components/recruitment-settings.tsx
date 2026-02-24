@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Trash2, GripVertical, Save, Info, AlertCircle, Mail, MessageSquare, Pencil } from 'lucide-react';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { useToast } from '@/hooks/use-toast';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -23,7 +24,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 
@@ -476,12 +476,8 @@ export function RecruitmentSettings() {
     return (
         <div className="space-y-6 max-w-5xl animate-in fade-in duration-500 pb-20">
             {/* Header with Global Save */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 border-b">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Recruitment Тохиргоо</h1>
-                    <p className="text-sm text-muted-foreground">Бүрдүүлэлтийн процесс болон үнэлгээний шалгуурыг удирдах.</p>
-                </div>
-                {hasChanges && (
+            {hasChanges && (
+            <div className="flex flex-col md:flex-row md:items-center justify-end gap-4 sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 border-b">
                     <div className="flex items-center gap-3 animate-in slide-in-from-right-4 duration-300">
                         <span className="text-sm text-amber-600 flex items-center gap-1 font-medium bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
                             <AlertCircle className="h-3.5 w-3.5" />
@@ -492,8 +488,8 @@ export function RecruitmentSettings() {
                             Бүгдийг хадгалах
                         </Button>
                     </div>
-                )}
             </div>
+            )}
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                 <div className="xl:col-span-12 space-y-6">
@@ -508,12 +504,11 @@ export function RecruitmentSettings() {
                             </div>
 
                             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                                <DialogTrigger asChild>
-                                    <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm gap-2">
-                                        <Plus className="h-4 w-4" />
-                                        Шат нэмэх
-                                    </Button>
-                                </DialogTrigger>
+                                <AddActionButton
+                                    label="Шат нэмэх"
+                                    description="Шинэ үе шат нэмэх"
+                                    onClick={() => setIsAddDialogOpen(true)}
+                                />
                                 <DialogContent className="sm:max-w-[425px]">
                                     <DialogHeader>
                                         <DialogTitle>Шинэ шат нэмэх</DialogTitle>
@@ -657,12 +652,11 @@ export function RecruitmentSettings() {
                             </div>
 
                             <Dialog open={isAddCriteriaOpen} onOpenChange={setIsAddCriteriaOpen}>
-                                <DialogTrigger asChild>
-                                    <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm gap-2">
-                                        <Plus className="h-4 w-4" />
-                                        Шалгуур нэмэх
-                                    </Button>
-                                </DialogTrigger>
+                                <AddActionButton
+                                    label="Шалгуур нэмэх"
+                                    description="Үнэлгээний шинэ шалгуур нэмэх"
+                                    onClick={() => setIsAddCriteriaOpen(true)}
+                                />
                                 <DialogContent className="sm:max-w-[425px]">
                                     <DialogHeader>
                                         <DialogTitle>Шинэ шалгуур нэмэх</DialogTitle>
@@ -790,12 +784,11 @@ export function RecruitmentSettings() {
                             </div>
 
                             <Dialog open={isAddTemplateOpen} onOpenChange={setIsAddTemplateOpen}>
-                                <DialogTrigger asChild>
-                                    <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm gap-2">
-                                        <Plus className="h-4 w-4" />
-                                        Загвар нэмэх
-                                    </Button>
-                                </DialogTrigger>
+                                <AddActionButton
+                                    label="Загвар нэмэх"
+                                    description="Мессежний шинэ загвар нэмэх"
+                                    onClick={() => setIsAddTemplateOpen(true)}
+                                />
                                 <DialogContent className="sm:max-w-[500px]">
                                     <DialogHeader>
                                         <DialogTitle>Шинэ загвар нэмэх</DialogTitle>
