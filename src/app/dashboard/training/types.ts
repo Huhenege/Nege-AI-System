@@ -96,18 +96,23 @@ export const trainingCourseSchema = z.object({
 export type TrainingCourseFormValues = z.infer<typeof trainingCourseSchema>;
 
 // ============================================
-// TRAINING PLAN
+// TRAINING PLAN (per-training: one plan = one scheduled course + participants)
 // ============================================
 
-export const PLAN_STATUSES = ['assigned', 'in_progress', 'completed', 'overdue', 'cancelled'] as const;
+export const PLAN_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'] as const;
 export type PlanStatus = (typeof PLAN_STATUSES)[number];
 
-export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
-    assigned: 'Оноогдсон',
+/** Status shown in UI; includes legacy values from old per-employee plans */
+export type PlanStatusDisplay = PlanStatus | 'assigned' | 'overdue';
+
+export const PLAN_STATUS_LABELS: Record<string, string> = {
+    scheduled: 'Төлөвлөгдсөн',
     in_progress: 'Явагдаж буй',
     completed: 'Дууссан',
-    overdue: 'Хугацаа хэтэрсэн',
     cancelled: 'Цуцалсан',
+    // Legacy
+    assigned: 'Оноогдсон',
+    overdue: 'Хугацаа хэтэрсэн',
 };
 
 export const PLAN_TRIGGERS = ['skill_gap', 'onboarding', 'manual', 'position_change'] as const;
@@ -120,26 +125,111 @@ export const PLAN_TRIGGER_LABELS: Record<PlanTrigger, string> = {
     position_change: 'Албан тушаал өөрчлөлт',
 };
 
-export interface TrainingPlan {
-    id: string;
+// Төлөвлөгөөний төрөл (зориулалт)
+export const PLAN_TYPES = ['soft_skill', 'mandatory', 'technical', 'compliance', 'other'] as const;
+export type PlanType = (typeof PLAN_TYPES)[number];
+export const PLAN_TYPE_LABELS: Record<PlanType, string> = {
+    soft_skill: 'Soft skill',
+    mandatory: 'Заавал',
+    technical: 'Техникийн',
+    compliance: 'Нийцэл',
+    other: 'Бусад',
+};
+
+// Сургалтын формат (төлөвлөгөөнд)
+export const PLAN_FORMATS = ['workshop', 'classroom', 'online', 'blended', 'self_study'] as const;
+export type PlanFormat = (typeof PLAN_FORMATS)[number];
+export const PLAN_FORMAT_LABELS: Record<PlanFormat, string> = {
+    workshop: 'Workshop',
+    classroom: 'Classroom',
+    online: 'Онлайн',
+    blended: 'Хосолсон',
+    self_study: 'Бие даан',
+};
+
+// Үнэлгээний арга
+export const ASSESSMENT_METHODS = ['quiz_feedback', 'test', 'assignment', 'observation', 'none'] as const;
+export type AssessmentMethod = (typeof ASSESSMENT_METHODS)[number];
+export const ASSESSMENT_METHOD_LABELS: Record<AssessmentMethod, string> = {
+    quiz_feedback: 'Quiz + feedback',
+    test: 'Тест',
+    assignment: 'Даалгавар',
+    observation: 'Ажиглалт',
+    none: 'Үгүй',
+};
+
+/** Participant in a training plan (for display/storage) */
+export interface PlanParticipant {
     employeeId: string;
     employeeName: string;
-    courseId: string;
-    courseName: string;
-    assignedBy: string;
-    assignedByName: string;
-    assignedAt: string;
-    dueDate: string;
-    status: PlanStatus;
-    trigger: PlanTrigger;
-    startedAt?: string;
-    completedAt?: string;
-    preAssessmentScore?: number;   // 0-100
-    postAssessmentScore?: number;  // 0-100
-    notes?: string;
-    certificateUrl?: string;
 }
 
+/** One plan = one scheduled training from catalog, with date, budget, and participants */
+export interface TrainingPlan {
+    id: string;
+    courseId: string;
+    courseName: string;
+    /** When the training is scheduled (ISO date or datetime) */
+    scheduledAt?: string;
+    /** Legacy: old per-employee plan had dueDate */
+    dueDate?: string;
+    /** Budget in MNT or other currency (optional) */
+    budget?: number;
+    /** Who will attend */
+    participantIds?: string[];
+    participantNames?: string[]; // denormalized for list display
+    /** Legacy: old per-employee plan had single employeeId */
+    employeeId?: string;
+    employeeName?: string;
+    status: PlanStatus | 'assigned' | 'overdue';
+    trigger: PlanTrigger;
+    createdBy?: string;
+    createdByName?: string;
+    createdAt?: string;
+    /** Legacy */
+    assignedBy?: string;
+    assignedByName?: string;
+    assignedAt?: string;
+    startedAt?: string;
+    completedAt?: string;
+    notes?: string;
+    // —— Шинэ бүтэц (хүснэгтийн баганууд) ——
+    /** Зорилго */
+    purpose?: string;
+    /** Хэнд (зорилтот аудитори) */
+    targetAudience?: string;
+    /** Төрөл: soft_skill, mandatory, ... */
+    planType?: PlanType;
+    /** Хариуцсан эзэн (HR/L&D, HSE manager гэх мэт) */
+    owner?: string;
+    /** Формат: workshop, classroom, ... */
+    format?: PlanFormat;
+    /** Байршил эсвэл холбоос */
+    locationOrLink?: string;
+    /** Үнэлгээний арга */
+    assessmentMethod?: AssessmentMethod;
+}
+
+/** Form values for creating one unified plan (course + when + budget + who) */
+export const createPlanSchema = z.object({
+    courseId: z.string().min(1, 'Сургалт сонгоно уу'),
+    scheduledAt: z.date({ required_error: 'Хэзээ явуулахыг сонгоно уу' }),
+    budget: z.coerce.number().min(0).optional(),
+    participantIds: z.array(z.string()).min(1, 'Дор хаяж нэг оролцогч сонгоно уу'),
+    trigger: z.enum(PLAN_TRIGGERS).default('manual'),
+    notes: z.string().optional(),
+    purpose: z.string().optional(),
+    targetAudience: z.string().optional(),
+    planType: z.enum(PLAN_TYPES).optional(),
+    owner: z.string().optional(),
+    format: z.enum(PLAN_FORMATS).optional(),
+    locationOrLink: z.string().optional(),
+    assessmentMethod: z.enum(ASSESSMENT_METHODS).optional(),
+});
+
+export type CreatePlanFormValues = z.infer<typeof createPlanSchema>;
+
+// Legacy: keep for any backward compat / migration (old per-employee assign flow)
 export const assignTrainingSchema = z.object({
     employeeIds: z.array(z.string()).min(1, 'Дор хаяж нэг ажилтан сонгоно уу'),
     courseId: z.string().min(1, 'Сургалт сонгоно уу'),

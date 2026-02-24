@@ -23,7 +23,7 @@ export function TrainingSettings({ categories, isLoading }: TrainingSettingsProp
                 <CardHeader>
                     <CardTitle className="text-base">Сургалтын ангилал</CardTitle>
                     <CardDescription>
-                        Сургалтын каталогт ашиглагдах ангилалуудыг удирдах
+                        Сургалтын санд ашиглагдах ангилалуудыг удирдах
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

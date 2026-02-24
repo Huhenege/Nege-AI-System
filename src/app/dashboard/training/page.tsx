@@ -14,14 +14,14 @@ import {
     TrainingPlan,
     SkillAssessment,
     TrainingCategory,
-    AssignTrainingFormValues,
+    CreatePlanFormValues,
 } from './types';
 
-import { TrainingDashboard } from './components/training-dashboard';
 import { CourseCatalog } from './components/course-catalog';
 import { TrainingPlans } from './components/training-plans';
 import { SkillAssessmentTab } from './components/skill-assessment-tab';
 import { TrainingSettings } from './components/training-settings';
+import { TrainingDashboardCard } from './components/training-dashboard-card';
 
 interface SkillInventoryItem {
     id: string;
@@ -41,7 +41,7 @@ export default function TrainingPage() {
     );
 
     const plansQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'training_plans'), orderBy('assignedAt', 'desc')) : null,
+        firestore ? collection(firestore, 'training_plans') : null,
         [firestore]
     );
 
@@ -67,13 +67,17 @@ export default function TrainingPage() {
 
     // ── Data ─────────────────────────────────────────
     const { data: courses, isLoading: coursesLoading } = useCollection<TrainingCourse>(coursesQuery);
-    const { data: plans, isLoading: plansLoading } = useCollection<TrainingPlan>(plansQuery);
+    const { data: plansRaw, isLoading: plansLoading } = useCollection<TrainingPlan>(plansQuery);
+    const plans = useMemo(() => {
+        const d = (p: TrainingPlan) => p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? p.createdAt ?? '';
+        return [...plansRaw].sort((a, b) => d(b).localeCompare(d(a)));
+    }, [plansRaw]);
     const { data: assessments, isLoading: assessmentsLoading } = useCollection<SkillAssessment>(assessmentsQuery);
     const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
     const { data: skills } = useCollection<SkillInventoryItem>(skillsQuery);
     const { data: categories, isLoading: categoriesLoading } = useCollection<TrainingCategory>(categoriesQuery);
 
-    const isLoading = coursesLoading || plansLoading || assessmentsLoading || employeesLoading;
+    const isLoadingDashboard = coursesLoading || plansLoading || assessmentsLoading;
 
     // Active employees
     const activeEmployees = useMemo(() =>
@@ -81,39 +85,44 @@ export default function TrainingPage() {
         [employees]
     );
 
-    // ── Assign Training Handler (supports multiple employees) ──
-    const handleAssignTraining = (values: AssignTrainingFormValues, courseName: string) => {
+    // ── Create Plan Handler (one plan = one scheduled training + participants) ──
+    const handleCreatePlan = (values: CreatePlanFormValues, courseName: string) => {
         if (!firestore || !user) return;
 
         const now = new Date().toISOString();
-        const dueDateStr = values.dueDate.toISOString();
-
-        for (const empId of values.employeeIds) {
+        const scheduledStr = values.scheduledAt.toISOString();
+        const participantNames = values.participantIds.map(empId => {
             const emp = employees.find(e => e.id === empId);
-            if (!emp) continue;
-            const empName = `${emp.lastName?.charAt(0) || ''}. ${emp.firstName}`;
+            return emp ? `${emp.lastName?.charAt(0) || ''}. ${emp.firstName}` : '';
+        });
 
-            const data: Omit<TrainingPlan, 'id'> = {
-                employeeId: empId,
-                employeeName: empName,
-                courseId: values.courseId,
-                courseName,
-                assignedBy: user.uid,
-                assignedByName: 'Админ',
-                assignedAt: now,
-                dueDate: dueDateStr,
-                status: 'assigned',
-                trigger: values.trigger,
-                preAssessmentScore: values.preAssessmentScore,
-                notes: values.notes,
-            };
+        const data: Record<string, unknown> = {
+            courseId: values.courseId,
+            courseName,
+            scheduledAt: scheduledStr,
+            participantIds: values.participantIds,
+            participantNames,
+            status: 'scheduled',
+            trigger: values.trigger,
+            createdBy: user.uid,
+            createdByName: 'Админ',
+            createdAt: now,
+        };
+        if (values.budget != null && values.budget > 0) data.budget = values.budget;
+        if (values.notes != null && values.notes !== '') data.notes = values.notes;
+        if (values.purpose != null && values.purpose !== '') data.purpose = values.purpose;
+        if (values.targetAudience != null && values.targetAudience !== '') data.targetAudience = values.targetAudience;
+        if (values.planType != null) data.planType = values.planType;
+        if (values.owner != null && values.owner !== '') data.owner = values.owner;
+        if (values.format != null) data.format = values.format;
+        if (values.locationOrLink != null && values.locationOrLink !== '') data.locationOrLink = values.locationOrLink;
+        if (values.assessmentMethod != null) data.assessmentMethod = values.assessmentMethod;
 
-            addDocumentNonBlocking(collection(firestore, 'training_plans'), data);
-        }
+        addDocumentNonBlocking(collection(firestore, 'training_plans'), data);
 
         toast({
-            title: 'Сургалт оноогдлоо',
-            description: `${values.employeeIds.length} ажилтан — ${courseName}`,
+            title: 'Төлөвлөгөө үүслээ',
+            description: `${courseName} — ${values.participantIds.length} оролцогч`,
         });
     };
 
@@ -130,29 +139,37 @@ export default function TrainingPage() {
                     fallbackBackHref="/dashboard"
                 />
 
-                <Tabs defaultValue="dashboard" className="space-y-6">
+                <TrainingDashboardCard
+                    courses={courses}
+                    plans={plans}
+                    assessments={assessments}
+                    isLoading={isLoadingDashboard}
+                />
+
+                <Tabs defaultValue="plans" className="space-y-6">
                     <VerticalTabMenu
                         orientation="horizontal"
                         items={[
-                            { value: 'dashboard', label: 'Хянах самбар' },
-                            { value: 'catalog', label: 'Сургалтын каталог' },
                             { value: 'plans', label: 'Сургалтын төлөвлөгөө' },
+                            { value: 'catalog', label: 'Сургалтын сан' },
                             { value: 'assessment', label: 'Ур чадварын үнэлгээ' },
                             { value: 'settings', label: 'Тохиргоо' },
                         ]}
                     />
 
-                    {/* Tab 1: Dashboard */}
-                    <TabsContent value="dashboard">
-                        <TrainingDashboard
-                            courses={courses}
+                    {/* Training Plans */}
+                    <TabsContent value="plans">
+                        <TrainingPlans
                             plans={plans}
-                            assessments={assessments}
-                            isLoading={isLoading}
+                            courses={courses}
+                            employees={activeEmployees}
+                            skills={skills}
+                            isLoading={plansLoading}
+                            onCreatePlan={handleCreatePlan}
                         />
                     </TabsContent>
 
-                    {/* Tab 2: Course Catalog */}
+                    {/* Сургалтын сан */}
                     <TabsContent value="catalog">
                         <CourseCatalog
                             courses={courses}
@@ -162,19 +179,7 @@ export default function TrainingPage() {
                         />
                     </TabsContent>
 
-                    {/* Tab 3: Training Plans */}
-                    <TabsContent value="plans">
-                        <TrainingPlans
-                            plans={plans}
-                            courses={courses}
-                            employees={activeEmployees}
-                            employeeGaps={[]}
-                            isLoading={plansLoading}
-                            onAssign={handleAssignTraining}
-                        />
-                    </TabsContent>
-
-                    {/* Tab 4: Skill Assessment & Gap Analysis */}
+                    {/* Skill Assessment & Gap Analysis */}
                     <TabsContent value="assessment">
                         <SkillAssessmentTab
                             employees={employees}
@@ -189,7 +194,7 @@ export default function TrainingPage() {
                         />
                     </TabsContent>
 
-                    {/* Tab 5: Settings */}
+                    {/* Settings */}
                     <TabsContent value="settings">
                         <TrainingSettings
                             categories={categories}

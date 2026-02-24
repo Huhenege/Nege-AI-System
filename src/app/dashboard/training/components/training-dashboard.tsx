@@ -18,7 +18,7 @@ interface TrainingDashboardProps {
 
 export function TrainingDashboard({ courses, plans, assessments, isLoading }: TrainingDashboardProps) {
     const activeCourses = courses.filter(c => c.status === 'active').length;
-    const activePlans = plans.filter(p => p.status === 'assigned' || p.status === 'in_progress').length;
+    const activePlans = plans.filter(p => ['scheduled', 'in_progress', 'assigned'].includes(p.status ?? '')).length;
     const completedPlans = plans.filter(p => p.status === 'completed').length;
     const totalPlans = plans.filter(p => p.status !== 'cancelled').length;
     const completionRate = totalPlans > 0 ? Math.round((completedPlans / totalPlans) * 100) : 0;
@@ -29,16 +29,20 @@ export function TrainingDashboard({ courses, plans, assessments, isLoading }: Tr
         return SKILL_LEVEL_VALUE[a.requiredLevel] > SKILL_LEVEL_VALUE[a.currentLevel];
     }).length;
 
-    // Recent plans (last 5)
+    const planDate = (p: TrainingPlan) => p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? '';
+    const planParticipantCount = (p: TrainingPlan) =>
+        (p.participantIds?.length ?? 0) || (p.employeeId ? 1 : 0);
+
+    // Recent plans (last 5) — by scheduled/due date
     const recentPlans = [...plans]
-        .sort((a, b) => b.assignedAt.localeCompare(a.assignedAt))
+        .filter(p => planDate(p))
+        .sort((a, b) => planDate(b).localeCompare(planDate(a)))
         .slice(0, 5);
 
     const statusColor: Record<string, string> = {
-        assigned: 'bg-blue-100 text-blue-700',
+        scheduled: 'bg-blue-100 text-blue-700',
         in_progress: 'bg-amber-100 text-amber-700',
         completed: 'bg-emerald-100 text-emerald-700',
-        overdue: 'bg-red-100 text-red-700',
         cancelled: 'bg-slate-100 text-slate-500',
     };
 
@@ -57,7 +61,7 @@ export function TrainingDashboard({ courses, plans, assessments, isLoading }: Tr
                     title="Идэвхтэй төлөвлөгөө"
                     value={isLoading ? '...' : activePlans}
                     icon={ClipboardList}
-                    description="Оноогдсон болон явагдаж буй"
+                    description="Төлөвлөгдсөн болон явагдаж буй"
                     isLoading={isLoading}
                 />
                 <StatCard
@@ -100,18 +104,17 @@ export function TrainingDashboard({ courses, plans, assessments, isLoading }: Tr
                                     className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
                                 >
                                     <div className="space-y-0.5">
-                                        <p className="text-sm font-medium">{plan.employeeName}</p>
-                                        <p className="text-xs text-muted-foreground">{plan.courseName}</p>
+                                        <p className="text-sm font-medium">{plan.courseName}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {new Date(planDate(plan)).toLocaleDateString('mn-MN')} · {planParticipantCount(plan)} оролцогч
+                                        </p>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="text-xs text-muted-foreground">
-                                            {new Date(plan.assignedAt).toLocaleDateString('mn-MN')}
-                                        </span>
                                         <Badge
                                             variant="secondary"
-                                            className={statusColor[plan.status] || ''}
+                                            className={statusColor[plan.status ?? ''] || 'bg-slate-100 text-slate-600'}
                                         >
-                                            {PLAN_STATUS_LABELS[plan.status]}
+                                            {PLAN_STATUS_LABELS[plan.status ?? ''] ?? plan.status}
                                         </Badge>
                                     </div>
                                 </div>
