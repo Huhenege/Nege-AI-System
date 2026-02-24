@@ -65,10 +65,9 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
                 course.providerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 course.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-            const matchesCategory = categoryFilter === 'all' || course.categoryId === categoryFilter;
-            return matchesSearch && matchesCategory;
+            return matchesSearch;
         });
-    }, [courses, searchQuery, categoryFilter]);
+    }, [courses, searchQuery]);
 
     const handleCreate = (values: TrainingCourseFormValues) => {
         if (!firestore || !user) return;
@@ -114,17 +113,7 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                        <SelectTrigger className="w-[180px] bg-white border shadow-sm h-11 rounded-xl">
-                            <SelectValue placeholder="Бүх ангилал" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Бүх ангилал</SelectItem>
-                            {categories.map(cat => (
-                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    {/* Ангилал одоо төлөвлөгөөнд хамаарна */}
                 </div>
                 <AddActionButton
                     label="Шинэ сургалт"
@@ -159,7 +148,6 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Нэр</TableHead>
-                                <TableHead>Ангилал</TableHead>
                                 <TableHead>Хэлбэр</TableHead>
                                 <TableHead>Түвшин</TableHead>
                                 <TableHead>Хугацаа</TableHead>
@@ -178,9 +166,6 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
                                                 {PROVIDER_TYPE_LABELS[course.providerType] || course.providerType} · {course.providerName}
                                             </p>
                                         </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <span className="text-sm">{categoryMap.get(course.categoryId) || course.categoryId}</span>
                                     </TableCell>
                                     <TableCell>
                                         <span className="text-sm">{COURSE_TYPE_LABELS[course.type]}</span>

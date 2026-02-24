@@ -134,6 +134,7 @@ export default function TrainingPage() {
         if (values.locationOrLink != null && values.locationOrLink !== '') data.locationOrLink = values.locationOrLink;
         if (values.assessmentMethod != null) data.assessmentMethod = values.assessmentMethod;
         if (values.providerType != null && values.providerType !== '') data.providerType = values.providerType;
+        if (values.categoryIds != null && values.categoryIds.length > 0) data.categoryIds = values.categoryIds;
 
         addDocumentNonBlocking(collection(firestore, 'training_plans'), data);
 
@@ -183,6 +184,7 @@ export default function TrainingPage() {
                             departments={departments}
                             positionLevels={positionLevels}
                             positions={positions}
+                            categories={categories}
                             skills={skills}
                             isLoading={plansLoading}
                             onCreatePlan={handleCreatePlan}

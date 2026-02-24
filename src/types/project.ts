@@ -28,7 +28,7 @@ export type Priority =
   | 'URGENT';
 
 // Project Type
-export type ProjectType = 'general' | 'onboarding' | 'offboarding' | 'position_preparation';
+export type ProjectType = 'general' | 'onboarding' | 'offboarding' | 'position_preparation' | 'training';
 
 // Project interface
 export interface Project {
@@ -68,6 +68,9 @@ export interface Project {
   pointBudget?: number;            // Төслийн нийт оноо (project total point budget)
   completedAt?: string;            // ISO date string (YYYY-MM-DD) - when project was marked COMPLETED
   pointsDistributed?: boolean;     // true = points already distributed to team members (prevents double-distribution)
+
+  // Training plan link (when project was created from training plan)
+  trainingPlanId?: string;         // Сургалтын төлөвлөгөөний ID
 }
 
 // Task interface

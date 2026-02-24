@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, X, Users, Calendar, Wallet, Building2, Briefcase, UserCheck } from 'lucide-react';
+import { Search, X, Users, Calendar, Wallet, Building2, Briefcase, UserCheck, Tag } from 'lucide-react';
 import {
     createPlanSchema,
     CreatePlanFormValues,
@@ -34,6 +34,9 @@ import {
     QUARTER_LABELS,
     PLAN_PROVIDER_TYPES,
     PLAN_PROVIDER_LABELS,
+    PLAN_STATUSES,
+    PLAN_STATUS_LABELS,
+    TrainingCategory,
 } from '../types';
 import { Employee } from '@/types';
 
@@ -66,6 +69,7 @@ interface CreatePlanDialogProps {
     departments?: DepartmentOption[];
     positionLevels?: PositionLevelOption[];
     positions?: PositionOption[];
+    categories?: TrainingCategory[];
 }
 
 export function CreatePlanDialog({
@@ -79,6 +83,7 @@ export function CreatePlanDialog({
     departments = [],
     positionLevels = [],
     positions = [],
+    categories = [],
 }: CreatePlanDialogProps) {
     const [employeeSearch, setEmployeeSearch] = useState('');
     const [participantMode, setParticipantMode] = useState<ParticipantMode>('by_employee');
@@ -102,6 +107,8 @@ export function CreatePlanDialog({
             locationOrLink: '',
             assessmentMethod: undefined,
             providerType: undefined,
+            categoryIds: [],
+            status: undefined,
         },
     });
 
@@ -130,6 +137,8 @@ export function CreatePlanDialog({
                     locationOrLink: editingPlan.locationOrLink ?? '',
                     assessmentMethod: editingPlan.assessmentMethod ?? undefined,
                     providerType: editingPlan.providerType ?? undefined,
+                    categoryIds: editingPlan.categoryIds ?? [],
+                    status: editingPlan.status ?? undefined,
                 });
             } else {
                 const y = new Date().getFullYear();
@@ -148,6 +157,8 @@ export function CreatePlanDialog({
                     locationOrLink: '',
                     assessmentMethod: undefined,
                     providerType: undefined,
+                    categoryIds: [],
+                    status: undefined,
                 });
             }
             setEmployeeSearch('');
@@ -198,8 +209,8 @@ export function CreatePlanDialog({
         if (!editingPlan && watchedCourseId && courses.length > 0) {
             const course = courses.find(c => c.id === watchedCourseId);
             if (course) {
-                // Формат: курсын type (online, classroom, blended, self_study) нь төлөвлөгөөний format-тай ижил утгууд
-                if (course.type && ['online', 'classroom', 'blended', 'self_study'].includes(course.type)) {
+                // Хэлбэр: курсын type нь төлөвлөгөөний format-тай яг ижил (COURSE_TYPES === PLAN_FORMATS)
+                if (course.type) {
                     form.setValue('format', course.type as CreatePlanFormValues['format']);
                 }
                 // Сурагт авах байдал: курсын providerType (internal/external) = төлөвлөгөөний providerType
@@ -315,6 +326,28 @@ export function CreatePlanDialog({
                                 </FormItem>
                             )} />
 
+                            {/* Төлөв — зөвхөн засах горимд */}
+                            {isEditMode && (
+                                <FormField control={form.control} name="status" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Төлөв</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Төлөв сонгох" /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {PLAN_STATUSES.map((s) => (
+                                                    <SelectItem key={s} value={s}>{PLAN_STATUS_LABELS[s]}</SelectItem>
+                                                ))}
+                                                <SelectItem value="assigned">{PLAN_STATUS_LABELS['assigned']}</SelectItem>
+                                                <SelectItem value="overdue">{PLAN_STATUS_LABELS['overdue']}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+
                             {/* Хугацаа (улирал) */}
                             <FormField control={form.control} name="scheduledQuarter" render={({ field }) => {
                                 const [year, quarter] = (field.value || '').split('-');
@@ -421,6 +454,61 @@ export function CreatePlanDialog({
                                 </FormItem>
                             )} />
 
+                            {/* Ангилал (олон сонголт) */}
+                            <FormField control={form.control} name="categoryIds" render={() => {
+                                const selectedCatIds = form.watch('categoryIds') ?? [];
+                                const toggleCategory = (catId: string) => {
+                                    const current = form.getValues('categoryIds') ?? [];
+                                    form.setValue(
+                                        'categoryIds',
+                                        current.includes(catId) ? current.filter((id: string) => id !== catId) : [...current, catId],
+                                    );
+                                };
+                                return (
+                                    <FormItem>
+                                        <FormLabel className="flex items-center gap-2">
+                                            <Tag className="h-4 w-4" />
+                                            Ангилал
+                                            {selectedCatIds.length > 0 && (
+                                                <Badge variant="secondary" className="text-xs">{selectedCatIds.length}</Badge>
+                                            )}
+                                        </FormLabel>
+                                        {selectedCatIds.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 pb-1">
+                                                {selectedCatIds.map((id: string) => {
+                                                    const cat = categories.find(c => c.id === id);
+                                                    if (!cat) return null;
+                                                    return (
+                                                        <Badge key={id} variant="default" className="text-xs cursor-pointer gap-1 pr-1" onClick={() => toggleCategory(id)}>
+                                                            {cat.name}
+                                                            <X className="h-3 w-3" />
+                                                        </Badge>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                        {categories.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground">Ангилал олдсонгүй. Тохиргооноос нэмнэ үү.</p>
+                                        ) : (
+                                            <ScrollArea className="h-[100px] rounded-lg border">
+                                                <div className="p-1">
+                                                    {categories.map(cat => (
+                                                        <label key={cat.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer">
+                                                            <Checkbox
+                                                                checked={selectedCatIds.includes(cat.id)}
+                                                                onCheckedChange={() => toggleCategory(cat.id)}
+                                                            />
+                                                            <span className="text-sm">{cat.name}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </ScrollArea>
+                                        )}
+                                        <FormMessage />
+                                    </FormItem>
+                                );
+                            }} />
+
                             {/* Хариуцсан эзэн */}
                             <FormField control={form.control} name="owner" render={({ field }) => (
                                 <FormItem>
@@ -432,10 +520,10 @@ export function CreatePlanDialog({
                                 </FormItem>
                             )} />
 
-                            {/* Формат */}
+                            {/* Хэлбэр */}
                             <FormField control={form.control} name="format" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Формат</FormLabel>
+                                    <FormLabel>Хэлбэр</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value ?? ''}>
                                         <FormControl>
                                             <SelectTrigger><SelectValue placeholder="Сонгох" /></SelectTrigger>

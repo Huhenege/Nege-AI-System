@@ -60,7 +60,6 @@ export function CreateCourseDialog({
         defaultValues: {
             title: '',
             description: '',
-            categoryId: '',
             skillIds: [],
             targetLevel: 'beginner',
             duration: 1,
@@ -78,7 +77,6 @@ export function CreateCourseDialog({
                 form.reset({
                     title: editingCourse.title,
                     description: editingCourse.description,
-                    categoryId: editingCourse.categoryId,
                     skillIds: editingCourse.skillIds,
                     targetLevel: editingCourse.targetLevel,
                     duration: editingCourse.duration,
@@ -91,7 +89,6 @@ export function CreateCourseDialog({
                 form.reset({
                     title: '',
                     description: '',
-                    categoryId: '',
                     skillIds: [],
                     targetLevel: 'beginner',
                     duration: 1,
@@ -145,31 +142,14 @@ export function CreateCourseDialog({
                             {/* Description */}
                             <FormField control={form.control} name="description" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Тайлбар *</FormLabel>
+                                    <FormLabel>Агуулага *</FormLabel>
                                     <FormControl><Textarea placeholder="Сургалтын зорилго, агуулга..." rows={3} {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
 
-                            {/* Row: Category + Type */}
+                            {/* Type (Хэлбэр) */}
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="categoryId" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Ангилал *</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Ангилал сонгох" /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {categories.map(cat => (
-                                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-
                                 <FormField control={form.control} name="type" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Хэлбэр *</FormLabel>

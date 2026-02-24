@@ -37,10 +37,11 @@ export interface TrainingCategory {
     description?: string;
 }
 
-export const COURSE_TYPES = ['online', 'classroom', 'blended', 'self_study'] as const;
+export const COURSE_TYPES = ['workshop', 'online', 'classroom', 'blended', 'self_study'] as const;
 export type CourseType = (typeof COURSE_TYPES)[number];
 
 export const COURSE_TYPE_LABELS: Record<CourseType, string> = {
+    workshop: 'Workshop',
     online: 'Онлайн',
     classroom: 'Танхимын',
     blended: 'Хосолсон',
@@ -68,7 +69,7 @@ export interface TrainingCourse {
     id: string;
     title: string;
     description: string;
-    categoryId: string;       // links to training_categories
+    categoryId?: string;      // legacy — ангилал одоо төлөвлөгөөнд хамаарна
     skillIds: string[];       // linked to skills_inventory
     targetLevel: SkillLevel;
     duration: number;         // hours
@@ -83,7 +84,7 @@ export interface TrainingCourse {
 export const trainingCourseSchema = z.object({
     title: z.string().min(1, 'Сургалтын нэр оруулна уу'),
     description: z.string().min(1, 'Тайлбар оруулна уу'),
-    categoryId: z.string().min(1, 'Ангилал сонгоно уу'),
+    categoryId: z.string().optional(),
     skillIds: z.array(z.string()).default([]),
     targetLevel: z.enum(SKILL_LEVELS, { required_error: 'Түвшин сонгоно уу' }),
     duration: z.coerce.number().min(0.5, 'Хугацаа 0.5-аас их байх ёстой'),
@@ -146,16 +147,10 @@ export const PLAN_TYPE_LABELS: Record<PlanType, string> = {
     other: 'Бусад',
 };
 
-// Сургалтын формат (төлөвлөгөөнд)
-export const PLAN_FORMATS = ['workshop', 'classroom', 'online', 'blended', 'self_study'] as const;
-export type PlanFormat = (typeof PLAN_FORMATS)[number];
-export const PLAN_FORMAT_LABELS: Record<PlanFormat, string> = {
-    workshop: 'Workshop',
-    classroom: 'Classroom',
-    online: 'Онлайн',
-    blended: 'Хосолсон',
-    self_study: 'Бие даан',
-};
+// Сургалтын хэлбэр (төлөвлөгөөнд) — COURSE_TYPES-тай яг ижил
+export const PLAN_FORMATS = COURSE_TYPES;
+export type PlanFormat = CourseType;
+export const PLAN_FORMAT_LABELS: Record<PlanFormat, string> = COURSE_TYPE_LABELS;
 
 // Үнэлгээний арга
 export const ASSESSMENT_METHODS = ['quiz_feedback', 'test', 'assignment', 'observation', 'none'] as const;
@@ -172,6 +167,37 @@ export const ASSESSMENT_METHOD_LABELS: Record<AssessmentMethod, string> = {
 export interface PlanParticipant {
     employeeId: string;
     employeeName: string;
+}
+
+// ============================================
+// ATTENDANCE (session-based)
+// ============================================
+
+export const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'excused'] as const;
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+    present: 'Ирсэн',
+    absent: 'Ирээгүй',
+    late: 'Хоцорсон',
+    excused: 'Чөлөөтэй',
+};
+
+export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
+    present: 'bg-emerald-100 text-emerald-700',
+    absent: 'bg-red-100 text-red-700',
+    late: 'bg-amber-100 text-amber-700',
+    excused: 'bg-sky-100 text-sky-700',
+};
+
+export interface AttendanceRecord {
+    [employeeId: string]: AttendanceStatus;
+}
+
+export interface TrainingSession {
+    date: string;
+    label?: string;
+    attendance: AttendanceRecord;
 }
 
 /** One plan = one scheduled training from catalog, with date, budget, and participants */
@@ -222,6 +248,12 @@ export interface TrainingPlan {
     assessmentMethod?: AssessmentMethod;
     /** Сурагт авах байдал: гаднаас/дотоод — курсын providerType-тай уялдаатай */
     providerType?: PlanProviderType;
+    /** Зарлагдсан тохиолдолд холбогдох төслийн ID */
+    projectId?: string;
+    /** Ангилалууд (олон ангилалд хамаарч болно) */
+    categoryIds?: string[];
+    /** Session-based attendance records */
+    sessions?: TrainingSession[];
 }
 
 /** Сурагт авах байдал — сургагч багшийн төрөл */
@@ -248,6 +280,8 @@ export const createPlanSchema = z.object({
     locationOrLink: z.string().optional(),
     assessmentMethod: z.enum(ASSESSMENT_METHODS).optional(),
     providerType: z.enum(PLAN_PROVIDER_TYPES).optional(),
+    categoryIds: z.array(z.string()).optional(),
+    status: z.enum([...PLAN_STATUSES, 'assigned', 'overdue']).optional(),
 });
 
 export type CreatePlanFormValues = z.infer<typeof createPlanSchema>;
