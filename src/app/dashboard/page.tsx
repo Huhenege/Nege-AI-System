@@ -408,6 +408,17 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: activeProjects } = useCollection<any>(projectsQuery);
 
+    // Recruitment queries (for Recruitment widget)
+    const vacanciesQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'vacancies') : null
+        , [firestore]);
+    const { data: allVacancies } = useCollection<any>(vacanciesQuery);
+
+    const applicationsQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'applications') : null
+        , [firestore]);
+    const { data: allApplications } = useCollection<any>(applicationsQuery);
+
     // Employment Relations queries (for ER widget)
     const erDocumentsQuery = useMemoFirebase(() =>
         firestore ? collection(firestore, 'er_documents') : null
@@ -669,6 +680,12 @@ const OrganizationChart = () => {
             
             // Posts widget
             postsCount: posts?.length || 0,
+
+            // Recruitment widget
+            recruitmentOpenVacancies: allVacancies?.filter((v: any) => v.status === 'OPEN').length || 0,
+            recruitmentTotalCandidates: allApplications?.length || 0,
+            recruitmentActiveCandidates: allApplications?.filter((a: any) => a.status === 'ACTIVE').length || 0,
+            recruitmentHiredCount: allApplications?.filter((a: any) => a.status === 'HIRED').length || 0,
 
             // Employment Relations widget
             erDocumentsCount: erDocuments?.length || 0,

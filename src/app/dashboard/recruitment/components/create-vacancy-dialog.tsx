@@ -105,6 +105,7 @@ export function CreateVacancyDialog({
     const [allStages, setAllStages] = useState<RecruitmentStage[]>([]);
     const [selectedStageIds, setSelectedStageIds] = useState<Set<string>>(new Set());
     const [isLoadingStages, setIsLoadingStages] = useState(false);
+    const [selectedEmploymentTypeId, setSelectedEmploymentTypeId] = useState<string | undefined>(undefined);
 
     const isControlled = typeof controlledOpen === 'boolean';
     const open = isControlled ? controlledOpen : internalOpen;
@@ -225,6 +226,7 @@ export function CreateVacancyDialog({
                 description: data.description || '',
                 requirements: [],
                 stages: stagesToUse,
+                ...(selectedEmploymentTypeId ? { employmentTypeId: selectedEmploymentTypeId } : {}),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             };
@@ -238,6 +240,7 @@ export function CreateVacancyDialog({
             setOpen(false);
             form.reset();
             setSelectedStageIds(new Set(allStages.map(s => s.id)));
+            setSelectedEmploymentTypeId(undefined);
         } catch (error) {
             console.error(error);
             toast({
@@ -290,6 +293,7 @@ export function CreateVacancyDialog({
                                                 if (selectedPos) {
                                                     field.onChange(selectedPos.title);
                                                     form.setValue('departmentId', selectedPos.departmentId || '');
+                                                    setSelectedEmploymentTypeId(selectedPos.employmentTypeId || undefined);
                                                     const currentDesc = form.getValues('description') || '';
                                                     if (!currentDesc.trim()) {
                                                         const next = buildAutoDescription(selectedPos);

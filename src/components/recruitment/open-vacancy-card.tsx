@@ -52,6 +52,7 @@ export function OpenVacancyCard({
   vacancy,
   departmentName,
   departmentColor,
+  employmentTypeName,
   href,
   className,
   actionsVisibility = 'hover',
@@ -71,6 +72,7 @@ export function OpenVacancyCard({
   vacancy: Vacancy;
   departmentName?: string;
   departmentColor?: string;
+  employmentTypeName?: string;
   /** Defaults to vacancy detail page */
   href?: string;
   className?: string;
@@ -102,7 +104,7 @@ export function OpenVacancyCard({
 }) {
   const link = href ?? `/dashboard/recruitment/vacancies/${vacancy.id}`;
   const effectiveEditHref = editHref ?? link;
-  const typeLabel = vacancyTypeLabel(vacancy.type);
+  const typeLabel = employmentTypeName || vacancyTypeLabel(vacancy.type);
   const statusMeta = vacancyStatusLabel(vacancy.status);
   const stageCount = vacancy.stages?.length ? vacancy.stages.length : 5;
   const cardColor = departmentColor || '#1e293b';

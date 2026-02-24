@@ -34,14 +34,24 @@ export function VacanciesList() {
         [firestore]
     );
 
+    const empTypesQuery = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'employmentTypes') : null),
+        [firestore]
+    );
+
     const { data: vacancies, isLoading: isLoadingVacancies } = useCollection<Vacancy>(vacanciesQuery as any);
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
+    const { data: employmentTypes } = useCollection<any>(empTypesQuery as any);
 
     const getDeptName = (id: string) => {
         return departments?.find(d => d.id === id)?.name || 'Unknown';
     };
     const getDeptColor = (id: string) => {
         return departments?.find(d => d.id === id)?.color;
+    };
+    const getEmpTypeName = (id?: string) => {
+        if (!id) return undefined;
+        return employmentTypes?.find((t: any) => t.id === id)?.name;
     };
 
     const filtered = React.useMemo(() => {
@@ -65,7 +75,7 @@ export function VacanciesList() {
         return list.filter((v) => {
             if (status !== 'all' && v.status !== status) return false;
             if (departmentId !== 'all' && v.departmentId !== departmentId) return false;
-            if (type !== 'all' && (v.type || 'UNKNOWN') !== type) return false;
+            if (type !== 'all' && (v.employmentTypeId || '') !== type) return false;
             if (!q) return true;
 
             const hay = `${v.title} ${v.location || ''} ${getDeptName(v.departmentId)}`.toLowerCase();
@@ -151,10 +161,11 @@ export function VacanciesList() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Бүгд</SelectItem>
-                                <SelectItem value="FULL_TIME">Full-time</SelectItem>
-                                <SelectItem value="PART_TIME">Part-time</SelectItem>
-                                <SelectItem value="CONTRACT">Contract</SelectItem>
-                                <SelectItem value="INTERNSHIP">Internship</SelectItem>
+                                {(employmentTypes || []).map((et: any) => (
+                                    <SelectItem key={et.id} value={et.id}>
+                                        {et.name}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
 
@@ -184,6 +195,7 @@ export function VacanciesList() {
                             vacancy={vacancy}
                             departmentName={getDeptName(vacancy.departmentId)}
                             departmentColor={getDeptColor(vacancy.departmentId)}
+                            employmentTypeName={getEmpTypeName(vacancy.employmentTypeId)}
                         />
                     ))}
                 </div>

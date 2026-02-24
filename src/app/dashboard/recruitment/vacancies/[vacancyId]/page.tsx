@@ -44,6 +44,7 @@ export default function VacancyDetailPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [department, setDepartment] = useState<Department | null>(null);
+    const [employmentTypeName, setEmploymentTypeName] = useState<string | undefined>(undefined);
     const [editOpen, setEditOpen] = useState(false);
     const [addCandidateOpen, setAddCandidateOpen] = useState(false);
 
@@ -93,6 +94,18 @@ export default function VacancyDetailPage() {
                         }
                     } catch {
                         setDepartment(null);
+                    }
+
+                    // 4. Fetch employment type name
+                    try {
+                        if (vacancyData.employmentTypeId) {
+                            const etSnap = await getDoc(doc(firestore, 'employmentTypes', vacancyData.employmentTypeId));
+                            if (etSnap.exists()) {
+                                setEmploymentTypeName(etSnap.data().name);
+                            }
+                        }
+                    } catch {
+                        // ignore
                     }
                 } else {
                     toast({ title: 'Ажлын байр олдсонгүй', variant: 'destructive' });
@@ -249,6 +262,7 @@ export default function VacancyDetailPage() {
                                     vacancy={vacancy}
                                     departmentName={department?.name || vacancy.departmentId}
                                     departmentColor={department?.color}
+                                    employmentTypeName={employmentTypeName}
                                     actionsVisibility="always"
                                     showViewAction={false}
                                     showEditAction={true}

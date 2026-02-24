@@ -28,6 +28,7 @@ export interface Vacancy {
     };
     location?: string;
     type?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
+    employmentTypeId?: string;
     deadline?: string; // ISO Date string
 }
 

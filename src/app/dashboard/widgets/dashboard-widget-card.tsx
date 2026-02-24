@@ -39,6 +39,13 @@ export interface WidgetData {
     // Posts widget
     postsCount?: number;
     
+    // Recruitment widget
+    recruitmentOpenVacancies?: number;
+    recruitmentTotalCandidates?: number;
+    recruitmentActiveCandidates?: number;
+    recruitmentHiredCount?: number;
+    recruitmentInterviewCount?: number;
+
     // Employment Relations widget
     erDocumentsCount?: number;
     erPendingCount?: number;
@@ -244,15 +251,41 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
-            case 'recruitment':
+            case 'recruitment': {
+                const openVac = data.recruitmentOpenVacancies ?? 0;
+                const totalCand = data.recruitmentTotalCandidates ?? 0;
+                const activeCand = data.recruitmentActiveCandidates ?? 0;
+                const hiredCnt = data.recruitmentHiredCount ?? 0;
                 return (
-                    <div className="relative z-10">
-                        <div className="flex items-baseline gap-2 mb-1">
-                            <div className="text-xl sm:text-2xl font-bold text-white">Сонгон шалгаруулалт</div>
+                    <div className="relative z-10 space-y-2.5">
+                        <div className="flex items-end justify-between">
+                            <div>
+                                <div className="text-3xl sm:text-4xl font-semibold text-white leading-none">{openVac}</div>
+                                <div className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide">Нээлттэй зар</div>
+                            </div>
+                            <div className="h-10 w-px bg-slate-700" />
+                            <div className="text-right">
+                                <div className="text-3xl sm:text-4xl font-semibold text-white leading-none">{totalCand}</div>
+                                <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Нийт горилогч</div>
+                            </div>
                         </div>
-                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Recruitment & Selection</div>
+                        <div className="pt-1.5 border-t border-slate-700/60">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                    <span className="text-[10px] text-slate-400">Идэвхтэй</span>
+                                    <span className="text-sm font-semibold text-amber-400">{activeCand}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                    <span className="text-[10px] text-slate-400">Авсан</span>
+                                    <span className="text-sm font-semibold text-emerald-400">{hiredCnt}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 );
+            }
 
             case 'points':
                 return (
