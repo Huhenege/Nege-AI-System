@@ -116,6 +116,7 @@ interface InternalNote {
     stageId?: string;
     authorId: string;
     authorName: string;
+    authorPhotoURL?: string;
     text: string;
     createdAt: string;
 }
@@ -325,7 +326,13 @@ export default function CandidateDetailPage() {
     }, [firestore, applicationId]);
 
     // --- Filtered data by selected stage ---
-    const stageNotes = useMemo(() => notes.filter(n => n.stageId === selectedStageId), [notes, selectedStageId]);
+    const stageNotes = useMemo(() => {
+        return notes.filter(n => {
+            if (n.stageId === selectedStageId) return true;
+            if (!n.stageId && application?.currentStageId === selectedStageId) return true;
+            return false;
+        });
+    }, [notes, selectedStageId, application?.currentStageId]);
     const stageScorecards = useMemo(() => scorecards.filter(s => s.stageId === selectedStageId), [scorecards, selectedStageId]);
     const stageEvents = useMemo(() => events.filter(e => e.stageId === selectedStageId || (e.data?.stageId === selectedStageId)), [events, selectedStageId]);
 
@@ -474,6 +481,7 @@ export default function CandidateDetailPage() {
                 stageId: selectedStageId,
                 authorId: user.uid,
                 authorName: user.displayName || 'Коллагатор',
+                authorPhotoURL: (user as any).photoURL || null,
                 text: noteText,
                 createdAt: new Date().toISOString()
             });
@@ -1072,7 +1080,12 @@ export default function CandidateDetailPage() {
                                             <Quote className="absolute top-3 right-3 h-5 w-5 text-amber-200/50" />
                                             <p className="text-sm text-amber-900 whitespace-pre-wrap">{note.text}</p>
                                             <div className="flex items-center gap-2 mt-3 pt-2 border-t border-amber-100/50">
-                                                <div className="h-4 w-4 rounded-full bg-amber-200 flex items-center justify-center text-[9px] font-bold text-amber-700">{note.authorName[0]}</div>
+                                                <Avatar className="h-6 w-6 shrink-0">
+                                                    <AvatarImage src={note.authorPhotoURL} alt={note.authorName} />
+                                                    <AvatarFallback className="text-[9px] font-bold text-amber-700 bg-amber-200">
+                                                        {note.authorName?.[0] || '?'}
+                                                    </AvatarFallback>
+                                                </Avatar>
                                                 <span className="text-[10px] font-semibold text-amber-700/70">{note.authorName}</span>
                                                 <span className="text-[10px] text-amber-500/50 ml-auto">{format(new Date(note.createdAt), 'MM/dd HH:mm')}</span>
                                             </div>

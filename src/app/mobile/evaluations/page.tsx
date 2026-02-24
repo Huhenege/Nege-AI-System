@@ -20,7 +20,6 @@ import {
     FileText,
     Download,
     StickyNote,
-    User,
     Briefcase,
     Phone,
     Mail,
@@ -31,7 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { InterviewScorecard, ScorecardCriteria } from '../../dashboard/recruitment/components/interview-scorecard';
@@ -54,7 +53,7 @@ interface CandidateGroup {
 export default function MobileEvaluationsPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
-    const { user } = useEmployeeProfile();
+    const { user, employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
 
     const [groups, setGroups] = useState<CandidateGroup[]>([]);
@@ -66,7 +65,7 @@ export default function MobileEvaluationsPage() {
     // Notes state
     const [noteText, setNoteText] = useState('');
     const [savingNote, setSavingNote] = useState(false);
-    const [myNotes, setMyNotes] = useState<{ id: string; text: string; authorName: string; createdAt: string }[]>([]);
+    const [myNotes, setMyNotes] = useState<{ id: string; text: string; authorName: string; authorPhotoURL?: string; authorId?: string; createdAt: string }[]>([]);
     const [loadingNotes, setLoadingNotes] = useState(false);
 
     useEffect(() => {
@@ -238,11 +237,40 @@ export default function MobileEvaluationsPage() {
             collection(firestore, 'application_notes'),
             where('applicationId', '==', selectedGroup.applicationId),
         );
-        getDocs(notesQ).then(snap => {
+        getDocs(notesQ).then(async (snap) => {
             const items = snap.docs.map(d => {
                 const data = d.data();
-                return { id: d.id, text: data.text || '', authorName: data.authorName || '', createdAt: data.createdAt || '' };
+                return {
+                    id: d.id,
+                    text: data.text || '',
+                    authorName: data.authorName || '',
+                    authorPhotoURL: data.authorPhotoURL,
+                    authorId: data.authorId,
+                    createdAt: data.createdAt || '',
+                };
             });
+            for (const item of items) {
+                if (item.authorId) {
+                    const needsName = !item.authorName || item.authorName === 'Нэргүй';
+                    const needsPhoto = !item.authorPhotoURL;
+                    if (needsName || needsPhoto) {
+                        try {
+                            const empSnap = await getDoc(doc(firestore, 'employees', item.authorId));
+                            if (empSnap.exists()) {
+                                const e = empSnap.data();
+                                if (needsName) item.authorName = [e.lastName, e.firstName].filter(Boolean).join(' ').trim() || 'Ажилтан';
+                                if (needsPhoto && e.photoURL) item.authorPhotoURL = e.photoURL;
+                            } else if (needsName) {
+                                item.authorName = item.authorName || 'Нэргүй';
+                            }
+                        } catch {
+                            if (needsName) item.authorName = item.authorName || 'Нэргүй';
+                        }
+                    }
+                } else if (!item.authorName) {
+                    item.authorName = 'Нэргүй';
+                }
+            }
             items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             setMyNotes(items);
         }).catch(() => {}).finally(() => setLoadingNotes(false));
@@ -322,15 +350,21 @@ export default function MobileEvaluationsPage() {
         setSavingNote(true);
         try {
             const now = new Date().toISOString();
-            const authorName = user.displayName || 'Ажилтан';
+            const authorName = employeeProfile
+                ? [employeeProfile.lastName, employeeProfile.firstName].filter(Boolean).join(' ').trim() || 'Ажилтан'
+                : (user.displayName || 'Ажилтан');
+            const authorPhotoURL = employeeProfile?.photoURL ?? (user as any).photoURL ?? null;
+            const stageId = selectedGroup.application?.currentStageId || null;
             const noteDoc = await addDoc(collection(firestore, 'application_notes'), {
                 applicationId: selectedGroup.applicationId,
+                stageId,
                 authorId: user.uid,
                 authorName,
+                authorPhotoURL,
                 text: noteText.trim(),
                 createdAt: now,
             });
-            setMyNotes(prev => [{ id: noteDoc.id, text: noteText.trim(), authorName, createdAt: now }, ...prev]);
+            setMyNotes(prev => [{ id: noteDoc.id, text: noteText.trim(), authorName, authorPhotoURL: authorPhotoURL ?? undefined, authorId: user.uid, createdAt: now }, ...prev]);
             toast({ title: 'Тэмдэглэл хадгалагдлаа' });
             setNoteText('');
         } catch (err: any) {
@@ -686,11 +720,15 @@ export default function MobileEvaluationsPage() {
                                     <Card key={note.id}>
                                         <CardContent className="p-3">
                                             <p className="text-sm text-slate-800 whitespace-pre-wrap">{note.text}</p>
-                                            <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400">
-                                                <User className="h-3 w-3" />
-                                                <span>{note.authorName}</span>
-                                                <span>•</span>
-                                                <span>{note.createdAt ? format(new Date(note.createdAt), 'yyyy/MM/dd HH:mm') : ''}</span>
+                                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+                                                <Avatar className="h-6 w-6 shrink-0">
+                                                    <AvatarImage src={note.authorPhotoURL} alt={note.authorName} />
+                                                    <AvatarFallback className="text-[10px] font-semibold bg-amber-100 text-amber-800">
+                                                        {(note.authorName || 'Нэргүй')[0]}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-[11px] font-medium text-slate-600">{note.authorName || 'Нэргүй'}</span>
+                                                <span className="text-[10px] text-slate-400 ml-auto">{note.createdAt ? format(new Date(note.createdAt), 'yyyy/MM/dd HH:mm') : ''}</span>
                                             </div>
                                         </CardContent>
                                     </Card>
