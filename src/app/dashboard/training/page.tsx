@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useFirebase, useCollection, addDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { useFirebase, useCollection, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import type { Department, PositionLevel, Position } from '@/app/dashboard/organization/types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -144,6 +144,12 @@ export default function TrainingPage() {
         });
     };
 
+    const handleDeletePlan = (planId: string) => {
+        if (!firestore) return;
+        deleteDocumentNonBlocking(doc(firestore, 'training_plans', planId));
+        toast({ title: 'Төлөвлөгөө устгагдлаа' });
+    };
+
     return (
         <div className="flex flex-col h-full overflow-hidden bg-slate-50/50">
             <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 pb-32">
@@ -188,6 +194,7 @@ export default function TrainingPage() {
                             skills={skills}
                             isLoading={plansLoading}
                             onCreatePlan={handleCreatePlan}
+                            onDeletePlan={handleDeletePlan}
                         />
                     </TabsContent>
 

@@ -491,6 +491,12 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: bpKpis } = useCollection<any>(bpKpisQuery);
 
+    // Survey queries (for Survey widget)
+    const surveysQuery = useMemoFirebase(() =>
+        firestore ? collection(firestore, 'surveys') : null
+        , [firestore]);
+    const { data: allSurveys } = useCollection<any>(surveysQuery);
+
     // Calculate overdue tasks
     const overdueTasksCount = useMemo(() => {
         if (!allTasks) return 0;
@@ -737,6 +743,11 @@ const OrganizationChart = () => {
                 if (!k.target || k.target === 0) return true;
                 return (k.current / k.target) * 100 >= 90;
             }).length || 0,
+
+            // Survey widget
+            surveyActiveCount: allSurveys?.filter((s: any) => s.status === 'active').length || 0,
+            surveyDraftCount: allSurveys?.filter((s: any) => s.status === 'draft').length || 0,
+            surveyTotalResponses: allSurveys?.reduce((sum: number, s: any) => sum + (s.responsesCount || 0), 0) || 0,
         };
     }, [
         activeProjects,
@@ -761,6 +772,7 @@ const OrganizationChart = () => {
         bpPlans,
         bpObjectives,
         bpKpis,
+        allSurveys,
     ]);
 
 

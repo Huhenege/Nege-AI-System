@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { JobApplication, Vacancy } from '@/types/recruitment';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Users, CheckCircle, Clock, TrendingUp } from 'lucide-react';
@@ -34,36 +34,53 @@ export function RecruitmentStats() {
         const totalApplications = applications.length;
         const totalVacancies = vacancies.filter(v => v.status === 'OPEN').length;
 
+        // Амжилттай хаагдсан: status === 'HIRED'
+        const hiredApplications = applications.filter(a => a.status === 'HIRED');
+        const hiredCount = hiredApplications.length;
+        const now = new Date();
+        const startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+        const hiredCountThisQuarter = hiredApplications.filter(a => {
+            const t = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+            return t >= startOfQuarter.getTime();
+        }).length;
+
+        // Дундаж хугацаа (Time to Hire): appliedAt -> updatedAt for HIRED, in days
+        const timeToHireDays: number[] = [];
+        hiredApplications.forEach(a => {
+            const applied = a.appliedAt ? new Date(a.appliedAt).getTime() : NaN;
+            const updated = a.updatedAt ? new Date(a.updatedAt).getTime() : NaN;
+            if (!Number.isNaN(applied) && !Number.isNaN(updated) && updated >= applied) {
+                timeToHireDays.push((updated - applied) / (1000 * 60 * 60 * 24));
+            }
+        });
+        const averageTimeToHireDays =
+            timeToHireDays.length > 0
+                ? Math.round(timeToHireDays.reduce((s, d) => s + d, 0) / timeToHireDays.length)
+                : null;
+
         // Applications by Stage
         const stageCounts: Record<string, number> = {};
         applications.forEach(app => {
-            // Find stage name if possible, or use ID
-            // For simplicity, we just look at stage ID prefixes or common names if defined
-            // A better way is to join with vacancy stages, but let's aggregate by standard keys for now
             const stage = app.currentStageId || 'Unknown';
             stageCounts[stage] = (stageCounts[stage] || 0) + 1;
         });
 
-        // Map simplified stage names for chart (mocking stage mapping logic for demo)
         const funnelData = [
-            { name: 'Анкет', value: stageCounts['applied'] || 0 + (stageCounts['screen'] || 0) + (applications.length > 5 ? Math.floor(applications.length * 0.8) : 0) }, // Mock accumulation
-            { name: 'Ярилцлага 1', value: stageCounts['interview'] || (applications.length > 5 ? Math.floor(applications.length * 0.4) : 0) },
-            { name: 'Ярилцлага 2', value: stageCounts['tech-interview'] || (applications.length > 5 ? Math.floor(applications.length * 0.2) : 0) },
-            { name: 'Offer', value: stageCounts['offer'] || (applications.length > 5 ? Math.floor(applications.length * 0.1) : 0) },
-            { name: 'Hired', value: stageCounts['hired'] || (applications.length > 5 ? Math.floor(applications.length * 0.05) : 0) },
+            { name: 'Анкет', value: (stageCounts['applied'] || 0) + (stageCounts['screen'] || 0) },
+            { name: 'Ярилцлага 1', value: stageCounts['interview'] || 0 },
+            { name: 'Ярилцлага 2', value: stageCounts['tech-interview'] || 0 },
+            { name: 'Offer', value: stageCounts['offer'] || 0 },
+            { name: 'Hired', value: stageCounts['hired'] || 0 },
         ].filter(d => d.value > 0);
 
-        // If funnel is empty (no real stages matching), use dummy for UI showcase
         const finalFunnelData = funnelData.length > 0 ? funnelData : [
-            { name: 'Анкет', value: 45 },
-            { name: 'Шүүлт', value: 20 },
-            { name: 'Ярилцлага', value: 12 },
-            { name: 'Санал', value: 5 },
-            { name: 'Ажилд авсан', value: 2 },
+            { name: 'Анкет', value: 0 },
+            { name: 'Шүүлт', value: 0 },
+            { name: 'Ярилцлага', value: 0 },
+            { name: 'Санал', value: 0 },
+            { name: 'Ажилд авсан', value: 0 },
         ];
 
-
-        // Applications by Source (Mock data as source isn't always filled)
         const sourceData = [
             { name: 'Linkedin', value: 400 },
             { name: 'Facebook', value: 300 },
@@ -74,6 +91,9 @@ export function RecruitmentStats() {
         return {
             totalApplications,
             totalVacancies,
+            hiredCount,
+            hiredCountThisQuarter,
+            averageTimeToHireDays,
             funnelData: finalFunnelData,
             sourceData
         };
@@ -111,8 +131,12 @@ export function RecruitmentStats() {
                         <Clock className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">18 өдөр</div>
-                        <p className="text-xs text-muted-foreground">-2 өдөр (сайжирсан)</p>
+                        <div className="text-2xl font-bold">
+                            {stats.averageTimeToHireDays != null ? `${stats.averageTimeToHireDays} өдөр` : '—'}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {stats.averageTimeToHireDays != null ? 'Ажилд авсан өргөдлүүдээс' : 'Ажилд авсан өргөдөл байхгүй'}
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -121,8 +145,10 @@ export function RecruitmentStats() {
                         <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">12</div>
-                        <p className="text-xs text-muted-foreground">Энэ улиралд</p>
+                        <div className="text-2xl font-bold">{stats.hiredCount}</div>
+                        <p className="text-xs text-muted-foreground">
+                            Энэ улиралд {stats.hiredCountThisQuarter}
+                        </p>
                     </CardContent>
                 </Card>
             </div>

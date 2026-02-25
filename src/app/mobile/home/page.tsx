@@ -10,7 +10,7 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, orderBy, doc, getDoc, where, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles, Palmtree, ChevronRight, Star, Trophy, FolderKanban, Building } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles, Palmtree, ChevronRight, Star, Trophy, FolderKanban, Building, ClipboardList } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -537,6 +537,7 @@ function QuickActions() {
 
     const actions = [
         { label: 'Ирц', icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50', onClick: () => router.push('/mobile/attendance') },
+        { label: 'Судалгаа', icon: ClipboardList, color: 'text-rose-600', bg: 'bg-rose-50', onClick: () => router.push('/mobile/survey') },
         { label: 'Төсөл', icon: FolderKanban, color: 'text-violet-600', bg: 'bg-violet-50', onClick: () => router.push('/mobile/projects') },
         { label: 'Амралт', icon: Palmtree, color: 'text-emerald-600', bg: 'bg-emerald-50', onClick: () => router.push('/mobile/vacation') },
         { label: 'Оноо', icon: Star, color: 'text-amber-500', bg: 'bg-amber-50', onClick: () => router.push('/mobile/points') },
@@ -544,7 +545,7 @@ function QuickActions() {
 
     return (
         <div className="px-5">
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
                 {actions.map((action, i) => (
                     <div key={i} className="flex flex-col items-center gap-2 cursor-pointer group active:scale-95 transition-transform" onClick={action.onClick}>
                         <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-[0_2px_8px_rgba(0,0,0,0.04)] bg-white", action.color)}>

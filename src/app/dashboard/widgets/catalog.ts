@@ -14,6 +14,7 @@ import {
     DoorOpen,
     Award,
     BarChart3,
+    ClipboardList,
     LucideIcon
 } from 'lucide-react';
 
@@ -30,7 +31,8 @@ export type WidgetId =
     | 'training'
     | 'meetings'
     | 'skills'
-    | 'business-plan';
+    | 'business-plan'
+    | 'survey';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -59,7 +61,8 @@ export const DEFAULT_ORDER: WidgetId[] = [
     'training',
     'meetings',
     'skills',
-    'business-plan'
+    'business-plan',
+    'survey'
 ];
 
 // Widget catalog with all available widgets
@@ -192,6 +195,16 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         href: '/dashboard/business-plan',
         size: 'compact',
         icon: BarChart3,
+        requiredData: [],
+        category: 'core'
+    },
+    survey: {
+        id: 'survey',
+        label: 'Санал асуулга',
+        description: 'Ажилтнуудын санал асуулга, судалгаа',
+        href: '/dashboard/survey',
+        size: 'compact',
+        icon: ClipboardList,
         requiredData: [],
         category: 'core'
     }

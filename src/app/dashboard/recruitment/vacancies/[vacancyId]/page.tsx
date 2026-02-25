@@ -203,6 +203,10 @@ export default function VacancyDetailPage() {
         if (!firestore || !vacancyId) return;
         setSaving(true);
         try {
+            const applicationsRef = collection(firestore, 'applications');
+            const q = query(applicationsRef, where('vacancyId', '==', vacancyId));
+            const snap = await getDocs(q);
+            await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
             await deleteDoc(doc(firestore, 'vacancies', vacancyId as string));
             toast({ title: 'Ажлын байр устгагдлаа' });
             router.push('/dashboard/recruitment');

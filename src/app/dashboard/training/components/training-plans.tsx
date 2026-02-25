@@ -12,7 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, ClipboardList } from 'lucide-react';
+import { Search, ClipboardList, Trash2 } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
     TrainingPlan,
     TrainingCourse,
@@ -60,6 +70,7 @@ interface TrainingPlansProps {
     skills?: SkillItem[];
     isLoading: boolean;
     onCreatePlan: (values: import('../types').CreatePlanFormValues, courseName: string) => void;
+    onDeletePlan?: (planId: string) => void;
 }
 
 export function TrainingPlans({
@@ -73,6 +84,7 @@ export function TrainingPlans({
     skills = [],
     isLoading,
     onCreatePlan,
+    onDeletePlan,
 }: TrainingPlansProps) {
     const router = useRouter();
     useFirebase();
@@ -80,6 +92,7 @@ export function TrainingPlans({
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [createOpen, setCreateOpen] = useState(false);
+    const [planToDelete, setPlanToDelete] = useState<TrainingPlan | null>(null);
 
     const planDate = (p: TrainingPlan) => p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? '';
     const planParticipantIds = (p: TrainingPlan) => p.participantIds ?? (p.employeeId ? [p.employeeId] : []);
@@ -257,6 +270,7 @@ export function TrainingPlans({
                                 <TableHead>Төлөв</TableHead>
                                 <TableHead>Үнэлгээний арга</TableHead>
                                 <TableHead className="min-w-[100px]">Тайлбар</TableHead>
+                                <TableHead className="w-[80px] text-center">Үйлдэл</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -313,12 +327,50 @@ export function TrainingPlans({
                                     <TableCell>
                                         <span className="text-sm text-muted-foreground truncate max-w-[100px] block" title={plan.notes}>{plan.notes || '—'}</span>
                                     </TableCell>
+                                    <TableCell className="text-center">
+                                        {onDeletePlan && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-rose-600 hover:bg-rose-50"
+                                                onClick={() => setPlanToDelete(plan)}
+                                                title="Устгах"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
                 </div>
             )}
+
+            <AlertDialog open={!!planToDelete} onOpenChange={(open) => { if (!open) setPlanToDelete(null); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Сургалтын төлөвлөгөөг устгах уу?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            &quot;{planToDelete?.courseName}&quot; төлөвлөгөөг бүрмөсөн устгана. Энэ үйлдлийг буцааж болохгүй.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction
+                            variant="destructive"
+                            onClick={() => {
+                                if (planToDelete && onDeletePlan) {
+                                    onDeletePlan(planToDelete.id);
+                                    setPlanToDelete(null);
+                                }
+                            }}
+                        >
+                            Устгах
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <CreatePlanDialog
                 open={createOpen}

@@ -119,6 +119,9 @@ export function PageHeader({
       'meetings': 'Хурлын өрөө',
       'rooms': 'Өрөөнүүд',
       'business-plan': 'Бизнес төлөвлөгөө',
+      'survey': 'Санал асуулга',
+      'create': 'Үүсгэх',
+      'results': 'Дүн',
     };
 
     let currentPath = '';

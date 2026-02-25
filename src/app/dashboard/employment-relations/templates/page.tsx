@@ -33,7 +33,10 @@ export default function TemplatesManagementPage() {
           title="Загварын удирдлага"
           description="Гэрээ, тушаал, албан бичиг баримтын загваруудыг удирдах"
           showBackButton={true}
-          backHref="/dashboard/employment-relations"
+          hideBreadcrumbs={true}
+          backButtonPlacement="inline"
+          backBehavior="history"
+          fallbackBackHref="/dashboard/employment-relations"
         />
 
         <TemplatesTab docTypes={docTypes || []} />

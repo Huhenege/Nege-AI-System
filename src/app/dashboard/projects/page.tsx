@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, collectionGroup, query, where, orderBy } from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy } from 'firebase/firestore';
 import { Project, ProjectStatus, ProjectGroup } from '@/types/project';
 import { Employee } from '@/types';
 import { CreateProjectDialog } from './components/create-project-dialog';

@@ -8,7 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { EyeOff, GripVertical } from 'lucide-react';
+import { EyeOff, GripVertical, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { WidgetId, getWidgetConfig } from './catalog';
 
@@ -70,6 +70,11 @@ export interface WidgetData {
     bpPlanProgress?: number;
     bpOkrCount?: number;
     bpKpiGreenCount?: number;
+
+    // Survey widget
+    surveyActiveCount?: number;
+    surveyDraftCount?: number;
+    surveyTotalResponses?: number;
 }
 
 interface DashboardWidgetCardProps {
@@ -422,6 +427,31 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
+            case 'survey':
+                return (
+                    <div className="relative z-10 space-y-2">
+                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
+                            Санал асуулга
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-semibold text-white">{data.surveyActiveCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Идэвхтэй</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-amber-400">{data.surveyDraftCount ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Ноорог</div>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700" />
+                            <div>
+                                <div className="text-2xl font-semibold text-rose-400">{data.surveyTotalResponses ?? 0}</div>
+                                <div className="text-[10px] text-slate-400">Хариулт</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+
             default:
                 return null;
         }
@@ -448,6 +478,8 @@ export function DashboardWidgetCard({
                 return 'bg-gradient-to-br from-indigo-500/10 to-violet-500/10';
             case 'business-plan':
                 return 'bg-gradient-to-br from-emerald-500/10 to-lime-500/10';
+            case 'survey':
+                return 'bg-gradient-to-br from-rose-500/10 to-pink-500/10';
             default:
                 return '';
         }
@@ -519,7 +551,8 @@ export function DashboardWidgetCard({
                                 id === 'training' && "text-teal-400",
                                 id === 'meetings' && "text-orange-400",
                                 id === 'skills' && "text-indigo-400",
-                                id === 'business-plan' && "text-emerald-400"
+                                id === 'business-plan' && "text-emerald-400",
+                                id === 'survey' && "text-rose-400"
                             )}
                         />
                     </div>

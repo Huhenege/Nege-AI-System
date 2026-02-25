@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { collection, doc } from 'firebase/firestore';
-import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,17 @@ import { AddActionButton } from '@/components/ui/add-action-button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, BookOpen, Pencil, Archive } from 'lucide-react';
+import { Search, BookOpen, Pencil, Archive, Trash2 } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { CreateCourseDialog } from './create-course-dialog';
 import {
@@ -45,6 +55,7 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingCourse, setEditingCourse] = useState<TrainingCourse | null>(null);
+    const [courseToDelete, setCourseToDelete] = useState<TrainingCourse | null>(null);
 
     const skillMap = useMemo(() => {
         const map = new Map<string, string>();
@@ -91,6 +102,13 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
         if (!firestore) return;
         updateDocumentNonBlocking(doc(firestore, 'training_courses', course.id), { status: 'archived' });
         toast({ title: 'Архивлагдлаа', description: course.title });
+    };
+
+    const handleDelete = (course: TrainingCourse) => {
+        if (!firestore) return;
+        deleteDocumentNonBlocking(doc(firestore, 'training_courses', course.id));
+        toast({ title: 'Сургалт устгагдлаа', description: course.title });
+        setCourseToDelete(null);
     };
 
     const statusColor: Record<string, string> = {
@@ -205,6 +223,7 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
                                                     setEditingCourse(course);
                                                     setDialogOpen(true);
                                                 }}
+                                                title="Засах"
                                             >
                                                 <Pencil className="h-3.5 w-3.5" />
                                             </Button>
@@ -214,10 +233,20 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
                                                     size="icon"
                                                     className="h-8 w-8"
                                                     onClick={() => handleArchive(course)}
+                                                    title="Архивлах"
                                                 >
                                                     <Archive className="h-3.5 w-3.5" />
                                                 </Button>
                                             )}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-rose-600 hover:bg-rose-50"
+                                                onClick={() => setCourseToDelete(course)}
+                                                title="Устгах"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -226,6 +255,26 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
                     </Table>
                 </div>
             )}
+
+            <AlertDialog open={!!courseToDelete} onOpenChange={(open) => { if (!open) setCourseToDelete(null); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Сургалтыг устгах уу?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            &quot;{courseToDelete?.title}&quot; сургалтыг сангаас бүрмөсөн устгана. Энэ үйлдлийг буцааж болохгүй. Энэ сургалтад холбоотой төлөвлөгөөнүүд үлдэнэ.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                        <AlertDialogAction
+                            variant="destructive"
+                            onClick={() => courseToDelete && handleDelete(courseToDelete)}
+                        >
+                            Устгах
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Dialog */}
             <CreateCourseDialog

@@ -46,7 +46,7 @@ import { format, isPast, parseISO } from 'date-fns';
 import { mn } from 'date-fns/locale';
 
 import { useCollection, useDoc, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, orderBy, Timestamp, getDocs, deleteDoc } from 'firebase/firestore';
 import { AssignProjectGroupsDialog } from '../components/assign-project-groups-dialog';
 import {
     Project,
@@ -299,6 +299,9 @@ export default function ProjectDetailPage() {
         if (!firestore || !projectId) return;
 
         try {
+            const tasksRef = collection(firestore, 'projects', projectId, 'tasks');
+            const tasksSnap = await getDocs(tasksRef);
+            await Promise.all(tasksSnap.docs.map((d) => deleteDoc(d.ref)));
             await deleteDocumentNonBlocking(doc(firestore, 'projects', projectId));
             toast({
                 title: 'Амжилттай',

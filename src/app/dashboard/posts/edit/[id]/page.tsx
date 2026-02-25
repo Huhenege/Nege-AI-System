@@ -14,6 +14,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -26,7 +36,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   Loader2,
@@ -215,6 +225,8 @@ export default function EditPostPage() {
   const [imageFiles, setImageFiles] = React.useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = React.useState<string[]>([]);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
 
   const form = useForm<PostFormValues>({
     resolver: zodResolver(postSchema),
@@ -290,7 +302,29 @@ export default function EditPostPage() {
 
     router.push('/dashboard/posts');
   };
-  
+
+  const handleDelete = async () => {
+    if (!postDocRef || !postId) return;
+    setDeleting(true);
+    try {
+      await deleteDoc(postDocRef);
+      toast({
+        title: 'Нийтлэл устгагдлаа',
+        description: 'Пост амжилттай устгалаа.',
+      });
+      router.push('/dashboard/posts');
+    } catch (error) {
+      console.error('Delete post error:', error);
+      toast({
+        title: 'Устгахад алдаа гарлаа',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   if (isLoadingPost) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
@@ -352,6 +386,15 @@ export default function EditPostPage() {
           actions={
             <div className="flex items-center gap-2">
               <Button
+                variant="destructive"
+                type="button"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={isSubmitting || isUploading || deleting}
+              >
+                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                Устгах
+              </Button>
+              <Button
                 variant="outline"
                 type="button"
                 onClick={() => router.push('/dashboard/posts')}
@@ -375,6 +418,27 @@ export default function EditPostPage() {
             </div>
           }
         />
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Нийтлэлийг устгах уу?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Энэ нийтлэлийг бүрмөсөн устгана. Энэ үйлдлийг буцааж болохгүй.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Цуцлах</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Устгаж байна...' : 'Устгах'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           <div className="lg:col-span-2">

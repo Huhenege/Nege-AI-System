@@ -520,7 +520,7 @@ export default function DocumentDetailPage() {
 
                                     {(currentStatus === 'DRAFT' || currentStatus === 'IN_REVIEW') && (
                                         <>
-                                            {currentStatus === 'DRAFT' && (template?.isDeletable ?? true) && (
+                                            {((currentStatus === 'DRAFT' && (template?.isDeletable ?? true)) || (currentStatus === 'IN_REVIEW' && (isOwner || isAdmin))) && (
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving} title="Устгах">
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
@@ -555,6 +555,11 @@ export default function DocumentDetailPage() {
                                                 Батлах
                                             </Button>
                                         </>
+                                    )}
+                                    {(currentStatus === 'REVIEWED' || currentStatus === 'APPROVED' || currentStatus === 'SIGNED') && isAdmin && (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:bg-rose-50" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving} title="Устгах">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     )}
                                     {(currentStatus === 'APPROVED' || currentStatus === 'SIGNED') && document.signedDocUrl && (
                                         <Button variant="outline" size="sm" className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700" onClick={() => window.open(document.signedDocUrl, '_blank')}>
