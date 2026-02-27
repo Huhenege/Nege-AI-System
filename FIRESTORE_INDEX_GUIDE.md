@@ -63,7 +63,7 @@ firebase deploy --only firestore:indexes --config firebase.indexes-only.json
 
 ### Эрх засах (төсөлд Owner/Admin хэрэгтэй)
 
-1. [Google Cloud Console](https://console.cloud.google.com) → төсөл **hr-tumenresources** сонгоно.
+1. [Google Cloud Console](https://console.cloud.google.com) → төсөл **nege-ai-system** сонгоно.
 2. **IAM & Admin** → **IAM**.
 3. Өөрийн бүртгэл эсвэл service account-ыг олж, дараах ролуудын нэгийг нэмнэ:
    - **Firebase Admin** (эсвэл)

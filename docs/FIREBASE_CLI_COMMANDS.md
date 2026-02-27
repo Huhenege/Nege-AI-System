@@ -20,7 +20,7 @@ firebase login
 
 ```bash
 cd "/Users/huhenege/Documents/HR system Cursor"
-firebase use hr-tumenresources
+firebase use nege-ai-system
 ```
 
 ### 3. Шалгах

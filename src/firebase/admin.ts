@@ -17,24 +17,24 @@ function initializeFirebaseAdmin() {
   // 1. Set GOOGLE_APPLICATION_CREDENTIALS env var to point to service account JSON
   // 2. Or provide credentials directly via FIREBASE_SERVICE_ACCOUNT_KEY env var
   
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'nege-ai-system';
+
   try {
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
       return initializeApp({
         credential: cert(serviceAccount),
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'hr-tumenresources',
-      });
-    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      return initializeApp({
-        credential: admin.credential.applicationDefault(),
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'hr-tumenresources',
-      });
-    } else {
-      // For development: Initialize without credentials (works with emulator)
-      return initializeApp({
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'hr-tumenresources',
+        projectId,
       });
     }
+
+    // Use Application Default Credentials (ADC).
+    // Locally: picked up from `gcloud auth application-default login`
+    // In Cloud Run / GCE / Vercel: auto-provided by the environment
+    return initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId,
+    });
   } catch (error) {
     console.error('Failed to initialize Firebase Admin:', error);
     throw error;
