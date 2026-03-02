@@ -1,5 +1,5 @@
 rules_version = '2';
-// Teal HR — Firestore аюулгүй байдлын дүрмүүд.
+// Nege Systems — Firestore аюулгүй байдлын дүрмүүд.
 // Roles болон collection-уудын эрхийн тайлбар: docs/FIRESTORE_ROLES.md
 
 service cloud.firestore {

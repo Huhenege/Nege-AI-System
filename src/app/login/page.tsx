@@ -118,7 +118,7 @@ export default function LoginPage() {
                   </AvatarFallback>
                 </Avatar>
                 <CardTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
-                  {companyProfile?.name || 'Teal HR'}-т нэвтрэх
+                  {companyProfile?.name || 'Nege Systems'}-т нэвтрэх
                 </CardTitle>
               </>
             )}

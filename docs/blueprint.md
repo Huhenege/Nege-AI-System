@@ -1,4 +1,4 @@
-# **App Name**: Teal HR
+# **App Name**: Nege Systems
 
 ## Core Features:
 

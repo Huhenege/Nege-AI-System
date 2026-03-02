@@ -1,5 +1,5 @@
 rules_version = '2';
-// Teal HR — Firebase Storage аюулгүй байдлын дүрмүүд.
+// Nege Systems — Firebase Storage аюулгүй байдлын дүрмүүд.
 // Админ эрх: Firestore employees/(request.auth.uid).role == 'admin'
 // Зам бүрийн тайлбар: docs/FIRESTORE_ROLES.md (Storage хэсэг нэмэгдэж болно).
 

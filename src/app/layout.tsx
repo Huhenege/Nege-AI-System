@@ -9,7 +9,7 @@ import { InactivityLogout } from '@/components/inactivity-logout';
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
-  title: 'Teal HR',
+  title: 'Nege Systems',
   description: 'Жижиг компаниудад зориулсан хүний нөөцийн иж бүрэн систем.',
 };
 
