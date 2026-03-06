@@ -5,15 +5,15 @@ import { getFirebaseAdminFirestore } from '@/firebase/admin';
 export const createProjectTool = ai.defineTool(
   {
     name: 'createProject',
-    description: 'Creates a new project in the system with the provided details.',
+    description: 'Creates a new project in the system with the provided details. Use the exact employee IDs from the employee context provided in the system prompt.',
     inputSchema: z.object({
       name: z.string().describe('The name of the project.'),
       goal: z.string().describe('The goal or objective of the project.'),
       expectedOutcome: z.string().describe('The expected outcome of the project.'),
       startDate: z.string().describe('The start date of the project in YYYY-MM-DD format.'),
       endDate: z.string().describe('The end date of the project in YYYY-MM-DD format.'),
-      ownerId: z.string().describe('The ID of the employee who will own/lead the project.'),
-      teamMemberIds: z.array(z.string()).describe('An array of employee IDs who will be team members.'),
+      ownerId: z.string().describe('The ID of the employee who will own/lead the project. MUST be an exact ID from the employee list.'),
+      teamMemberIds: z.array(z.string()).describe('An array of employee IDs who will be team members. MUST be exact IDs from the employee list.'),
       status: z.enum(['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).describe('The initial status of the project.'),
       priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).describe('The priority of the project.'),
       pointBudget: z.number().optional().describe('Optional point budget for the project rewards.'),
@@ -29,7 +29,7 @@ export const createProjectTool = ai.defineTool(
       const db = getFirebaseAdminFirestore();
       const projectRef = db.collection('projects').doc();
       
-      const projectData: any = {
+      const projectData: Record<string, unknown> = {
         id: projectRef.id,
         name: input.name,
         goal: input.goal,
@@ -56,102 +56,69 @@ export const createProjectTool = ai.defineTool(
         success: true,
         projectId: projectRef.id,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to create project';
       console.error('Error in createProjectTool:', error);
       return {
         success: false,
-        error: error.message || 'Failed to create project',
+        error: message,
       };
     }
   }
 );
 
-export const listEmployeesTool = ai.defineTool(
-  {
-    name: 'listEmployees',
-    description: 'Fetches a list of active employees in the system, returning their IDs, names, and positions. Use this when the user needs to select an owner or team members.',
-    inputSchema: z.object({}),
-    outputSchema: z.object({
-      employees: z.array(
-        z.object({
-          id: z.string(),
-          name: z.string(),
-          position: z.string().optional(),
-          department: z.string().optional()
-        })
-      ),
-      success: z.boolean(),
-      error: z.string().optional()
-    }),
-  },
-  async () => {
-    try {
-      const db = getFirebaseAdminFirestore();
-      
-      // Fetch employees
-      const employeesSnap = await db.collection('employees').get();
-      
-      // We might need position and department names, let's fetch them
-      const positionsSnap = await db.collection('positions').get();
-      const departmentsSnap = await db.collection('departments').get();
-      
-      const positionMap = new Map();
-      positionsSnap.docs.forEach(doc => positionMap.set(doc.id, doc.data().title || doc.data().name));
-      
-      const departmentMap = new Map();
-      departmentsSnap.docs.forEach(doc => departmentMap.set(doc.id, doc.data().name));
-      
-      const employees = employeesSnap.docs.map(doc => {
-        const data = doc.data();
-        const firstName = data.firstName || '';
-        const lastName = data.lastName || '';
-        const fullName = `${lastName} ${firstName}`.trim() || data.email || 'Нэргүй ажилтан';
-        
-        return {
-          id: doc.id,
-          name: fullName,
-          position: data.positionId ? positionMap.get(data.positionId) : undefined,
-          department: data.departmentId ? departmentMap.get(data.departmentId) : undefined,
-        };
-      });
-      
-      return {
-        success: true,
-        employees
-      };
-    } catch (error: any) {
-      console.error('Error fetching employees:', error);
-      return {
-        success: false,
-        employees: [],
-        error: error.message || 'Failed to fetch employees'
-      };
-    }
-  }
-);
+interface EmployeeInfo {
+  id: string;
+  name: string;
+  position?: string;
+  department?: string;
+}
 
-export const systemPrompt = `
-Та бол Nege Systems-ийн ухаалаг туслах AI юм. 
-Таны гол зорилго бол хэрэглэгчдэд системийн үйл ажиллагааг хялбарчлах, туслах, болон автоматжуулах явдал юм.
+export function buildSystemPrompt(employees: EmployeeInfo[]): string {
+  const employeeLines = employees.map(emp => {
+    const pos = emp.position ? ` - ${emp.position}` : '';
+    return `  - ID: "${emp.id}" | ${emp.name}${pos}`;
+  }).join('\n');
 
-Та дараах үйлдлүүдийг хийж чадна:
-1. **Төсөл үүсгэх**: Хэрэглэгч шинэ төсөл үүсгэхийг хүсвэл та төсөлд шаардлагатай мэдээллүүдийг цуглуулна. Ингэхдээ **НЭГ ДОР БҮХ ТАЛБАРЫГ АСУУЖ БОЛОХГҮЙ**. Яг л хүнтэй харилцаж байгаа мэт НЭГ НЭГЭЭР нь, эсвэл хоёр хоёроор нь логик дарааллаар асууна.
-   - Жишээ нь: Эхлээд зөвхөн "Төслийн нэр болон зорилго юу вэ?" гэж асууна. 
-   - Түүнийг хариулсны дараа "Ойлголоо. Хэзээ эхэлж, хэзээ дуусах вэ? (Он-Сар-Өдөр форматаар хэлнэ үү)" гэх мэтээр үргэлжлүүлнэ.
-   - Дараа нь хариуцагч болон багийн гишүүдийг асууна (хэрэгтэй бол listEmployees ашиглаж нэрсийг нь санал болгоно).
-   - Хамгийн сүүлд төлөв болон чухалчлалыг баталгаажуулаад, бүх мэдээлэл бүрдсэн үед \`createProject\` tool-ийг дуудна.
-2. **Ажилчдын жагсаалт харах болон Сонгох**: Хэрэглэгч ажилчдын нэрсийг харахыг хүсвэл, эсвэл хариуцагч/багийн гишүүдийг сонгуулах шаардлагатай бол \`listEmployees\` багажийг ашиглан ажилчдыг дуудна. Дараа нь хэрэглэгчид **зөвхөн доорх JSON форматыг яг энэ чигээр нь** буцаана (Өөр текст бичиж болно, гэхдээ JSON хэсгийг markdown code block дотор заавал оруулаарай):
+  return `Та бол Nege Systems-ийн ухаалаг туслах AI юм.
+Таны гол зорилго бол хэрэглэгчдэд системийн үйл ажиллагааг хялбарчлах, туслах, болон автоматжуулах юм.
+
+## Танд байгаа ажилчдын мэдээлэл
+Системд бүртгэлтэй ажилчдын жагсаалт:
+${employeeLines || '  (Ажилчдын мэдээлэл олдсонгүй)'}
+
+## Таны чадвар
+1. **Төсөл үүсгэх**: Хэрэглэгч шинэ төсөл үүсгэхийг хүсвэл та мэдээллүүдийг нэг нэгээр цуглуулна.
+   - Эхлээд: "Төслийн нэр болон зорилго юу вэ?" гэж асууна.
+   - Дараа нь: "Хүлээгдэж буй үр дүн юу вэ?" гэж асууна.
+   - Дараа нь: "Хэзээ эхэлж, хэзээ дуусах вэ? (YYYY-MM-DD)" гэж асууна.
+   - Дараа нь хариуцагч (owner) сонгуулна. Ажилчдын жагсаалтыг доорх JSON хэлбэрээр харуулна:
 
 \`\`\`json
-{
-  "type": "employee_selector",
-  "employees": [
-    {"id": "тухайн_ажилтны_id", "name": "Ажилтны Нэр - Албан тушаал"}
-  ]
-}
+{"type":"employee_selector","mode":"single","label":"Хариуцагч сонгоно уу","employees":[${employees.map(e => `{"id":"${e.id}","name":"${e.name}${e.position ? ' - ' + e.position : ''}"}`).join(',')}]}
 \`\`\`
 
-\`listEmployees\`-ээс ирсэн бүх ажилчдын мэдээллийг энэ JSON дотор жагсааж бичнэ. Хэрэглэгч энэ жагсаалтаас дарж сонгоход танд "Бат-Эрдэнэ" гэх мэтээр нэр нь ирэх бөгөөд та цаанаа **тэр хүнийг listEmployees-ийн үр дүнгээс хайж олж, яг ID-г нь ашиглаж** \`createProject\` рүү (ownerId, teamMemberIds) дамжуулах ёстой. ХЭЗЭЭ Ч хүний нэрийг ID-ийн оронд явуулж болохгүй! Зөвхөн ID-г нь явуулна.
+   Жагсаалтад БҮГДИЙГ нь оруулна. Дээрх нь зөвхөн жишээ формат биш, бүх ажилчдын жагсаалтыг оруулж харуулах формат юм.
 
-Таны хариулт үргэлж монгол хэл дээр, мэргэжлийн, найрсаг, товч бөгөөд тодорхой байх ёстой. Мөн хэрэглэгчтэй чатлаж байхдаа markdown формат ашиглан текстээ ойлгомжтойгоор хэлбэржүүлнэ.
-`;
+   - Дараа нь багийн гишүүдийг сонгуулна (олон хүн сонгож болно). Адил JSON хэлбэрээр, гэхдээ mode-г "multi" болгож, label-г "Багийн гишүүдийг сонгоно уу" болгоно:
+   
+\`\`\`json
+{"type":"employee_selector","mode":"multi","label":"Багийн гишүүдийг сонгоно уу","employees":[${employees.map(e => `{"id":"${e.id}","name":"${e.name}${e.position ? ' - ' + e.position : ''}"}`).join(',')}]}
+\`\`\`
+
+   - Хамгийн сүүлд төлөв (DRAFT/ACTIVE/ON_HOLD) болон чухалчлал (LOW/MEDIUM/HIGH/URGENT) асуугаад баталгаажуулна.
+   - Бүх мэдээлэл бүрдсэн үед \`createProject\` tool-ийг дуудна. ownerId, teamMemberIds-д заавал ажилтны ЯГ ID-г ашиглана (хэзээ ч нэрийг ID-д бичихгүй!).
+
+2. **Ажилчдын жагсаалт харуулах**: Хэрэглэгч ажилчдын нэрсийг харахыг хүсвэл доорх JSON хэлбэрээр employee_selector харуулна:
+
+\`\`\`json
+{"type":"employee_selector","mode":"single","label":"Ажилчдын жагсаалт","employees":[${employees.map(e => `{"id":"${e.id}","name":"${e.name}${e.position ? ' - ' + e.position : ''}"}`).join(',')}]}
+\`\`\`
+
+## ЧУХАЛ ДҮРМҮҮД
+- НЭГ ДОР БҮХ ТАЛБАРЫГ АСУУЖ БОЛОХГҮЙ. Нэг нэгээр, хүнтэй ярьж байгаа шиг логик дарааллаар.
+- Employee selector JSON нь ЗААВАЛ markdown code block (\`\`\`json ... \`\`\`) дотор байх ёстой.
+- Хариулт заавал Монгол хэл дээр, найрсаг, мэргэжлийн, товч байна.
+- Хэрэглэгч нэрээр нь хэлбэл, та дээрх жагсаалтаас хайж олоод ЯГ ID-г нь ашиглана.
+- Markdown формат ашиглан хариултаа ойлгомжтойгоор хэлбэржүүлнэ.`;
+}
