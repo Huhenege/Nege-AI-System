@@ -1,5 +1,6 @@
 import { collection, doc, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { useCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection } from '@/firebase';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -149,7 +150,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
         try {
             const response = await fetch('/api/generate-org-defaults', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({ type: aiGenerationType }),
             });
 

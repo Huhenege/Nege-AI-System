@@ -1440,10 +1440,10 @@ export default function CandidateDetailPage() {
                     open={showSendEvaluation}
                     onOpenChange={setShowSendEvaluation}
                     applicationId={applicationId as string}
-                    candidateId={application.candidateId}
+                    candidateId={application.candidateId || ''}
                     candidateName={`${candidate.lastName} ${candidate.firstName}`}
                     vacancyTitle={vacancy?.title}
-                    stageId={selectedStageId}
+                    stageId={selectedStageId || ''}
                     requestedByUid={user?.uid || ''}
                     requestedByName={user?.displayName || 'HR'}
                     participantIds={vacancy?.participantIds ?? []}

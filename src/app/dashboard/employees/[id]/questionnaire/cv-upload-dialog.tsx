@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -390,7 +391,7 @@ export function CVUploadDialog({ open, onOpenChange, onDataExtracted, references
 
             const response = await fetch('/api/parse-cv', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({ imageDataUrl: dataUrl, mimeType: file.type }),
             });
 

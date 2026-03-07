@@ -1,13 +1,18 @@
-import { NextResponse } from 'next/server';
-import { getFirebaseAdminFirestore } from '@/firebase/admin';
+import { NextRequest, NextResponse } from 'next/server';
+import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+import { requireTenantAuth } from '@/lib/api/auth-middleware';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authResult = await requireTenantAuth(request);
+  if (authResult.response) return authResult.response;
+  const { companyId } = authResult.auth;
+
   try {
     const db = getFirebaseAdminFirestore();
 
     const [empSnap, posSnap] = await Promise.all([
-      db.collection('employees').get(),
-      db.collection('positions').get(),
+      db.collection(`companies/${companyId}/employees`).get(),
+      db.collection(`companies/${companyId}/positions`).get(),
     ]);
 
     const posMap = new Map<string, string>();

@@ -11,6 +11,7 @@ export type ProjectStatus =
   | 'COMPLETED'   // Дууссан
   | 'ARCHIVED'    // Архивласан - түүхэн зорилгоор хадгалсан
   // Legacy statuses (for backward compatibility with older docs/UI)
+  | 'PLANNING'
   | 'IN_PROGRESS'
   | 'CANCELLED';
 

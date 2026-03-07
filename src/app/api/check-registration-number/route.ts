@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+import { requireTenantAuth } from '@/lib/api/auth-middleware';
 
 /**
  * Normalize registration number for comparison (trim, collapse spaces).
@@ -36,6 +37,10 @@ function extractIndexUrl(error: unknown): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireTenantAuth(request);
+  if (authResult.response) return authResult.response;
+  const { companyId } = authResult.auth;
+
   try {
     const body = await request.json();
     const { registrationNumber, currentEmployeeId } = body;
@@ -64,21 +69,21 @@ export async function POST(request: NextRequest) {
     }
 
     const variants = getRegistrationNumberVariants(normalized);
+    const empSnap = await db.collection(`companies/${companyId}/employees`).get();
 
-    for (const variant of variants) {
-      const snapshot = await db
-        .collectionGroup('questionnaire')
-        .where('registrationNumber', '==', variant)
-        .get();
-
-      for (const doc of snapshot.docs) {
-        const pathParts = doc.ref.path.split('/');
-        const employeeId = pathParts[1];
-        if (employeeId && employeeId !== currentEmployeeId) {
+    for (const empDoc of empSnap.docs) {
+      if (empDoc.id === currentEmployeeId) continue;
+      for (const variant of variants) {
+        const qSnap = await db
+          .collection(`companies/${companyId}/employees/${empDoc.id}/questionnaire`)
+          .where('registrationNumber', '==', variant)
+          .limit(1)
+          .get();
+        if (!qSnap.empty) {
           return NextResponse.json({
             duplicate: true,
             message: 'Энэ регистрийн дугаар өөр ажилтанд бүртгэгдсэн байна.',
-            existingEmployeeId: employeeId,
+            existingEmployeeId: empDoc.id,
           });
         }
       }

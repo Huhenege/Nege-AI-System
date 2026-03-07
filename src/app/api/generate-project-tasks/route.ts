@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 import { googleAI } from '@genkit-ai/google-genai';
+import { requireAuth } from '@/lib/api/auth-middleware';
 
 export interface GeneratedTask {
   title: string;
@@ -9,6 +10,9 @@ export interface GeneratedTask {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult.response) return authResult.response;
+
   try {
     const { projectName, goal, expectedOutcome, startDate, endDate } = await request.json();
 

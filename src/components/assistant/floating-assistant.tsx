@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { initializeFirebase } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { useTenant } from '@/contexts/tenant-context';
 
 type MessageRole = 'user' | 'model' | 'system';
 
@@ -29,7 +31,20 @@ interface EmployeeInfo {
   department?: string;
 }
 
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const { firebaseApp } = initializeFirebase();
+    const auth = getAuth(firebaseApp);
+    const user = auth.currentUser;
+    if (!user) return null;
+    return await user.getIdToken();
+  } catch {
+    return null;
+  }
+}
+
 export function FloatingAssistant() {
+  const { companyId } = useTenant();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
@@ -57,34 +72,25 @@ export function FloatingAssistant() {
   useEffect(() => { scrollToBottom(); }, [messages, isOpen, scrollToBottom]);
 
   useEffect(() => {
-    if (!isOpen || employees.length > 0) return;
+    if (!isOpen || employees.length > 0 || !companyId) return;
     loadEmployees();
-  }, [isOpen, employees.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, employees.length, companyId]);
 
   async function loadEmployees() {
-    // Strategy 1: AI microservice (if configured)
-    if (AI_SERVICE_URL) {
-      try {
-        const res = await fetch(`${AI_SERVICE_URL}/employees`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.employees) && data.employees.length > 0) {
-            setEmployees(data.employees);
-            console.log('[FloatingAssistant] Loaded', data.employees.length, 'employees from AI microservice');
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('[FloatingAssistant] AI microservice failed:', err);
-      }
-    }
+    if (!companyId) return;
 
-    // Strategy 2: Client-side Firestore
+    const token = await getAuthToken();
+    const authHeaders: Record<string, string> = token
+      ? { 'Authorization': `Bearer ${token}` }
+      : {};
+
+    // Strategy 1: Client-side Firestore (tenant-scoped)
     try {
       const { firestore } = initializeFirebase();
       const [empSnap, posSnap] = await Promise.all([
-        getDocs(collection(firestore, 'employees')),
-        getDocs(collection(firestore, 'positions')),
+        getDocs(collection(firestore, `companies/${companyId}/employees`)),
+        getDocs(collection(firestore, `companies/${companyId}/positions`)),
       ]);
 
       const posMap = new Map<string, string>();
@@ -114,9 +120,9 @@ export function FloatingAssistant() {
       console.warn('[FloatingAssistant] Client Firestore failed:', err);
     }
 
-    // Strategy 3: Next.js API fallback
+    // Strategy 2: Next.js API fallback (now requires auth)
     try {
-      const res = await fetch('/api/assistant/employees');
+      const res = await fetch('/api/assistant/employees', { headers: authHeaders });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.employees) && data.employees.length > 0) {
@@ -173,12 +179,16 @@ export function FloatingAssistant() {
           content: [{ text: m.content }],
         }));
 
-      const chatUrl = AI_SERVICE_URL ? `${AI_SERVICE_URL}/chat` : '/api/assistant/chat';
-      console.log('[FloatingAssistant] Sending', genkitMessages.length, 'messages,', employees.length, 'employees to', chatUrl);
+      const chatUrl = '/api/assistant/chat';
+      const token = await getAuthToken();
+      console.log('[FloatingAssistant] Sending', genkitMessages.length, 'messages,', employees.length, 'employees');
 
       const res = await fetch(chatUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           messages: genkitMessages,
           employees: employees.map(e => ({

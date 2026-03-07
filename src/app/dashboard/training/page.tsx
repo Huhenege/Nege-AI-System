@@ -134,7 +134,7 @@ export default function TrainingPage() {
         if (values.format != null) data.format = values.format;
         if (values.locationOrLink != null && values.locationOrLink !== '') data.locationOrLink = values.locationOrLink;
         if (values.assessmentMethod != null) data.assessmentMethod = values.assessmentMethod;
-        if (values.providerType != null && values.providerType !== '') data.providerType = values.providerType;
+        if (values.providerType != null) data.providerType = values.providerType;
         if (values.categoryIds != null && values.categoryIds.length > 0) data.categoryIds = values.categoryIds;
 
         addDocumentNonBlocking(tCollection('training_plans'), data);

@@ -72,7 +72,7 @@ export const HeadcountTab = () => {
         const employeeCountByPosition = new Map<string, number>();
         employees.forEach(emp => {
             if (!emp.positionId) return;
-            const hireDate = new Date(emp.hireDate);
+            const hireDate = new Date(emp.hireDate || '');
             const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
             const isActiveInPeriod =
                 (!periodStart || !termDate || termDate >= periodStart) &&
@@ -123,7 +123,7 @@ export const HeadcountTab = () => {
         const filteredEmployees = employees.filter(emp => {
             if (emp.departmentId !== departmentId) return false;
 
-            const hireDate = new Date(emp.hireDate);
+            const hireDate = new Date(emp.hireDate || '');
             const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
 
             const isActiveInPeriod =
@@ -159,7 +159,7 @@ export const HeadcountTab = () => {
                     <DialogHeader>
                         <DialogTitle>{selectedDeptName} хэлтсийн ажилтнууд</DialogTitle>
                         <DialogDescription>
-                            {date?.from && date.to && `${format(date.from, "yyyy/MM/dd")} - ${format(date.to, "yyyy/MM/dd")} хооронд ажиллаж байсан.`}
+                            {date?.from && date?.to && `${format(date.from ?? new Date(), "yyyy/MM/dd")} - ${format(date.to ?? new Date(), "yyyy/MM/dd")} хооронд ажиллаж байсан.`}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="max-h-[60vh] overflow-y-auto">
@@ -178,13 +178,13 @@ export const HeadcountTab = () => {
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="h-9 w-9">
                                                     <AvatarImage src={emp.photoURL} />
-                                                    <AvatarFallback>{emp.firstName.charAt(0)}</AvatarFallback>
+                                                    <AvatarFallback>{(emp.firstName || '').charAt(0)}</AvatarFallback>
                                                 </Avatar>
                                                 <div className="font-medium">{emp.firstName} {emp.lastName}</div>
                                             </div>
                                         </TableCell>
                                         <TableCell>{emp.jobTitle}</TableCell>
-                                        <TableCell>{format(new Date(emp.hireDate), 'yyyy-MM-dd')}</TableCell>
+                                        <TableCell>{format(new Date(emp.hireDate || ''), 'yyyy-MM-dd')}</TableCell>
                                     </TableRow>
                                 ))}
                                 {selectedDeptEmployees.length === 0 && (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 import { googleAI } from '@genkit-ai/google-genai';
+import { requireAuth } from '@/lib/api/auth-middleware';
 
 const DEPARTMENT_PROMPT = `Та бол Монгол улсын байгууллагын бүтэц, зохион байгуулалтын мэргэжилтэн.
 
@@ -19,6 +20,9 @@ JSON форматаар хариулна уу:
 Зөвхөн JSON хариулна уу, өөр тайлбар бичих шаардлагагүй.`;
 
 export async function POST(request: NextRequest) {
+    const authResult = await requireAuth(request);
+    if (authResult.response) return authResult.response;
+
     try {
         const { departmentName, departmentType, parentDepartment } = await request.json();
 

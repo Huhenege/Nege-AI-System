@@ -109,7 +109,7 @@ export function AddCandidateDialog({
                     status: 'ACTIVE',
                     appliedAt: now,
                     updatedAt: now,
-                    candidate: { ...newCandidate, id: candidateRef.id },
+                    candidate: { ...newCandidate, id: candidateRef.id } as Candidate,
                 };
 
                 await addDocumentNonBlocking(tCollection('applications'), newApplication);

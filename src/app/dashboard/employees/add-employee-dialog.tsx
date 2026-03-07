@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -267,9 +268,7 @@ export function AddEmployeeDialog({
 
             const response = await fetch('/api/email', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     to: employeeEmail,
                     subject: emailSubject,

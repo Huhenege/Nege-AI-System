@@ -393,59 +393,11 @@ service cloud.firestore {
         allow write: if isAdmin();
     }
 
-    match /{path=**}/timeOffRequests/{docId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
-    }
+    // timeOffRequests — handled by tenant-scoped catch-all rules
+    // (companies/{companyId}/{subcollection}/{allPaths=**})
 
-    match /{path=**}/vacationRequests/{docId} {
-        allow read: if isSignedIn();
-
-        // Create: owner creates pending request
-        allow create: if isSignedIn() &&
-          request.auth.uid == request.resource.data.employeeId &&
-          request.resource.data.status == 'PENDING';
-
-        // Update: mirror `employees/{employeeId}/vacationRequests/{requestId}`
-        allow update: if isAdmin() ||
-          (
-            isSignedIn() &&
-            request.auth.uid == resource.data.employeeId &&
-            resource.data.status == 'PENDING' &&
-            request.resource.data.status == 'CANCELLED' &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'updatedAt'])
-          ) ||
-          (
-            isSignedIn() &&
-            request.auth.uid == resource.data.approverId &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'approvedAt', 'rejectionReason', 'updatedAt']) &&
-            (
-              (request.resource.data.status == 'APPROVED' &&
-                request.resource.data.decisionAt is string &&
-                request.resource.data.approvedAt is string &&
-                (
-                  !request.resource.data.keys().hasAny(['rejectionReason']) ||
-                  request.resource.data.rejectionReason == null
-                )
-              )
-              ||
-              (request.resource.data.status == 'REJECTED' &&
-                request.resource.data.decisionAt is string &&
-                request.resource.data.approvedAt is string &&
-                request.resource.data.rejectionReason is string &&
-                request.resource.data.rejectionReason.size() > 0
-              )
-              ||
-              (request.resource.data.status == 'PENDING' &&
-                (request.resource.data.decisionAt == null) &&
-                (request.resource.data.approvedAt == null) &&
-                (request.resource.data.rejectionReason == null)
-              )
-            )
-          );
-
-        allow delete: if isAdmin();
-    }
+    // vacationRequests — handled by tenant-scoped catch-all rules
+    // (companies/{companyId}/{subcollection}/{allPaths=**})
     
     
     // --- Employment Relations Module Rules ---
@@ -693,10 +645,8 @@ service cloud.firestore {
         allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.senderId);
     }
     
-    // Collection Group rules for tasks (for dashboard queries)
-    match /{path=**}/tasks/{taskId} {
-        allow read: if isSignedIn();
-    }
+    // Collection Group rules for tasks — handled by tenant-scoped rules above
+    // (companies/{companyId}/projects/{projectId}/tasks/{taskId})
 
     // ─── Санал асуулга (Survey) ─────────────────────────────────────────
     match /surveys/{surveyId} {

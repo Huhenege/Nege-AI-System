@@ -420,7 +420,7 @@ export default function ProjectsPage() {
                             groupsById={groupsById}
                             taskCountByProjectId={taskCountByProjectId}
                             isLoading={isLoading}
-                            variant={viewMode === 'gantt' ? 'list' : viewMode}
+                            variant={viewMode}
                             onEditGroups={(p) => setAssignGroupsProject(p)}
                             onClearFilters={hasActiveFilters ? () => {
                                 setSearchQuery('');

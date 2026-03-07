@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 import { googleAI } from '@genkit-ai/google-genai';
+import { requireAuth } from '@/lib/api/auth-middleware';
 
 interface CustomInput {
     key: string;
@@ -188,6 +189,9 @@ JSON ХАРИУ ФОРМАТААР БУЦААНА:
 }`;
 
 export async function POST(request: NextRequest) {
+    const authResult = await requireAuth(request);
+    if (authResult.response) return authResult.response;
+
     try {
         const { templateName, documentTypeName, additionalContext } = await request.json();
 

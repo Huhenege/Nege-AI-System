@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import React, { useState, useEffect } from 'react';
 import { X, Edit3, Save, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -152,7 +153,7 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
 
             const response = await fetch('/api/generate-department-details', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     departmentName: formData.name,
                     departmentType: typeName,

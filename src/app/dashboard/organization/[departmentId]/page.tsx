@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { collection, doc, query, where, writeBatch, arrayUnion, orderBy, limit, getDocs } from 'firebase/firestore';
@@ -403,7 +404,7 @@ export default function DepartmentPage() {
 
             const response = await fetch('/api/generate-department-details', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     departmentName: infoForm.name || department?.name,
                     departmentType: deptTypeName,

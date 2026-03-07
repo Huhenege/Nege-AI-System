@@ -120,9 +120,9 @@ export const HistoryTab = ({ departmentId }: HistoryTabProps) => {
 
                             <div className="flex items-center gap-4">
                                 <div className="hidden md:flex flex-col items-end text-right">
-                                    <p className="text-xs font-semibold">{record.snapshot.positions.length} Ажлын байр</p>
+                                    <p className="text-xs font-semibold">{record.snapshot?.positions?.length ?? 0} Ажлын байр</p>
                                     <p className="text-[10px] text-muted-foreground">
-                                        {record.snapshot.positions.reduce((acc, p) => acc + (p.employees?.length || 0), 0)} Ажилтан
+                                        {record.snapshot?.positions?.reduce((acc, p) => acc + (p.employees?.length || 0), 0) ?? 0} Ажилтан
                                     </p>
                                 </div>
                                 {expandedSnapshot === record.id ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
@@ -133,7 +133,7 @@ export const HistoryTab = ({ departmentId }: HistoryTabProps) => {
                             <CardContent className="pt-0 pb-6 px-6 border-t border-border/50 bg-muted/10">
                                 <div className="mt-4 space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {record.snapshot.positions.map(pos => (
+                                        {record.snapshot?.positions?.map(pos => (
                                             <div key={pos.id} className="p-3 rounded-lg border border-border/50 bg-background shadow-sm hover:border-primary/30 transition-colors">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>

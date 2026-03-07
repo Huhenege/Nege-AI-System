@@ -132,7 +132,7 @@ export function ScheduleInterviewDialog({
 
     const filteredEmployees = employees?.filter(emp =>
         `${emp.lastName} ${emp.firstName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase())
+        (emp.employeeCode || '').toLowerCase().includes(searchTerm.toLowerCase())
     ).slice(0, 5);
 
     const form = useForm<InterviewFormValues>({

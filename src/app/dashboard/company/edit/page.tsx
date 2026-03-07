@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { getAuthHeaders } from '@/lib/api/client-auth';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -181,7 +182,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
 
             const formData = new FormData();
             formData.append('file', file);
-            const response = await fetch('/api/extract-company-info', { method: 'POST', body: formData });
+            const response = await fetch('/api/extract-company-info', { method: 'POST', headers: await getAuthHeaders(), body: formData });
             let result: { success?: boolean; data?: Record<string, string>; error?: string } = {};
             try { result = await response.json(); } catch { throw new Error('Серверийн хариуг уншихад алдаа гарлаа'); }
             if (!response.ok) throw new Error(result.error || 'Мэдээлэл задлахад алдаа гарлаа');

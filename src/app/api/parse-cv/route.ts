@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractCVFromImage, extractCVFromText, extractCVFromPDF, ParsedCVData } from '@/ai/cv-parser';
+import { requireAuth } from '@/lib/api/auth-middleware';
 
-export const maxDuration = 120; // Allow up to 120 seconds for AI processing
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult.response) return authResult.response;
+
   const startTime = Date.now();
   
   try {

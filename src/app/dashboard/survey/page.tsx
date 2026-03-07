@@ -12,7 +12,7 @@ import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SurveyList } from './components/survey-list';
 import { CreateSurveyDialog } from './components/create-survey-dialog';
-import { SurveyTemplateList } from './components/survey-template-list';
+import { SurveyTemplateList, type TemplateItem } from './components/survey-template-list';
 import { SYSTEM_TEMPLATES } from './data/system-templates';
 import type { Survey, SurveyTemplate } from './types';
 
@@ -168,9 +168,9 @@ export default function SurveyPage() {
 
                     <TabsContent value="templates" className="mt-0">
                         <SurveyTemplateList
-                            templates={allTemplates}
+                            templates={allTemplates as TemplateItem[]}
                             isLoading={templatesLoading}
-                            onUseTemplate={handleUseTemplate}
+                            onUseTemplate={handleUseTemplate as (t: TemplateItem) => Promise<void>}
                             onDeleteTemplate={handleDeleteTemplate}
                         />
                     </TabsContent>

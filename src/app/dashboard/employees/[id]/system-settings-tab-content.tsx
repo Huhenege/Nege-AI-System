@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import * as React from 'react';
 import { getDoc, updateDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -68,7 +69,7 @@ export function SystemSettingsTabContent({
     const isAdmin = currentUserRole === 'admin';
     const isSelf = employee.id === currentUserId;
     const loginDisabled = !!employee.loginDisabled;
-    const authEmail = `${employee.employeeCode}@example.com`;
+    const authEmail = `${employee.employeeCode || ''}@example.com`;
 
     const handleDisableAccess = async () => {
         if (!firestore) return;
@@ -271,8 +272,8 @@ export function SystemSettingsTabContent({
             const vars: Record<string, string> = {
                 companyName,
                 employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
-                employeeCode: employee.employeeCode,
-                loginEmail: employee.employeeCode,
+                employeeCode: employee.employeeCode || '',
+                loginEmail: employee.employeeCode || '',
                 password: employee.phoneNumber || '',
                 appUrl,
                 adminName,
@@ -293,7 +294,7 @@ export function SystemSettingsTabContent({
 
             const res = await fetch('/api/email', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     to: employee.email,
                     subject,

@@ -1,9 +1,9 @@
-// src/app/api/email/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { Resend } from 'resend';
+import { requireAuth } from '@/lib/api/auth-middleware';
 
 // Initialize Firebase for Server Side
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -21,7 +21,10 @@ interface EmailRequest {
     fromName?: string;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+    const authResult = await requireAuth(request);
+    if (authResult.response) return authResult.response;
+
     try {
         const body = await request.json();
         const { to, subject, html, text, from, fromName }: EmailRequest = body;

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -183,7 +184,7 @@ async function checkRegistrationNumberDuplicate(
     if (!normalized) return { duplicate: false };
     const res = await fetch('/api/check-registration-number', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getJsonAuthHeaders(),
         body: JSON.stringify({ registrationNumber: normalized, currentEmployeeId }),
     });
     let json: { error?: string; duplicate?: boolean; detail?: string; indexUrl?: string; existingEmployeeId?: string } = {};
@@ -217,7 +218,7 @@ async function checkIdCardNumberDuplicate(
     if (!normalized) return { duplicate: false };
     const res = await fetch('/api/check-id-card-number', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getJsonAuthHeaders(),
         body: JSON.stringify({ idCardNumber: normalized, currentEmployeeId }),
     });
     let json: { error?: string; duplicate?: boolean; detail?: string; indexUrl?: string; existingEmployeeId?: string } = {};

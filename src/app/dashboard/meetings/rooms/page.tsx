@@ -55,7 +55,7 @@ export default function MeetingRoomsPage() {
     const [name, setName] = useState('');
     const [capacity, setCapacity] = useState(6);
     const [floor, setFloor] = useState('');
-    const [color, setColor] = useState(ROOM_COLORS[0]);
+    const [color, setColor] = useState<string>(ROOM_COLORS[0] ?? '#6366f1');
     const [amenities, setAmenities] = useState<string[]>([]);
     const [customAmenity, setCustomAmenity] = useState('');
 
@@ -85,7 +85,7 @@ export default function MeetingRoomsPage() {
         setName(room.name);
         setCapacity(room.capacity);
         setFloor(room.floor || '');
-        setColor(room.color);
+        setColor(room.color ?? ROOM_COLORS[0] ?? '#6366f1');
         setAmenities(room.amenities || []);
         setIsDialogOpen(true);
     };

@@ -1,71 +1,80 @@
 import { z } from 'zod';
 import { ai } from './genkit';
-import { getFirebaseAdminFirestore } from '@/firebase/admin';
+import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 
-export const createProjectTool = ai.defineTool(
-  {
-    name: 'createProject',
-    description: 'Creates a new project in the system with the provided details. Use the exact employee IDs from the employee context provided in the system prompt.',
-    inputSchema: z.object({
-      name: z.string().describe('The name of the project.'),
-      goal: z.string().describe('The goal or objective of the project.'),
-      expectedOutcome: z.string().describe('The expected outcome of the project.'),
-      startDate: z.string().describe('The start date of the project in YYYY-MM-DD format.'),
-      endDate: z.string().describe('The end date of the project in YYYY-MM-DD format.'),
-      ownerId: z.string().describe('The ID of the employee who will own/lead the project. MUST be an exact ID from the employee list.'),
-      teamMemberIds: z.array(z.string()).describe('An array of employee IDs who will be team members. MUST be exact IDs from the employee list.'),
-      status: z.enum(['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).describe('The initial status of the project.'),
-      priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).describe('The priority of the project.'),
-      pointBudget: z.number().optional().describe('Optional point budget for the project rewards.'),
-    }),
-    outputSchema: z.object({
-      success: z.boolean(),
-      projectId: z.string().optional(),
-      error: z.string().optional(),
-    }),
-  },
-  async (input) => {
-    try {
-      const db = getFirebaseAdminFirestore();
-      const projectRef = db.collection('projects').doc();
-      
-      const projectData: Record<string, unknown> = {
-        id: projectRef.id,
-        name: input.name,
-        goal: input.goal,
-        expectedOutcome: input.expectedOutcome,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        ownerId: input.ownerId,
-        teamMemberIds: input.teamMemberIds,
-        status: input.status,
-        priority: input.priority,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: input.ownerId,
-      };
+const projectInputSchema = z.object({
+  name: z.string().describe('The name of the project.'),
+  goal: z.string().describe('The goal or objective of the project.'),
+  expectedOutcome: z.string().describe('The expected outcome of the project.'),
+  startDate: z.string().describe('The start date of the project in YYYY-MM-DD format.'),
+  endDate: z.string().describe('The end date of the project in YYYY-MM-DD format.'),
+  ownerId: z.string().describe('The ID of the employee who will own/lead the project. MUST be an exact ID from the employee list.'),
+  teamMemberIds: z.array(z.string()).describe('An array of employee IDs who will be team members. MUST be exact IDs from the employee list.'),
+  status: z.enum(['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'ARCHIVED']).describe('The initial status of the project.'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).describe('The priority of the project.'),
+  pointBudget: z.number().optional().describe('Optional point budget for the project rewards.'),
+});
 
-      if (input.pointBudget && input.pointBudget > 0) {
-        projectData.pointBudget = input.pointBudget;
-        projectData.pointsDistributed = false;
+const projectOutputSchema = z.object({
+  success: z.boolean(),
+  projectId: z.string().optional(),
+  error: z.string().optional(),
+});
+
+/**
+ * Creates a tenant-scoped createProject tool that writes to companies/{companyId}/projects
+ */
+export function createProjectToolForTenant(companyId: string) {
+  return ai.defineTool(
+    {
+      name: 'createProject',
+      description: 'Creates a new project in the system with the provided details. Use the exact employee IDs from the employee context provided in the system prompt.',
+      inputSchema: projectInputSchema,
+      outputSchema: projectOutputSchema,
+    },
+    async (input) => {
+      try {
+        const db = getFirebaseAdminFirestore();
+        const projectRef = db.collection(`companies/${companyId}/projects`).doc();
+        
+        const projectData: Record<string, unknown> = {
+          id: projectRef.id,
+          name: input.name,
+          goal: input.goal,
+          expectedOutcome: input.expectedOutcome,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          ownerId: input.ownerId,
+          teamMemberIds: input.teamMemberIds,
+          status: input.status,
+          priority: input.priority,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: input.ownerId,
+        };
+
+        if (input.pointBudget && input.pointBudget > 0) {
+          projectData.pointBudget = input.pointBudget;
+          projectData.pointsDistributed = false;
+        }
+
+        await projectRef.set(projectData);
+
+        return {
+          success: true,
+          projectId: projectRef.id,
+        };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Failed to create project';
+        console.error('Error in createProjectTool:', error);
+        return {
+          success: false,
+          error: message,
+        };
       }
-
-      await projectRef.set(projectData);
-
-      return {
-        success: true,
-        projectId: projectRef.id,
-      };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to create project';
-      console.error('Error in createProjectTool:', error);
-      return {
-        success: false,
-        error: message,
-      };
     }
-  }
-);
+  );
+}
 
 interface EmployeeInfo {
   id: string;

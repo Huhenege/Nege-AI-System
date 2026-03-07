@@ -117,9 +117,9 @@ export function SkillGapAnalysis({
             const pos = emp.positionId ? positionMap.get(emp.positionId) : null;
             if (!pos?.skills || pos.skills.length === 0) return;
 
-            const dept = departmentMap.get(emp.departmentId);
+            const deptId = emp.departmentId ?? '';
+            const dept = departmentMap.get(deptId);
             const deptName = dept?.name || 'Тодорхойгүй';
-            const deptId = emp.departmentId;
 
             if (!deptSummary.has(deptId)) {
                 deptSummary.set(deptId, { deptName, totalSkills: 0, gapCount: 0, employeeCount: 0 });

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import {
     Dialog,
     DialogContent,
@@ -55,7 +56,7 @@ export function AiGenerateTasksDialog({
         try {
             const res = await fetch('/api/generate-project-tasks', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     projectName,
                     goal,

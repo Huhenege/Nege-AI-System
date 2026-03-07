@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
@@ -187,7 +188,7 @@ export function PositionCompetency({
         try {
             const response = await fetch('/api/generate-position-details', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     positionTitle: position.title,
                     departmentName,

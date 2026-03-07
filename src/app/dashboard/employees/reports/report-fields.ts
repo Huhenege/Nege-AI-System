@@ -139,7 +139,7 @@ export const REPORT_FIELD_GROUPS: ReportFieldGroup[] = [
         key: 'department',
         label: 'Хэлтэс',
         group: 'registration',
-        getValue: (e, _q, depts) => depts.get(e.departmentId) || '',
+        getValue: (e, _q, depts) => depts.get(e.departmentId ?? '') || '',
       },
       {
         key: 'email',

@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase, addDocumentNonBlocking, setDocumentNonBlocking, useTenantWrite } from '@/firebase';
@@ -277,7 +278,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         try {
             const response = await fetch('/api/generate-template', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     templateName: formData.name,
                     documentTypeName: selectedDocType?.name || '',

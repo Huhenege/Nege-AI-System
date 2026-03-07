@@ -164,8 +164,8 @@ export default function OrganizationHistoryPage() {
                                                             Бүтэц ба Ажилтнууд
                                                         </h4>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            {snapshot?.positions?.length > 0 ? (
-                                                                snapshot.positions.map((pos: any, idx: number) => (
+                                                            {(snapshot?.positions?.length ?? 0) > 0 ? (
+                                                                snapshot?.positions?.map((pos: any, idx: number) => (
                                                                     <div key={idx} className="p-5 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-4 group/pos hover:border-primary/20 hover:shadow-md transition-all">
                                                                         <div className="flex items-center justify-between gap-3">
                                                                             <span className="text-sm font-black text-slate-900 leading-tight">{pos.title}</span>

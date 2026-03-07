@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ['reactflow'],
   serverExternalPackages: ['pdf-parse'],
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
     ignoreDuringBuilds: true,

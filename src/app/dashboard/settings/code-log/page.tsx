@@ -32,7 +32,7 @@ export default function CodeLogPage() {
 
   const sortedEmployees = React.useMemo(() => {
     if (!employees) return [];
-    return [...employees].sort((a, b) => (a.employeeCode > b.employeeCode ? 1 : -1));
+    return [...employees].sort((a, b) => ((a.employeeCode || '') > (b.employeeCode || '') ? 1 : -1));
   }, [employees]);
 
   return (

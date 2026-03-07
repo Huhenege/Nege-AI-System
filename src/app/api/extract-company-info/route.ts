@@ -3,8 +3,12 @@ import {
   extractCompanyInfoFromImage,
   extractCompanyInfoFromText,
 } from '@/ai/company-ocr';
+import { requireAuth } from '@/lib/api/auth-middleware';
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request);
+  if (authResult.response) return authResult.response;
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;

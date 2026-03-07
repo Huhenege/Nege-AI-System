@@ -179,16 +179,16 @@ export default function SkillDetailPage() {
     // Employees with gap (for the gap table)
     const employeesWithGap = useMemo(() => {
         return latestAssessments
-            .filter(a => a.requiredLevel && SKILL_LEVEL_VALUE[a.requiredLevel] > SKILL_LEVEL_VALUE[a.currentLevel])
+            .filter(a => a.requiredLevel && SKILL_LEVEL_VALUE[a.requiredLevel] > SKILL_LEVEL_VALUE[a.currentLevel || ''])
             .map(a => {
                 const emp = activeEmployees.find(e => e.id === a.employeeId);
                 const pos = emp?.positionId ? positionMap.get(emp.positionId) : null;
-                const dept = emp ? departmentMap.get(emp.departmentId) : null;
+                const dept = emp ? departmentMap.get(emp.departmentId ?? '') : null;
                 return { assessment: a, employee: emp, position: pos, department: dept };
             })
             .sort((a, b) => {
-                const gapA = SKILL_LEVEL_VALUE[a.assessment.requiredLevel!] - SKILL_LEVEL_VALUE[a.assessment.currentLevel];
-                const gapB = SKILL_LEVEL_VALUE[b.assessment.requiredLevel!] - SKILL_LEVEL_VALUE[b.assessment.currentLevel];
+                const gapA = SKILL_LEVEL_VALUE[a.assessment.requiredLevel!] - SKILL_LEVEL_VALUE[a.assessment.currentLevel || ''];
+                const gapB = SKILL_LEVEL_VALUE[b.assessment.requiredLevel!] - SKILL_LEVEL_VALUE[b.assessment.currentLevel || ''];
                 return gapB - gapA;
             });
     }, [latestAssessments, activeEmployees, positionMap, departmentMap]);

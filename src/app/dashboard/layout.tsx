@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useUser, useMemoFirebase, useDoc, useFirebase, tenantDoc } from '@/firebase';
+import { usePathname } from 'next/navigation';
 import { useTenant } from '@/contexts/tenant-context';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -13,26 +14,49 @@ import { UserNav } from '@/components/user-nav';
 import { ImplementationGuideWidget } from './components/implementation-guide-widget';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { FloatingAssistant } from '@/components/assistant/floating-assistant';
+import { DashboardSidebar } from '@/components/dashboard-sidebar';
 
 interface CompanyProfile {
   name?: string;
   logoUrl?: string;
 }
 
+interface CompanySettings {
+  setupComplete?: boolean;
+}
+
 function AdminDashboard({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const { companyId, isLoading: isTenantLoading, role } = useTenant();
   const router = useRouter();
+  const pathname = usePathname();
   const { firestore } = useFirebase();
 
   const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), []);
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
+
+  const companySettingsRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'settings') : null), []);
+  const { data: companySettings } = useDoc<CompanySettings>(companySettingsRef);
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
       router.replace('/login');
     }
   }, [user, isUserLoading, router]);
+
+  // Redirect to setup wizard if not completed (skip for super_admin and setup page itself)
+  React.useEffect(() => {
+    if (
+      !isTenantLoading &&
+      companyId &&
+      role !== 'super_admin' &&
+      companySettings !== undefined &&
+      !companySettings?.setupComplete &&
+      !pathname.startsWith('/dashboard/setup')
+    ) {
+      router.replace('/dashboard/setup');
+    }
+  }, [isTenantLoading, companyId, role, companySettings, pathname, router]);
 
   const isFullyLoading = isUserLoading || isTenantLoading;
 
@@ -95,10 +119,13 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
-        {children}
-      </main>
+      {/* Sidebar + Main Content */}
+      <div className="flex flex-1 overflow-hidden">
+        {!pathname.startsWith('/dashboard/setup') && <DashboardSidebar />}
+        <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
+          {children}
+        </main>
+      </div>
 
       {/* Floating AI Assistant */}
       <FloatingAssistant />

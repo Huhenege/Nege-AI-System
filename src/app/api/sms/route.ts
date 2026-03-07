@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+import { requireAuth } from '@/lib/api/auth-middleware';
 
 interface SmsConfig {
     token: string;
@@ -40,7 +41,10 @@ async function getSmsConfig(): Promise<SmsConfig | null> {
     return null;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+    const authResult = await requireAuth(request);
+    if (authResult.response) return authResult.response;
+
     try {
         const body = await request.json();
         const { to, text } = body;

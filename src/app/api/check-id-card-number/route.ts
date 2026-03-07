@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+import { requireTenantAuth } from '@/lib/api/auth-middleware';
 
 function normalizeValue(value: string): string {
   return (value || '').trim().replace(/\s+/g, '');
@@ -20,6 +21,10 @@ function extractIndexUrl(error: unknown): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireTenantAuth(request);
+  if (authResult.response) return authResult.response;
+  const { companyId } = authResult.auth;
+
   try {
     const body = await request.json();
     const { idCardNumber, currentEmployeeId } = body;
@@ -47,19 +52,19 @@ export async function POST(request: NextRequest) {
       throw adminError;
     }
 
-    const snapshot = await db
-      .collectionGroup('questionnaire')
-      .where('idCardNumber', '==', normalized)
-      .get();
-
-    for (const doc of snapshot.docs) {
-      const pathParts = doc.ref.path.split('/');
-      const employeeId = pathParts[1];
-      if (employeeId && employeeId !== currentEmployeeId) {
+    const empSnap = await db.collection(`companies/${companyId}/employees`).get();
+    for (const empDoc of empSnap.docs) {
+      if (empDoc.id === currentEmployeeId) continue;
+      const qSnap = await db
+        .collection(`companies/${companyId}/employees/${empDoc.id}/questionnaire`)
+        .where('idCardNumber', '==', normalized)
+        .limit(1)
+        .get();
+      if (!qSnap.empty) {
         return NextResponse.json({
           duplicate: true,
           message: 'Энэ ТТД өөр ажилтанд бүртгэгдсэн байна.',
-          existingEmployeeId: employeeId,
+          existingEmployeeId: empDoc.id,
         });
       }
     }

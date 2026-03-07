@@ -154,7 +154,7 @@ export default function TrainingPlanDetailPage() {
                     router.push('/dashboard/training');
                     return;
                 }
-                const data = { id: snap.id, ...(snap.data() as TrainingPlan) };
+                const data = { ...(snap.data() as TrainingPlan), id: snap.id };
                 setPlan(data);
                 setForm({
                     courseId: data.courseId,
@@ -852,12 +852,12 @@ export default function TrainingPlanDetailPage() {
                                         <Button
                                             className="w-full"
                                             onClick={handlePublish}
-                                            disabled={
+                                            disabled={Boolean(
                                                 publishing ||
                                                 !publishStartDate ||
                                                 (publishEndDate && publishEndDate < publishStartDate) ||
                                                 (!!quarterRange && (publishStartDate < quarterRange.start || publishStartDate > quarterRange.end || (publishEndDate && (publishEndDate < quarterRange.start || publishEndDate > quarterRange.end))))
-                                            }
+                                            )}
                                         >
                                             <Send className="h-4 w-4 mr-2" />{publishing ? 'Зарлаж байна...' : 'Зарлах & Төсөл үүсгэх'}
                                         </Button>

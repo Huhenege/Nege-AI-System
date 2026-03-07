@@ -34,7 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { SurveyBuilder } from '../components/survey-builder';
 import { SurveyPreview } from '../components/survey-preview';
-import { SurveyTemplateList } from '../components/survey-template-list';
+import { SurveyTemplateList, type TemplateItem } from '../components/survey-template-list';
 import {
     createSurveySchema,
     CreateSurveyFormValues,
@@ -272,9 +272,9 @@ export default function CreateSurveyPage() {
                             </Button>
                         </div>
                         <SurveyTemplateList
-                            templates={filteredTemplates}
+                            templates={(filteredTemplates ?? []) as TemplateItem[]}
                             isLoading={templatesLoading}
-                            onUseTemplate={handleUseTemplate}
+                            onUseTemplate={async (t) => handleUseTemplate(t as SurveyTemplate)}
                         />
                     </div>
                 )}

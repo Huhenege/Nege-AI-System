@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders, getAuthHeaders } from '@/lib/api/client-auth';
 import React, { useState, useEffect } from 'react';
 import { useFirebase, useTenantWrite } from '@/firebase';
 import { getDoc, setDoc } from 'firebase/firestore';
@@ -153,10 +154,12 @@ export function RecruitmentSettings() {
 
     // Check if env variable is configured
     useEffect(() => {
-        fetch('/api/sms/status')
-            .then(r => r.json())
-            .then(data => setSmsEnvConfigured(data.envConfigured))
-            .catch(() => setSmsEnvConfigured(false));
+        getAuthHeaders().then(headers =>
+            fetch('/api/sms/status', { headers })
+                .then(r => r.json())
+                .then(data => setSmsEnvConfigured(data.envConfigured))
+                .catch(() => setSmsEnvConfigured(false))
+        );
     }, []);
 
     const handleTestSms = async () => {
@@ -168,7 +171,7 @@ export function RecruitmentSettings() {
         try {
             const res = await fetch('/api/sms', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     to: testPhone.trim(),
                     text: 'HR систем: SMS тест амжилттай! 🎉',

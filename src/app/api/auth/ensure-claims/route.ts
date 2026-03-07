@@ -38,6 +38,14 @@ export async function POST(request: NextRequest) {
     const existingUser = await adminAuth.getUser(decoded.uid);
     const existingClaims = existingUser.customClaims as TenantClaims | undefined;
 
+    // super_admin has no companyId — never overwrite
+    if (existingClaims?.role === 'super_admin') {
+      return NextResponse.json({
+        status: 'already_set',
+        claims: existingClaims,
+      });
+    }
+
     if (existingClaims?.companyId && existingClaims?.role) {
       return NextResponse.json({
         status: 'already_set',

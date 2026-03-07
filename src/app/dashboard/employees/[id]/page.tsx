@@ -507,7 +507,7 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
             </div>
 
             <AddEmployeeDocumentDialog
-                employeeId={employee.id}
+                employeeId={employee.id || ''}
                 open={isAddDialogOpen}
                 onOpenChange={setIsAddDialogOpen}
             />
@@ -1006,7 +1006,7 @@ export default function EmployeeProfilePage() {
     const fullName = employee.lastName
         ? `${employee.lastName.substring(0, 1)}.${employee.firstName}`
         : employee.firstName;
-    const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
+    const departmentName = departmentMap.get(employee.departmentId ?? '') || 'Тодорхойгүй';
     const workScheduleName = workSchedule?.name || 'Тодорхойгүй';
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
     const isActive = isActiveStatus(employee.status);

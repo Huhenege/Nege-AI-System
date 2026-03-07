@@ -840,7 +840,7 @@ const OrganizationChart = () => {
                     label: pos.title,
                     title: pos.title,
                     department: department?.name || 'Unknown',
-                    departmentColor: department?.color, // Color inherited from department
+                    departmentColor: department?.color || '', // Color inherited from department
                     filled: posToEmployeeMap.get(pos.id)?.length || 0,
                     employees: assignedEmployees,
                     workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
@@ -870,9 +870,9 @@ const OrganizationChart = () => {
                 type: 'unassigned',
                 position: { x: UNASSIGNED_X, y: index * UNASSIGNED_Y_GAP },
                 data: {
-                    label: emp.firstName,
-                    name: `${emp.firstName} ${emp.lastName}`,
-                    jobTitle: emp.jobTitle,
+                    label: emp.firstName || '',
+                    name: `${emp.firstName || ''} ${emp.lastName || ''}`,
+                    jobTitle: emp.jobTitle || '',
                     avatar: emp.photoURL,
                     employee: emp,
                 },
