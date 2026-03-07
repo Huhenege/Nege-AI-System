@@ -1,7 +1,7 @@
 'use client';
 
-import { useAuth, useDoc, useFirestore, useUser } from '@/firebase';
-import { doc, DocumentReference } from 'firebase/firestore';
+import { useAuth, useDoc, useFirestore, useUser, useTenantWrite } from '@/firebase';
+import { DocumentReference } from 'firebase/firestore';
 import { UserPointProfile } from '@/types/points';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -11,13 +11,14 @@ import { useMemo } from 'react';
 export function MyPointStats() {
     const { user } = useUser();
     const firestore = useFirestore();
+    const { tDoc } = useTenantWrite();
 
     // Real-time listener for the user's point profile
     const profileRef = useMemo(() =>
         (user && firestore)
-            ? doc(firestore, 'employees', user.uid, 'point_profile', 'main') as DocumentReference<UserPointProfile>
+            ? tDoc('employees', user.uid, 'point_profile', 'main') as DocumentReference<UserPointProfile>
             : null,
-        [user, firestore]);
+        [user, firestore, tDoc]);
 
     const { data: profile } = useDoc<UserPointProfile>(profileRef);
 

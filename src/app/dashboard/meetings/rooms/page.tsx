@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { AddActionButton } from '@/components/ui/add-action-button';
-import { useFirebase, useCollection } from '@/firebase';
-import { collection, query, orderBy, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useTenantWrite } from '@/firebase';
+import { collection, query, orderBy, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
     Dialog,
@@ -44,6 +44,7 @@ import { ROOM_COLORS, DEFAULT_AMENITIES } from '@/types/meeting';
 
 export default function MeetingRoomsPage() {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -94,7 +95,7 @@ export default function MeetingRoomsPage() {
 
         try {
             if (editingRoom) {
-                await updateDoc(doc(firestore, 'meeting_rooms', editingRoom.id), {
+                await updateDoc(tDoc('meeting_rooms', editingRoom.id), {
                     name: name.trim(),
                     capacity,
                     floor: floor.trim() || null,
@@ -103,7 +104,7 @@ export default function MeetingRoomsPage() {
                 });
                 toast({ title: 'Өрөө шинэчлэгдлээ' });
             } else {
-                await addDoc(collection(firestore, 'meeting_rooms'), {
+                await addDoc(tCollection('meeting_rooms'), {
                     name: name.trim(),
                     capacity,
                     floor: floor.trim() || null,
@@ -124,7 +125,7 @@ export default function MeetingRoomsPage() {
     const handleDelete = async () => {
         if (!firestore || !deleteRoom) return;
         try {
-            await deleteDoc(doc(firestore, 'meeting_rooms', deleteRoom.id));
+            await deleteDoc(tDoc('meeting_rooms', deleteRoom.id));
             toast({ title: 'Өрөө устгагдлаа' });
             setDeleteRoom(null);
         } catch {
@@ -134,7 +135,7 @@ export default function MeetingRoomsPage() {
 
     const toggleActive = async (room: MeetingRoom) => {
         if (!firestore) return;
-        await updateDoc(doc(firestore, 'meeting_rooms', room.id), {
+        await updateDoc(tDoc('meeting_rooms', room.id), {
             isActive: !room.isActive,
         });
         toast({ title: room.isActive ? 'Өрөө идэвхгүй болголоо' : 'Өрөө идэвхжүүллээ' });

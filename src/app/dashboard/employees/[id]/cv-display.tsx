@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useDoc, useFirebase, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useDoc, useFirebase, useMemoFirebase, tenantDoc } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -69,8 +68,8 @@ const CVSkeleton = () => (
 export function CVDisplay({ employeeId }: { employeeId: string }) {
     const { firestore } = useFirebase();
 
-    const employeeRef = useMemoFirebase(() => firestore ? doc(firestore, 'employees', employeeId) : null, [firestore, employeeId]);
-    const questionnaireRef = useMemoFirebase(() => firestore ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null, [firestore, employeeId]);
+    const employeeRef = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantDoc(firestore, companyPath, 'employees', employeeId) : null, [employeeId]);
+    const questionnaireRef = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantDoc(firestore, companyPath, `employees/${employeeId}/questionnaire`, 'data') : null, [employeeId]);
 
     const { data: employee, isLoading: isLoadingEmployee } = useDoc(employeeRef);
     const { data: questionnaire, isLoading: isLoadingQuestionnaire } = useDoc(questionnaireRef);

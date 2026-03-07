@@ -33,8 +33,9 @@ import { Badge } from '@/components/ui/badge';
 import {
     useFirebase,
     addDocumentNonBlocking,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, CalendarIcon, Users, ChevronRight, Circle, Clock, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
@@ -63,6 +64,7 @@ interface CreateTaskSheetProps {
 
 export function CreateTaskSheet({ open, onOpenChange, projectId, teamMembers }: CreateTaskSheetProps) {
     const { firestore, user } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
     const container = useMobileContainer();
@@ -110,7 +112,7 @@ export function CreateTaskSheet({ open, onOpenChange, projectId, teamMembers }: 
             };
 
             await addDocumentNonBlocking(
-                collection(firestore, 'projects', projectId, 'tasks'),
+                tCollection('projects', projectId, 'tasks'),
                 taskData
             );
 

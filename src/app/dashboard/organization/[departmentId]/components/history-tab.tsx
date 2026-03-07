@@ -15,7 +15,7 @@ import {
     Search,
     Info
 } from 'lucide-react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Department, DepartmentHistory } from '@/app/dashboard/organization/types';
 import { format } from 'date-fns';
@@ -30,10 +30,10 @@ export const HistoryTab = ({ departmentId }: HistoryTabProps) => {
     const { firestore } = useFirebase();
     const [expandedSnapshot, setExpandedSnapshot] = useState<string | null>(null);
 
-    const historyQuery = useMemoFirebase(() => {
+    const historyQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !departmentId) return null;
         return query(
-            collection(firestore, 'departmentHistory'),
+            tenantCollection(firestore, companyPath, 'departmentHistory'),
             where('departmentId', '==', departmentId)
         );
     }, [firestore, departmentId]);

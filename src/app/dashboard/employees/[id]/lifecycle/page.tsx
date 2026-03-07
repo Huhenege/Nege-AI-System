@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useParams } from 'next/navigation';
-import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, arrayUnion, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { useDoc, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { arrayUnion, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { Employee } from '@/types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -126,15 +126,15 @@ const STAGES = [
 export default function EmployeeLifecyclePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
-    const { firestore } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
 
     // State for the rotation
     const [activeIndex, setActiveIndex] = React.useState(2); // Default to Onboarding
 
     // Load employee data for the avatar
     const employeeRef = React.useMemo(() =>
-        firestore && employeeId ? doc(firestore, 'employees', employeeId) : null,
-        [firestore, employeeId]);
+        firestore && employeeId ? tDoc('employees', employeeId) : null,
+        [firestore, employeeId, tDoc]);
     const { data: employee } = useDoc<Employee>(employeeRef as any);
 
     // Sync active index with employee's lifecycle stage
@@ -158,24 +158,24 @@ export default function EmployeeLifecyclePage() {
         return departures[departures.length - 1] ?? null;
     }, [employee]);
 
-    const onboardingProjectsQuery = useMemoFirebase(() => {
+    const onboardingProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !employeeId) return null;
         return query(
-            collection(firestore, 'projects'),
+            tenantCollection(firestore, companyPath, 'projects'),
             where('type', '==', 'onboarding'),
             where('onboardingEmployeeId', '==', employeeId),
         );
-    }, [firestore, employeeId]);
+    }, [employeeId]);
     const { data: onboardingProjects } = useCollection<Project>(onboardingProjectsQuery as any);
 
-    const offboardingProjectsQuery = useMemoFirebase(() => {
+    const offboardingProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !employeeId) return null;
         return query(
-            collection(firestore, 'projects'),
+            tenantCollection(firestore, companyPath, 'projects'),
             where('type', '==', 'offboarding'),
             where('offboardingEmployeeId', '==', employeeId),
         );
-    }, [firestore, employeeId]);
+    }, [employeeId]);
     const { data: offboardingProjects } = useCollection<Project>(offboardingProjectsQuery as any);
 
     const [onboardingTaskSummary, setOnboardingTaskSummary] = React.useState<{
@@ -214,7 +214,7 @@ export default function EmployeeLifecyclePage() {
             let total = 0;
             let done = 0;
             for (const p of sorted) {
-                const tasksSnap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+                const tasksSnap = await getDocs(tCollection('projects', p.id, 'tasks'));
                 tasksSnap.forEach((d) => {
                     const t = d.data() as Task;
                     total += 1;
@@ -259,7 +259,7 @@ export default function EmployeeLifecyclePage() {
             let total = 0;
             let done = 0;
             for (const p of sorted) {
-                const tasksSnap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+                const tasksSnap = await getDocs(tCollection('projects', p.id, 'tasks'));
                 tasksSnap.forEach((d) => {
                     const t = d.data() as Task;
                     total += 1;
@@ -289,7 +289,7 @@ export default function EmployeeLifecyclePage() {
         if (!firestore || !employeeId) return;
 
         const q = query(
-            collection(firestore, 'projects'),
+            tCollection('projects'),
             where('type', '==', params.type),
             where(params.employeeField, '==', employeeId),
         );
@@ -301,7 +301,7 @@ export default function EmployeeLifecyclePage() {
         const deletes: Array<{ projectId: string; taskDocIds: string[] }> = [];
         for (const pDoc of projectDocs) {
             const projectId = pDoc.id;
-            const tasksSnap = await getDocs(collection(firestore, 'projects', projectId, 'tasks'));
+            const tasksSnap = await getDocs(tCollection('projects', projectId, 'tasks'));
             deletes.push({ projectId, taskDocIds: tasksSnap.docs.map((d) => d.id) });
         }
 
@@ -317,11 +317,11 @@ export default function EmployeeLifecyclePage() {
 
         for (const item of deletes) {
             for (const taskId of item.taskDocIds) {
-                batch.delete(doc(firestore, 'projects', item.projectId, 'tasks', taskId));
+                batch.delete(tDoc('projects', item.projectId, 'tasks', taskId));
                 ops += 1;
                 if (ops >= 450) await commitIfNeeded();
             }
-            batch.delete(doc(firestore, 'projects', item.projectId));
+            batch.delete(tDoc('projects', item.projectId));
             ops += 1;
             if (ops >= 450) await commitIfNeeded();
         }
@@ -332,7 +332,7 @@ export default function EmployeeLifecyclePage() {
     const handleMoveToStage = async (stageId: string) => {
         if (!firestore || !employeeId) return;
         try {
-            updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
+            updateDocumentNonBlocking(tDoc('employees', employeeId), {
                 lifecycleStage: stageId
             });
             toast({
@@ -367,7 +367,7 @@ export default function EmployeeLifecyclePage() {
             };
 
             // 1. Reset employee to fresh state + add history log
-            updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
+            updateDocumentNonBlocking(tDoc('employees', employeeId), {
                 status: 'active',
                 lifecycleStage: 'recruitment',
                 positionId: null,

@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
@@ -136,14 +136,14 @@ export function EmploymentHistoryTimeline({ employeeId }: { employeeId: string }
   const { firestore } = useFirebase();
 
   const historyQuery = useMemoFirebase(
-    () =>
+    ({ firestore, companyPath }) =>
       firestore && employeeId
         ? query(
-          collection(firestore, `employees/${employeeId}/employmentHistory`),
+          tenantCollection(firestore, companyPath, `employees/${employeeId}/employmentHistory`),
           orderBy('eventDate', 'desc')
         )
         : null,
-    [firestore, employeeId]
+    [employeeId]
   );
 
   const {

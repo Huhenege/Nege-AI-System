@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useMemoFirebase, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
-import { collection, doc, getDoc } from "firebase/firestore";
+import { useCollection, useMemoFirebase, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, tenantCollection, useTenantWrite } from "@/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -93,6 +93,7 @@ const SUGGESTED_PREFIXES = [
 
 export default function ERDocumentTypesSettingsPage() {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingItem, setEditingItem] = React.useState<ERDocumentTypeReferenceItem | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -120,7 +121,7 @@ export default function ERDocumentTypesSettingsPage() {
     });
 
     const documentTypesQuery = useMemoFirebase(
-        ({ firestore }) => firestore ? collection(firestore, 'er_process_document_types') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_process_document_types') : null,
         []
     );
     const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<ERDocumentTypeReferenceItem>(documentTypesQuery);
@@ -174,11 +175,10 @@ export default function ERDocumentTypesSettingsPage() {
 
         try {
             if (editingItem) {
-                const docRef = doc(firestore, 'er_process_document_types', editingItem.id);
-                await updateDocumentNonBlocking(docRef, data);
+                await updateDocumentNonBlocking(tDoc('er_process_document_types', editingItem.id), data);
             } else {
                 const startNumber = formData.numberingConfig?.startNumber || 1;
-                const colRef = collection(firestore, 'er_process_document_types');
+                const colRef = tCollection('er_process_document_types');
                 await addDocumentNonBlocking(colRef, {
                     ...data,
                     currentNumber: startNumber - 1, // Will be incremented to startNumber on first use

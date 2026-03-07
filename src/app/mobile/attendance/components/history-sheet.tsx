@@ -4,7 +4,7 @@ import * as React from 'react';
 import { History, Clock, CheckCircle, X, Trash2, Calendar, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection } from '@/firebase';
 import { collection, query, orderBy, limit, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -43,27 +43,27 @@ export function HistorySheet({ employeeId }: HistorySheetProps) {
     const [activeTab, setActiveTab] = React.useState('attendance');
 
     // Attendance records
-    const attendanceQuery = useMemoFirebase(() => (
+    const attendanceQuery = useMemoFirebase(({ companyPath }) => (
         employeeId ? query(
-            collection(firestore, 'attendance'),
+            tenantCollection(firestore, companyPath, 'attendance'),
             orderBy('date', 'desc'),
             limit(20)
         ) : null
     ), [firestore, employeeId]);
 
     // Time-off requests
-    const timeOffQuery = useMemoFirebase(() => (
+    const timeOffQuery = useMemoFirebase(({ companyPath }) => (
         employeeId ? query(
-            collection(firestore, `employees/${employeeId}/timeOffRequests`),
+            tenantCollection(firestore, companyPath, `employees/${employeeId}/timeOffRequests`),
             orderBy('createdAt', 'desc'),
             limit(20)
         ) : null
     ), [firestore, employeeId]);
 
     // Attendance requests
-    const attendanceRequestsQuery = useMemoFirebase(() => (
+    const attendanceRequestsQuery = useMemoFirebase(({ companyPath }) => (
         employeeId ? query(
-            collection(firestore, `employees/${employeeId}/attendanceRequests`),
+            tenantCollection(firestore, companyPath, `employees/${employeeId}/attendanceRequests`),
             orderBy('createdAt', 'desc'),
             limit(20)
         ) : null

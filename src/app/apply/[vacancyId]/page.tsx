@@ -5,8 +5,8 @@ import { useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, doc, getDoc } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
     Card,
@@ -60,6 +60,7 @@ export default function PublicApplicationPage() {
     const params = useParams();
     const vacancyId = params?.vacancyId as string;
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isSubmitted, setIsSubmitted] = useState(false);
@@ -124,7 +125,7 @@ export default function PublicApplicationPage() {
                 notes: data.coverLetter,
             };
 
-            const candidateRef = await addDocumentNonBlocking(collection(firestore, 'candidates'), newCandidate);
+            const candidateRef = await addDocumentNonBlocking(tCollection('candidates'), newCandidate);
 
             if (candidateRef) {
                 // 2. Create Application
@@ -142,7 +143,7 @@ export default function PublicApplicationPage() {
                     vacancy: vacancy
                 };
 
-                await addDocumentNonBlocking(collection(firestore, 'applications'), newApplication);
+                await addDocumentNonBlocking(tCollection('applications'), newApplication);
             }
 
             setIsSubmitted(true);

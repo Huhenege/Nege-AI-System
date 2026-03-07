@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getDoc, updateDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,7 +50,8 @@ export function SystemSettingsTabContent({
     currentUserId,
     currentUserRole,
 }: SystemSettingsTabContentProps) {
-    const { firestore, auth } = useFirebase();
+    const { auth } = useFirebase();
+    const { firestore, tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [disableConfirmOpen, setDisableConfirmOpen] = React.useState(false);
     const [enableConfirmOpen, setEnableConfirmOpen] = React.useState(false);
@@ -73,7 +74,7 @@ export function SystemSettingsTabContent({
         if (!firestore) return;
         setIsTogglingAccess(true);
         try {
-            const ref = doc(firestore, 'employees', employee.id);
+            const ref = tDoc('employees', employee.id);
             await updateDoc(ref, { loginDisabled: true });
             toast({
                 title: 'Амжилттай',
@@ -96,7 +97,7 @@ export function SystemSettingsTabContent({
         if (!firestore) return;
         setIsTogglingAccess(true);
         try {
-            const ref = doc(firestore, 'employees', employee.id);
+            const ref = tDoc('employees', employee.id);
             await updateDoc(ref, { loginDisabled: false });
             toast({
                 title: 'Амжилттай',
@@ -232,7 +233,7 @@ export function SystemSettingsTabContent({
             // Admin name (best-effort)
             let adminName = 'Системийн админ';
             try {
-                const adminSnap = await getDoc(doc(firestore, 'employees', currentUserId));
+                const adminSnap = await getDoc(tDoc('employees', currentUserId));
                 if (adminSnap.exists()) {
                     const d = adminSnap.data() as any;
                     const n = `${d?.firstName || ''} ${d?.lastName || ''}`.trim();
@@ -243,7 +244,7 @@ export function SystemSettingsTabContent({
             // Company profile (best-effort)
             let companyName = 'Байгууллага';
             try {
-                const companySnap = await getDoc(doc(firestore, 'company', 'profile'));
+                const companySnap = await getDoc(tDoc('company', 'profile'));
                 if (companySnap.exists()) {
                     const d = companySnap.data() as any;
                     if (typeof d?.name === 'string' && d.name.trim()) companyName = d.name.trim();
@@ -254,7 +255,7 @@ export function SystemSettingsTabContent({
             let subjectTemplate = INVITATION_EMAIL_DEFAULT_SUBJECT;
             let htmlTemplate = buildInvitationEmailHtmlFromFields(INVITATION_EMAIL_DEFAULT_FIELDS);
             try {
-                const templateSnap = await getDoc(doc(firestore, 'company', INVITATION_EMAIL_TEMPLATE_DOC_ID));
+                const templateSnap = await getDoc(tDoc('company', INVITATION_EMAIL_TEMPLATE_DOC_ID));
                 if (templateSnap.exists()) {
                     const t = templateSnap.data() as any;
                     if (typeof t?.subject === 'string' && t.subject.trim()) subjectTemplate = t.subject;

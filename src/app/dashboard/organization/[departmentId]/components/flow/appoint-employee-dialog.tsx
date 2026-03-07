@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useCollection, useFirebase, useDoc } from '@/firebase';
+import { useCollection, useFirebase, useDoc, useTenantWrite } from '@/firebase';
 import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment } from 'firebase/firestore';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { createOnboardingProjects, OnboardingStage, OnboardingStageTaskPlan } from '@/lib/onboarding-project-creator';
@@ -119,6 +119,7 @@ export function AppointEmployeeDialog({
     onSuccess,
 }: AppointEmployeeDialogProps) {
     const { firestore, user: firebaseUser } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { employeeProfile: currentUserProfile } = useEmployeeProfile();
     const { toast } = useToast();
     const router = useRouter();
@@ -158,7 +159,7 @@ export function AppointEmployeeDialog({
         if (!firestore || !empId) return false;
         try {
             const snap = await getDocs(query(
-                collection(firestore, 'projects'),
+                tCollection('projects'),
                 where('type', '==', 'offboarding'),
                 where('offboardingEmployeeId', '==', empId)
             ));
@@ -167,7 +168,7 @@ export function AppointEmployeeDialog({
             console.warn('Offboarding projects check failed:', e);
             return false;
         }
-    }, [firestore]);
+    }, [firestore, tCollection]);
 
     const isValidDateString = React.useCallback((val?: string) => !!val && /^\d{4}-\d{2}-\d{2}$/.test(val), []);
     const getDefaultDueDateForStage = React.useCallback((stageId: OnboardingStageId) => {
@@ -545,7 +546,7 @@ export function AppointEmployeeDialog({
         setSelectedActionId(type.id);
 
         try {
-            const actionSnap = await getDoc(doc(firestore, 'organization_actions', type.id));
+            const actionSnap = await getDoc(tDoc('organization_actions', type.id));
             const cfg = actionSnap.exists() ? (actionSnap.data() as any) : null;
             if (!cfg?.templateId) {
                 showActionNotConfiguredToast(type.name);
@@ -749,7 +750,7 @@ export function AppointEmployeeDialog({
             // Fetch company profile
             let companyProfile = null;
             try {
-                const companySnap = await getDocs(collection(firestore, 'company_profile'));
+                const companySnap = await getDocs(tCollection('company_profile'));
                 companyProfile = !companySnap.empty ? companySnap.docs[0].data() : null;
             } catch (e) {
                 console.warn("Failed to fetch company profile:", e);
@@ -759,7 +760,7 @@ export function AppointEmployeeDialog({
             let deptData = null;
             if (position.departmentId) {
                 try {
-                    const deptSnap = await getDoc(doc(firestore, 'departments', position.departmentId));
+                    const deptSnap = await getDoc(tDoc('departments', position.departmentId));
                     deptData = deptSnap.exists() ? { id: deptSnap.id, ...deptSnap.data() } : null;
                 } catch (e) {
                     console.warn("Failed to fetch department:", e);
@@ -840,7 +841,7 @@ export function AppointEmployeeDialog({
                         }
                     }
 
-                    const docRef = doc(collection(firestore, 'er_documents'));
+                    const docRef = doc(tCollection('er_documents'));
                     batch.set(docRef, {
                         ...(documentNumber ? { documentNumber } : {}),
                         documentTypeId: templateData?.documentTypeId || null,
@@ -892,7 +893,7 @@ export function AppointEmployeeDialog({
 
             // Update Employee with selected compensation
             try {
-                const empRef = doc(firestore, 'employees', selectedEmployee.id);
+                const empRef = tDoc('employees', selectedEmployee.id);
                 batch.update(empRef, {
                     positionId: position?.id || null,
                     jobTitle: position?.title || null,
@@ -916,7 +917,7 @@ export function AppointEmployeeDialog({
 
             // Update Position filled count
             try {
-                const posRef = doc(firestore, 'positions', position.id);
+                const posRef = tDoc('positions', position.id);
                 batch.update(posRef, {
                     filled: increment(1),
                     updatedAt: Timestamp.now()
@@ -937,7 +938,7 @@ export function AppointEmployeeDialog({
             // Create Onboarding Projects (after batch commit succeeds)
             if (enableOnboarding) {
                 try {
-                    const configSnap = await getDoc(doc(firestore, 'settings', 'onboarding'));
+                    const configSnap = await getDoc(tDoc('settings', 'onboarding'));
                     const config = configSnap.exists() ? configSnap.data() : { stages: [] };
                     const onboardingStages = (config.stages || []) as OnboardingStage[];
 

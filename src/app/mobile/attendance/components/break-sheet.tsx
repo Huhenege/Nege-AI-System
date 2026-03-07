@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Coffee, Play, Square, Clock, AlertTriangle } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -37,9 +37,9 @@ export function BreakSheet({
     const [currentBreakTime, setCurrentBreakTime] = React.useState<number>(0);
 
     // Get today's breaks
-    const breaksQuery = useMemoFirebase(() => (
+    const breaksQuery = useMemoFirebase(({ companyPath }) => (
         attendanceId && firestore ? query(
-            collection(firestore, `attendance/${attendanceId}/breaks`),
+            tenantCollection(firestore, companyPath, `attendance/${attendanceId}/breaks`),
             orderBy('startTime', 'desc')
         ) : null
     ), [firestore, attendanceId]);

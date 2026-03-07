@@ -51,6 +51,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
   useMemoFirebase,
+  tenantCollection,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -104,7 +105,7 @@ export function ReferenceTable({
 
   const { firestore } = useFirebase();
   const collectionRef = useMemoFirebase(
-    () => (firestore && collectionName ? collection(firestore, collectionName) : null),
+    ({ companyPath }) => (firestore && collectionName ? tenantCollection(firestore, companyPath, collectionName) : null),
     [firestore, collectionName]
   );
 

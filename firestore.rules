@@ -25,6 +25,132 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ─── Multi-tenant: Companies ───────────────────────────────────────
+    function getCompanyId() {
+      return request.auth.token.companyId;
+    }
+
+    function belongsToCompany(companyId) {
+      return isSignedIn() && request.auth.token.companyId == companyId;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.role == 'super_admin';
+    }
+
+    function isCompanyAdmin(companyId) {
+      return belongsToCompany(companyId) && request.auth.token.role in ['admin', 'super_admin'];
+    }
+
+    match /companies/{companyId} {
+      allow read: if belongsToCompany(companyId) || isSuperAdmin();
+      allow create: if isSignedIn();
+      allow update: if isCompanyAdmin(companyId) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+
+      // Tenant-scoped subcollections
+      match /employees/{employeeId} {
+        allow read: if belongsToCompany(companyId);
+        allow create: if isCompanyAdmin(companyId);
+        allow update: if isCompanyAdmin(companyId) || (
+          belongsToCompany(companyId) && isOwner(employeeId) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'questionnaireLocked'])
+        );
+        allow delete: if isCompanyAdmin(companyId);
+      }
+
+      match /departments/{departmentId} {
+        allow read: if belongsToCompany(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      match /positions/{positionId} {
+        allow read: if belongsToCompany(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      match /projects/{projectId} {
+        allow read: if belongsToCompany(companyId);
+        allow create: if belongsToCompany(companyId);
+        allow update: if belongsToCompany(companyId) && (
+          isCompanyAdmin(companyId) ||
+          request.auth.uid == resource.data.ownerId ||
+          request.auth.uid == resource.data.createdBy
+        );
+        allow delete: if isCompanyAdmin(companyId) || (
+          belongsToCompany(companyId) && request.auth.uid == resource.data.createdBy
+        );
+
+        match /tasks/{taskId} {
+          allow read: if belongsToCompany(companyId);
+          allow create: if belongsToCompany(companyId);
+          allow update: if belongsToCompany(companyId) && (
+            isCompanyAdmin(companyId) ||
+            request.auth.uid == resource.data.ownerId ||
+            request.auth.uid in resource.data.get('assigneeIds', [])
+          );
+          allow delete: if isCompanyAdmin(companyId);
+        }
+
+        match /messages/{messageId} {
+          allow read: if belongsToCompany(companyId);
+          allow create: if belongsToCompany(companyId);
+          allow update: if belongsToCompany(companyId) && request.auth.uid == resource.data.senderId;
+          allow delete: if isCompanyAdmin(companyId) || (
+            belongsToCompany(companyId) && request.auth.uid == resource.data.senderId
+          );
+        }
+      }
+
+      // Surveys (tenant-scoped)
+      match /surveys/{surveyId} {
+        allow read: if belongsToCompany(companyId);
+        allow create: if belongsToCompany(companyId);
+        allow update: if belongsToCompany(companyId);
+        allow delete: if isCompanyAdmin(companyId);
+
+        match /questions/{questionId} {
+          allow read: if belongsToCompany(companyId);
+          allow write: if belongsToCompany(companyId);
+        }
+
+        match /responses/{responseId} {
+          allow read: if isCompanyAdmin(companyId);
+          allow create: if belongsToCompany(companyId);
+          allow delete: if isCompanyAdmin(companyId);
+        }
+      }
+
+      // Company settings (branding, profile, etc.)
+      match /company/{allPaths=**} {
+        allow read: if belongsToCompany(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      // Catch-all for other tenant subcollections (single level)
+      match /{subcollection}/{docId} {
+        allow read: if belongsToCompany(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      // Catch-all recursive for deeply nested paths
+      match /{subcollection}/{allPaths=**} {
+        allow read: if belongsToCompany(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+    }
+
+    // ─── Platform-level collections (Super Admin only) ─────────────────
+    match /platform/{docId} {
+      allow read: if isSuperAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isSuperAdmin() || (isSignedIn() && resource.data.companyId == request.auth.token.companyId);
+      allow write: if isSuperAdmin();
+    }
+
     // Анхны админ бүртгэх: signup нээлттэй үед employees тоолох боломжтой
     // Документ: system/signup_config { open: true|false }
     match /system/signup_config {

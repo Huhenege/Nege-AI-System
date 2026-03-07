@@ -19,8 +19,8 @@ import {
   useMemoFirebase,
   useDoc,
   setDocumentNonBlocking,
+  tenantDoc,
 } from '@/firebase';
-import { doc } from 'firebase/firestore';
 
 import {
   Form,
@@ -79,7 +79,7 @@ function EmployeeCodeConfigForm({
   const { toast } = useToast();
 
   const codeConfigRef = useMemoFirebase(
-    ({ firestore }) => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null),
     []
   );
 
@@ -222,7 +222,7 @@ function ConfigCardSkeleton() {
 
 export default function EmployeeCodeSettingsPage() {
   const codeConfigRef = useMemoFirebase(
-    ({ firestore }) => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null),
     []
   );
 
@@ -290,7 +290,7 @@ export default function EmployeeCodeSettingsPage() {
 
 function PositionCodeConfigSection() {
   const codeConfigRef = useMemoFirebase(
-    ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
     []
   );
 
@@ -315,7 +315,7 @@ function PositionCodeConfigForm({
   const { toast } = useToast();
 
   const codeConfigRef = useMemoFirebase(
-    ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
     []
   );
 

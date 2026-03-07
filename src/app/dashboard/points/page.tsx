@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, tenantCollection } from '@/firebase';
 import { collection, doc, query, orderBy, limit, where } from 'firebase/firestore';
 import { CoreValue, PointsConfig, RecognitionPost } from '@/types/points';
 import {
@@ -40,15 +40,15 @@ export default function PointAdminPage() {
 
     // Queries
     const valuesQuery = useMemo(() => firestore ? query(collection(firestore, 'company', 'branding', 'values'), where('isActive', '==', true)) : null, [firestore]);
-    const recognitionQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'recognition_posts'), orderBy('createdAt', 'desc'), limit(50)) : null
+    const recognitionQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'recognition_posts'), orderBy('createdAt', 'desc'), limit(50)) : null
         , [firestore]);
-    const transactionsQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'point_transactions'), orderBy('createdAt', 'desc'), limit(500)) : null
+    const transactionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'point_transactions'), orderBy('createdAt', 'desc'), limit(500)) : null
         , [firestore]);
-    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
-    const positionsQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'positions'), where('hasPointBudget', '==', true)) : null
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null, [firestore]);
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'positions'), where('hasPointBudget', '==', true)) : null
         , [firestore]);
 
     // Config

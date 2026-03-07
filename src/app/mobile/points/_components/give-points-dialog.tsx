@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, query, where, limit, orderBy, doc, getDoc } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser, useTenantWrite } from '@/firebase';
+import { query, where, limit, orderBy, doc, getDoc } from 'firebase/firestore';
 import { PointsService } from '@/lib/points/points-service';
 import { Position } from '@/app/dashboard/organization/types';
 import { CoreValue } from '@/types/points';
@@ -37,27 +37,28 @@ export function GivePointsDialog({ triggerButton }: { triggerButton?: React.Reac
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
+    const { tDoc, tCollection } = useTenantWrite();
     const [useBudget, setUseBudget] = useState(false);
     const [myPosition, setMyPosition] = useState<Position | null>(null);
 
     // Load Values - use useMemo to only create query when firestore is ready
-    const valuesQuery = useMemo(() => firestore ? query(collection(firestore, 'company', 'branding', 'values'), where('isActive', '==', true)) : null, [firestore]);
+    const valuesQuery = useMemo(() => firestore ? query(tCollection('company', 'branding', 'values'), where('isActive', '==', true)) : null, [firestore, tCollection]);
     const { data: values } = useCollection<CoreValue>(valuesQuery);
 
     // Load Employees
-    const employeesQuery = useMemo(() => firestore ? query(collection(firestore, 'employees'), orderBy('firstName'), limit(50)) : null, [firestore]);
+    const employeesQuery = useMemo(() => firestore ? query(tCollection('employees'), orderBy('firstName'), limit(50)) : null, [firestore, tCollection]);
     const { data: employees } = useCollection<any>(employeesQuery);
 
     // Load User's Position for Budget check
     useEffect(() => {
         async function fetchPosition() {
             if (!user || !firestore) return;
-            const empSnap = await getDoc(doc(firestore, 'employees', user.uid));
+            const empSnap = await getDoc(tDoc('employees', user.uid));
             if (empSnap.exists()) {
                 const empData = empSnap.data();
                 const posId = (empData.workInfo?.positionId) || (empData.positionId);
                 if (posId) {
-                    const posSnap = await getDoc(doc(firestore, 'positions', posId));
+                    const posSnap = await getDoc(tDoc('positions', posId));
                     if (posSnap.exists()) {
                         setMyPosition({ id: posSnap.id, ...posSnap.data() } as Position);
                     }

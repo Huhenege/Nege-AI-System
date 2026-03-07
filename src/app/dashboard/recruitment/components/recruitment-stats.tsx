@@ -2,8 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
 import { JobApplication, Vacancy } from '@/types/recruitment';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Users, CheckCircle, Clock, TrendingUp, XCircle } from 'lucide-react';
@@ -15,14 +14,14 @@ export function RecruitmentStats() {
 
     // Fetch all applications
     const applicationsQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'applications') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'applications') : null),
         [firestore]
     );
     const { data: applications } = useCollection<JobApplication>(applicationsQuery as any);
 
     // Fetch all vacancies
     const vacanciesQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'vacancies') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'vacancies') : null),
         [firestore]
     );
     const { data: vacancies } = useCollection<Vacancy>(vacanciesQuery as any);

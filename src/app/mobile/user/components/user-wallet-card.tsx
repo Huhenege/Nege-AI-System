@@ -1,7 +1,7 @@
 'use client';
 
-import { useUser, useFirestore, useDoc } from '@/firebase';
-import { doc, DocumentReference } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useTenantWrite } from '@/firebase';
+import { DocumentReference } from 'firebase/firestore';
 import { UserPointProfile } from '@/types/points';
 import { useMemo } from 'react';
 import { Progress } from '@/components/ui/progress';
@@ -10,13 +10,14 @@ import { Gift, TrendingUp, Wallet, ChevronRight, Award, Star } from 'lucide-reac
 export function UserWalletCard() {
     const { user } = useUser();
     const firestore = useFirestore();
+    const { tDoc } = useTenantWrite();
 
     // Real-time listener for the user's point profile
     const profileRef = useMemo(() =>
         (user && firestore)
-            ? doc(firestore, 'employees', user.uid, 'point_profile', 'main') as DocumentReference<UserPointProfile>
+            ? tDoc('employees', user.uid, 'point_profile', 'main') as DocumentReference<UserPointProfile>
             : null,
-        [user?.uid, firestore]);
+        [user?.uid, firestore, tDoc]);
 
     const { data: profile } = useDoc<UserPointProfile>(profileRef);
 

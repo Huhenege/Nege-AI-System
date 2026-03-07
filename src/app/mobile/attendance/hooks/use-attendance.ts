@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { format, addDays } from 'date-fns';
-import { useFirebase, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { useToast } from '@/hooks/use-toast';
 import { getDeviceId, getCurrentPosition, checkLocationWithinRange } from '@/lib/attendance';
@@ -20,25 +20,26 @@ export function useAttendance() {
 
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     const todayString = React.useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
     // Queries
-    const attendanceQuery = useMemoFirebase(() => (
+    const attendanceQuery = useMemoFirebase(({ companyPath }) => (
         employeeProfile ? query(
-            collection(firestore, 'attendance'),
+            tenantCollection(firestore, companyPath, 'attendance'),
             where('employeeId', '==', employeeProfile.id),
             where('date', '==', todayString)
         ) : null
     ), [firestore, employeeProfile, todayString]);
 
-    const locationsQuery = useMemoFirebase(() => (
-        query(collection(firestore, 'attendanceLocations'), where('isActive', '==', true))
+    const locationsQuery = useMemoFirebase(({ companyPath }) => (
+        query(tenantCollection(firestore, companyPath, 'attendanceLocations'), where('isActive', '==', true))
     ), [firestore]);
 
-    const timeOffConfigQuery = useMemoFirebase(() => (
-        firestore ? doc(firestore, 'company/timeOffRequestConfig') : null
+    const timeOffConfigQuery = useMemoFirebase(({ companyPath }) => (
+        firestore ? tenantDoc(firestore, companyPath, 'company', 'timeOffRequestConfig') : null
     ), [firestore]);
 
     const { data: attendanceRecords, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
@@ -46,7 +47,7 @@ export function useAttendance() {
     const { data: timeOffConfig, isLoading: isTimeOffConfigLoading } = useDoc<TimeOffRequestConfig>(timeOffConfigQuery);
 
     // Company work calendar (single source of truth for working/non-working days)
-    const workCalendarRef = useMemoFirebase(() => (firestore ? doc(firestore, 'workCalendars', 'default') : null), [firestore]);
+    const workCalendarRef = useMemoFirebase(({ companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'workCalendars', 'default') : null), [firestore]);
     const { data: workCalendar, isLoading: isWorkCalendarLoading } = useDoc<WorkCalendar>(workCalendarRef as any);
     const recurringDayMap = React.useMemo(() => buildRecurringDayMap(workCalendar), [workCalendar]);
 
@@ -95,7 +96,7 @@ export function useAttendance() {
         const currentDeviceId = getDeviceId();
         if (!employeeProfile.deviceId) {
             // First time - register device
-            const employeeDocRef = doc(firestore, 'employees', employeeProfile.id);
+            const employeeDocRef = tDoc('employees', employeeProfile.id);
             await updateDocumentNonBlocking(employeeDocRef, { deviceId: currentDeviceId });
         } else if (employeeProfile.deviceId !== currentDeviceId) {
             setError("Төхөөрөмж таарахгүй байна. Админд хандана уу.");
@@ -129,8 +130,8 @@ export function useAttendance() {
             setSubmittingStep('saving');
 
             if (type === 'check-in') {
-                const attendanceCollection = collection(firestore, 'attendance');
-                await addDocumentNonBlocking(attendanceCollection, {
+                const attendanceCol = tCollection('attendance');
+                await addDocumentNonBlocking(attendanceCol, {
                     employeeId: employeeProfile.id,
                     date: todayString,
                     checkInTime: new Date().toISOString(),
@@ -141,7 +142,7 @@ export function useAttendance() {
                 });
                 toast({ title: `${locName} байршилд ирц бүртгэгдлээ` });
             } else if (type === 'check-out' && todaysRecord) {
-                const recordDocRef = doc(firestore, 'attendance', todaysRecord.id);
+                const recordDocRef = tDoc('attendance', todaysRecord.id);
                 await updateDocumentNonBlocking(recordDocRef, {
                     checkOutTime: new Date().toISOString(),
                     checkOutLocationName: locName,

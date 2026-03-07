@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertCircle, TrendingUp } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, addMonths, eachDayOfInterval, isSameDay, differenceInMinutes, parseISO } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import type { AttendanceRecord } from '@/types/attendance';
@@ -41,8 +41,8 @@ export const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceD
     const startStr = format(monthStart, 'yyyy-MM-dd');
     const endStr = format(monthEnd, 'yyyy-MM-dd');
 
-    const attendanceQuery = useMemoFirebase(() => employeeId ? query(
-        collection(firestore, 'attendance'),
+    const attendanceQuery = useMemoFirebase(({ companyPath }) => employeeId ? query(
+        tenantCollection(firestore, companyPath, 'attendance'),
         where('employeeId', '==', employeeId),
         where('date', '>=', startStr),
         where('date', '<=', endStr)
@@ -51,7 +51,7 @@ export const MonthlyAttendanceDashboard = React.memo(function MonthlyAttendanceD
     const { data: attendanceRecords, isLoading } = useCollection<AttendanceRecord>(attendanceQuery);
 
     // Company work calendar for day-type resolution
-    const workCalendarRef = useMemoFirebase(() => (firestore ? doc(firestore, 'workCalendars', 'default') : null), [firestore]);
+    const workCalendarRef = useMemoFirebase(({ companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'workCalendars', 'default') : null), [firestore]);
     const { data: workCalendar, isLoading: isWorkCalendarLoading } = useDoc<WorkCalendar>(workCalendarRef as any);
     const recurringDayMap = React.useMemo(() => buildRecurringDayMap(workCalendar), [workCalendar]);
 

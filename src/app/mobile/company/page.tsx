@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { z } from 'zod';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantDoc, tenantCollection } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -86,15 +86,19 @@ export default function MobileCompanyPage() {
 
     // Queries
     const companyProfileRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'profile') : null),
+        ({ companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
         [firestore]
     );
     const valuesQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'company', 'branding', 'values') : null),
-        [firestore]
+        ({ firestore, companyPath }) => {
+            if (!firestore) return null;
+            const base = companyPath ? `${companyPath}/company` : 'company';
+            return collection(firestore, base, 'branding', 'values');
+        },
+        []
     );
     const historyQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'companyHistory') : null,
+        ({ companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'companyHistory') : null,
         [firestore]
     );
 

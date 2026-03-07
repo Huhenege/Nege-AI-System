@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -80,8 +79,8 @@ export function CVTabContent({ employee }: CVTabContentProps) {
     const printRef = React.useRef<HTMLDivElement>(null);
 
     const questionnaireDocRef = useMemoFirebase(
-        () => (firestore && employee?.id ? doc(firestore, `employees/${employee.id}/questionnaire`, 'data') : null),
-        [firestore, employee?.id]
+        ({ firestore, companyPath }) => (firestore && employee?.id ? tenantDoc(firestore, companyPath, `employees/${employee.id}/questionnaire`, 'data') : null),
+        [employee?.id]
     );
 
     const { data: rawQuestionnaireData, isLoading } = useDoc<FullQuestionnaireValues>(questionnaireDocRef);

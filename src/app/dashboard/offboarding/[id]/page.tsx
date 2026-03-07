@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { Project } from '@/types/project';
 import { Button } from '@/components/ui/button';
 
@@ -13,10 +13,10 @@ export default function OffboardingEmployeeRedirectPage() {
     const employeeId = (Array.isArray(params?.id) ? params.id[0] : params?.id) as string;
     const { firestore } = useFirebase();
 
-    const projectsQuery = useMemoFirebase(() => {
+    const projectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !employeeId) return null;
         return query(
-            collection(firestore, 'projects'),
+            tenantCollection(firestore, companyPath, 'projects'),
             where('type', '==', 'offboarding'),
             where('offboardingEmployeeId', '==', employeeId)
         );

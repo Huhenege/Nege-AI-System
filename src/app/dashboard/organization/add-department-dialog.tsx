@@ -35,8 +35,9 @@ import {
   updateDocumentNonBlocking,
   useFirebase,
   useMemoFirebase,
+  tenantCollection,
+  useTenantWrite,
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
 const departmentSchema = z.object({
@@ -76,6 +77,7 @@ export function AddDepartmentDialog({
   onDepartmentAdded,
 }: AddDepartmentDialogProps) {
   const { firestore } = useFirebase();
+  const { tDoc } = useTenantWrite();
   const { toast } = useToast();
   const isEditMode = !!editingDepartment;
 
@@ -111,7 +113,7 @@ export function AddDepartmentDialog({
   const { isSubmitting } = form.formState;
 
   const departmentsCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'departments') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null),
     [firestore]
   );
 
@@ -138,7 +140,7 @@ export function AddDepartmentDialog({
     }
 
     if (isEditMode && editingDepartment) {
-      const docRef = doc(firestore, 'departments', editingDepartment.id);
+      const docRef = tDoc('departments', editingDepartment.id);
       updateDocumentNonBlocking(docRef, finalData);
       toast({
         title: 'Амжилттай шинэчлэгдлээ',

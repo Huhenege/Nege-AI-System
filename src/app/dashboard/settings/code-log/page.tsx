@@ -19,14 +19,13 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
-import { useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import type { Employee } from '../../employees/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CodeLogPage() {
   const employeesQuery = useMemoFirebase(
-    ({firestore}) => (firestore ? collection(firestore, 'employees') : null),
+    ({firestore, companyPath}) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null),
     []
   );
   const { data: employees, isLoading, error } = useCollection<Employee>(employeesQuery);

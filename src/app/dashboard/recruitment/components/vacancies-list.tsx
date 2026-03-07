@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -25,17 +25,17 @@ export function VacanciesList() {
     const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
     const vacanciesQuery = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'vacancies'), orderBy('createdAt', 'desc')) : null),
+        ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'vacancies'), orderBy('createdAt', 'desc')) : null),
         [firestore]
     );
 
     const departmentsQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'departments') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null),
         [firestore]
     );
 
     const empTypesQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'employmentTypes') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employmentTypes') : null),
         [firestore]
     );
 

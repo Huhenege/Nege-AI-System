@@ -31,8 +31,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, getDoc, writeBatch, increment } from 'firebase/firestore';
+import { updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { getDoc, writeBatch, increment } from 'firebase/firestore';
 import type { Employee } from './data';
 import { useRouter } from 'next/navigation';
 
@@ -53,7 +53,7 @@ export function DeleteEmployeeDialog({
   onOpenChange,
   employee,
 }: DeleteEmployeeDialogProps) {
-  const { firestore } = useFirebase();
+  const { firestore, tDoc } = useTenantWrite();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const router = useRouter();
@@ -96,7 +96,7 @@ export function DeleteEmployeeDialog({
 
       // Step 2: Update Firestore document status and position counts
       const batch = writeBatch(firestore);
-      const employeeDocRef = doc(firestore, 'employees', employee.id);
+      const employeeDocRef = tDoc('employees', employee.id);
 
       batch.update(employeeDocRef, {
         status: newStatus,
@@ -105,7 +105,7 @@ export function DeleteEmployeeDialog({
 
       // 3. Decrement position filled count if employee was assigned
       if (employee.positionId && newStatus === 'terminated') {
-        const posRef = doc(firestore, 'positions', employee.positionId);
+        const posRef = tDoc('positions', employee.positionId);
         const posSnap = await getDoc(posRef);
         if (posSnap.exists()) {
           const currentFilled = posSnap.data().filled || 0;

@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useDoc, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
@@ -81,6 +81,7 @@ function ReactionIcon({ type, className }: { type: ReactionType; className?: str
 
 function PostReactionsReport({ post }: { post: Post }) {
   const { firestore } = useFirebase();
+  const { tDoc } = useTenantWrite();
   const [details, setDetails] = React.useState<{ employee: Employee; reaction: ReactionType }[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -97,7 +98,7 @@ function PostReactionsReport({ post }: { post: Post }) {
     const load = async () => {
       const list: { employee: Employee; reaction: ReactionType }[] = [];
       for (const uid of userIds) {
-        const snap = await getDoc(doc(firestore, 'employees', uid));
+        const snap = await getDoc(tDoc('employees', uid));
         if (snap.exists() && !cancelled) {
           list.push({ employee: snap.data() as Employee, reaction: reactions[uid] });
         }

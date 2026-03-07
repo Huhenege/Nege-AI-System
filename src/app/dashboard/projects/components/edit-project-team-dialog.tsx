@@ -31,8 +31,8 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirebase, useMemoFirebase, useCollection, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc, Timestamp } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase, useCollection, updateDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Employee, isActiveStatus } from '@/types';
@@ -53,11 +53,12 @@ interface EditProjectTeamDialogProps {
 
 export function EditProjectTeamDialog({ open, onOpenChange, project }: EditProjectTeamDialogProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -98,7 +99,7 @@ export function EditProjectTeamDialog({ open, onOpenChange, project }: EditProje
         if (!firestore || !project.id) return;
         setIsSubmitting(true);
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'projects', project.id), {
+            await updateDocumentNonBlocking(tDoc('projects', project.id), {
                 ownerId: values.ownerId,
                 teamMemberIds: values.teamMemberIds,
                 updatedAt: Timestamp.now(),

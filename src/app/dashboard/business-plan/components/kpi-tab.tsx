@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { collection, doc } from 'firebase/firestore';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +43,7 @@ export function KpiTab({
     activePlan, themes, objectives, kpis, employees, departments, isLoading,
 }: KpiTabProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingKpi, setEditingKpi] = useState<Kpi | null>(null);
@@ -81,14 +81,14 @@ export function KpiTab({
             ragStatus: rag,
             createdAt: new Date().toISOString(),
         };
-        addDocumentNonBlocking(collection(firestore, 'bp_kpis'), data);
+        addDocumentNonBlocking(tCollection('bp_kpis'), data);
         toast({ title: 'KPI нэмэгдлээ', description: values.name });
     };
 
     const handleUpdate = (values: KpiFormValues) => {
         if (!firestore || !editingKpi) return;
         const rag = computeRagStatus(values.current, values.target);
-        updateDocumentNonBlocking(doc(firestore, 'bp_kpis', editingKpi.id), { ...values, ragStatus: rag });
+        updateDocumentNonBlocking(tDoc('bp_kpis', editingKpi.id), { ...values, ragStatus: rag });
         toast({ title: 'KPI шинэчлэгдлээ' });
         setEditingKpi(null);
     };

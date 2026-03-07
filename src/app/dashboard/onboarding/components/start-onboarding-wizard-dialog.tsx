@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { Employee } from '@/types';
 import {
   createOnboardingProjects,
@@ -106,21 +106,21 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
   const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
   const [taskPlanByStage, setTaskPlanByStage] = React.useState<TaskPlanByStage>({});
 
-  const employeesQuery = useMemoFirebase(() => {
+  const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']));
+    return query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']));
   }, [firestore]);
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery as any);
 
-  const onboardingProjectsQuery = useMemoFirebase(() => {
+  const onboardingProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return query(collection(firestore, 'projects'), where('type', '==', 'onboarding'));
+    return query(tenantCollection(firestore, companyPath, 'projects'), where('type', '==', 'onboarding'));
   }, [firestore]);
   const { data: onboardingProjects, isLoading: projectsLoading } = useCollection<any>(onboardingProjectsQuery as any);
 
-  const onboardingConfigRef = useMemoFirebase(() => {
+  const onboardingConfigRef = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return doc(firestore, 'settings', 'onboarding');
+    return tenantDoc(firestore, companyPath, 'settings', 'onboarding');
   }, [firestore]);
   const { data: onboardingConfig, isLoading: configLoading } = useDoc<any>(onboardingConfigRef as any);
 

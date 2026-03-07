@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collectionGroup, collection, query, orderBy, where, doc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { collectionGroup, query, orderBy, where } from 'firebase/firestore';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { VacationDashboard } from './components/vacation-dashboard';
@@ -64,6 +64,7 @@ import {
 
 export default function VacationPage() {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('pending');
@@ -77,8 +78,8 @@ export default function VacationPage() {
         firestore ? query(collectionGroup(firestore, 'vacationRequests'), orderBy('startDate', 'desc')) : null
         , [firestore]);
 
-    const employeesQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'employees') : null
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'employees') : null
         , [firestore]);
 
     const { data: requests, isLoading: isLoadingRequests, error: requestsError } = useCollection<VacationRequest>(requestsQuery);
@@ -158,7 +159,7 @@ export default function VacationPage() {
         if (!firestore) return;
 
         try {
-            const docRef = doc(firestore, 'employees', req.employeeId, 'vacationRequests', req.id);
+            const docRef = tDoc('employees', req.employeeId, 'vacationRequests', req.id);
             if (newStatus === 'REJECTED' && !rejectionReason?.trim()) {
                 toast({
                     variant: "destructive",

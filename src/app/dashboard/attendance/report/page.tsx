@@ -14,8 +14,8 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, where, orderBy } from 'firebase/firestore';
 import { format, subDays } from 'date-fns';
 import { Employee, Department } from '@/types';
 import {
@@ -48,19 +48,19 @@ export default function AttendanceReportPage() {
 
   // ── Data fetching ─────────────────────────────────────────────────────
   const employeesQuery = useMemoFirebase(
-    ({ firestore }) => (firestore ? collection(firestore, 'employees') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null),
     []
   );
   const departmentsQuery = useMemoFirebase(
-    ({ firestore }) =>
-      firestore ? collection(firestore, 'departments') : null,
+    ({ firestore, companyPath }) =>
+      firestore ? tenantCollection(firestore, companyPath, 'departments') : null,
     []
   );
   const attendanceQuery = useMemoFirebase(
-    ({ firestore }) =>
+    ({ firestore, companyPath }) =>
       firestore
         ? query(
-            collection(firestore, 'attendance'),
+            tenantCollection(firestore, companyPath, 'attendance'),
             orderBy('checkInTime', 'desc')
           )
         : null,

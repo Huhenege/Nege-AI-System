@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { collection, deleteDoc, doc, getDoc, query, Timestamp, where } from 'firebase/firestore';
-import { useCollection, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -87,6 +87,7 @@ export default function TrainingPlanDetailPage() {
     const router = useRouter();
     const { toast } = useToast();
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
 
     const [loading, setLoading] = useState(true);
     const [plan, setPlan] = useState<TrainingPlan | null>(null);
@@ -258,7 +259,7 @@ export default function TrainingPlanDetailPage() {
             updates.sessions = sessions;
 
             const cleanUpdates = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
-            await updateDocumentNonBlocking(doc(firestore, 'training_plans', planId), cleanUpdates);
+            await updateDocumentNonBlocking(tDoc('training_plans', planId), cleanUpdates);
             toast({ title: 'Төлөвлөгөө шинэчлэгдлээ' });
         } finally {
             setSaving(false);
@@ -305,10 +306,10 @@ export default function TrainingPlanDetailPage() {
             };
             if (plan.budget != null && plan.budget > 0) projectData.pointBudget = plan.budget;
 
-            const docRef = await addDocumentNonBlocking(collection(firestore, 'projects'), projectData);
+            const docRef = await addDocumentNonBlocking(tCollection('projects'), projectData);
             const projectId = typeof docRef === 'object' && docRef && 'id' in docRef ? (docRef as { id: string }).id : '';
 
-            await updateDocumentNonBlocking(doc(firestore, 'training_plans', plan.id), {
+            await updateDocumentNonBlocking(tDoc('training_plans', plan.id), {
                 status: 'published',
                 completedAt: new Date().toISOString(),
                 ...(projectId ? { projectId } : {}),
@@ -326,7 +327,7 @@ export default function TrainingPlanDetailPage() {
         if (!firestore || !plan) return;
         setDeleting(true);
         try {
-            await deleteDocumentNonBlocking(doc(firestore, 'training_plans', plan.id));
+            await deleteDocumentNonBlocking(tDoc('training_plans', plan.id));
             setDeleteDialogOpen(false);
             toast({ title: 'Төлөвлөгөө устгагдлаа' });
             router.push('/dashboard/training');
@@ -374,7 +375,7 @@ export default function TrainingPlanDetailPage() {
         if (!firestore || !planId) return;
         setSavingAttendance(true);
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'training_plans', planId), { sessions });
+            await updateDocumentNonBlocking(tDoc('training_plans', planId), { sessions });
             toast({ title: 'Ирц хадгалагдлаа' });
         } finally {
             setSavingAttendance(false);
@@ -434,10 +435,10 @@ export default function TrainingPlanDetailPage() {
                     updatedAt: now,
                     trainingPlanId: planId,
                 };
-                const docRef = await addDocumentNonBlocking(collection(firestore, 'surveys'), newSurvey);
+                const docRef = await addDocumentNonBlocking(tCollection('surveys'), newSurvey);
                 const surveyId = docRef && typeof docRef === 'object' && 'id' in docRef ? (docRef as { id: string }).id : null;
                 if (surveyId && template.questions?.length) {
-                    const questionsRef = collection(firestore, 'surveys', surveyId, 'questions');
+                    const questionsRef = tCollection('surveys', surveyId, 'questions');
                     for (const q of template.questions) {
                         const questionData: Record<string, unknown> = {};
                         for (const [key, value] of Object.entries(q)) {
@@ -577,7 +578,7 @@ export default function TrainingPlanDetailPage() {
         try {
             // Зарлагдсан төлөвөөс цуцлах үед холбоотой төслийг устгана.
             if (newStatus === 'cancelled' && form.status === 'published' && plan?.projectId) {
-                await deleteDoc(doc(firestore, 'projects', plan.projectId));
+                await deleteDoc(tDoc('projects', plan.projectId));
             }
             const course = courses.find((c) => c.id === form.courseId);
             const updates: Record<string, unknown> = {
@@ -607,7 +608,7 @@ export default function TrainingPlanDetailPage() {
             if (['completed', 'cancelled', 'published'].includes(newStatus)) updates.completedAt = new Date().toISOString();
             if (newStatus === 'cancelled' && form.status === 'published') updates.projectId = null;
             const cleanUpdates = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
-            await updateDocumentNonBlocking(doc(firestore, 'training_plans', planId), cleanUpdates);
+            await updateDocumentNonBlocking(tDoc('training_plans', planId), cleanUpdates);
             setPlan((p) => (p ? { ...p, status: newStatus as TrainingPlan['status'], projectId: newStatus === 'cancelled' ? undefined : p.projectId } : p));
             toast({ title: 'Төлөв шинэчлэгдлээ', description: PLAN_STATUS_LABELS[newStatus] ?? newStatus });
         } finally {

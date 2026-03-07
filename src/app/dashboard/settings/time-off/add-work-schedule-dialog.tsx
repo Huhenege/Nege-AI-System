@@ -33,8 +33,8 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { collection } from 'firebase/firestore';
 import { Loader2, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AddActionButton } from '@/components/ui/add-action-button';
@@ -148,6 +148,7 @@ const cleanupData = (data: any) => {
 
 export function AddWorkScheduleDialog({ open, onOpenChange, editingItem }: AddWorkScheduleDialogProps) {
   const { firestore } = useFirebase();
+  const { tDoc } = useTenantWrite();
   const { toast } = useToast();
   const isEditMode = !!editingItem;
   
@@ -196,7 +197,7 @@ export function AddWorkScheduleDialog({ open, onOpenChange, editingItem }: AddWo
     const cleanedData = cleanupData(data);
 
     if (isEditMode && editingItem) {
-        const docRef = doc(firestore, 'workSchedules', editingItem.id);
+        const docRef = tDoc('workSchedules', editingItem.id);
         updateDocumentNonBlocking(docRef, cleanedData);
         toast({ title: 'Амжилттай шинэчлэгдлээ' });
     } else {

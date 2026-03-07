@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Clock, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { calculateDuration } from '@/lib/attendance';
@@ -18,8 +18,8 @@ interface RecentActivityListProps {
 export function RecentActivityList({ employeeId }: RecentActivityListProps) {
     const { firestore } = useFirebase();
     
-    const attendanceLogQuery = useMemoFirebase(() => employeeId ? query(
-        collection(firestore, 'attendance'),
+    const attendanceLogQuery = useMemoFirebase(({ companyPath }) => employeeId ? query(
+        tenantCollection(firestore, companyPath, 'attendance'),
         where('employeeId', '==', employeeId),
         orderBy('date', 'desc'),
         limit(5)

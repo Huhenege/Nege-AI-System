@@ -41,8 +41,10 @@ import {
     useMemoFirebase,
     useCollection,
     updateDocumentNonBlocking,
+    tenantCollection,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, doc, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
@@ -72,12 +74,13 @@ interface EditTaskDialogProps {
 
 export function EditTaskDialog({ open, onOpenChange, projectId, task, teamMemberIds }: EditTaskDialogProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     // Fetch employees
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -145,7 +148,7 @@ export function EditTaskDialog({ open, onOpenChange, projectId, task, teamMember
             }
 
             await updateDocumentNonBlocking(
-                doc(firestore, 'projects', projectId, 'tasks', task.id),
+                tDoc('projects', projectId, 'tasks', task.id),
                 updateData
             );
 

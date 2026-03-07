@@ -27,8 +27,8 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, Timestamp } from 'firebase/firestore';
+import { useFirebase, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
@@ -54,6 +54,7 @@ interface EditProjectScheduleDialogProps {
 
 export function EditProjectScheduleDialog({ open, onOpenChange, project }: EditProjectScheduleDialogProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -78,7 +79,7 @@ export function EditProjectScheduleDialog({ open, onOpenChange, project }: EditP
         if (!firestore || !project.id) return;
         setIsSubmitting(true);
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'projects', project.id), {
+            await updateDocumentNonBlocking(tDoc('projects', project.id), {
                 startDate: format(values.startDate, 'yyyy-MM-dd'),
                 endDate: format(values.endDate, 'yyyy-MM-dd'),
                 updatedAt: Timestamp.now(),

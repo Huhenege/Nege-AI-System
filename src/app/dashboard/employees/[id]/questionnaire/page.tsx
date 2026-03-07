@@ -47,7 +47,7 @@ import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection, tenantDoc } from '@/firebase';
 import { collection, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -812,8 +812,8 @@ function EducationForm({ form, isSubmitting, references }: { form: any, isSubmit
     const [newDegreeName, setNewDegreeName] = React.useState('');
     const [currentFieldIndex, setCurrentFieldIndex] = React.useState<number | null>(null);
 
-    const schoolsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]);
-    const degreesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]);
+    const schoolsCollection = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireSchools') : null, []);
+    const degreesCollection = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireDegrees') : null, []);
     const notApplicable = form.watch("educationNotApplicable");
 
     const handleAddSchool = async () => {
@@ -1386,8 +1386,8 @@ export default function QuestionnairePage() {
     const [activeTab, setActiveTab] = React.useState('general');
     const [isCVDialogOpen, setIsCVDialogOpen] = React.useState(false);
 
-    const employeeDocRef = useMemoFirebase(() => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null), [firestore, employeeId]);
-    const questionnaireDocRef = useMemoFirebase(() => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null), [firestore, employeeId]);
+    const employeeDocRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, 'employees', employeeId) : null), [employeeId]);
+    const questionnaireDocRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, `employees/${employeeId}/questionnaire`, 'data') : null), [employeeId]);
 
     const { data: employeeData, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef);
     const { data: questionnaireData, isLoading: isLoadingQuestionnaire } = useDoc<FullQuestionnaireValues>(questionnaireDocRef);
@@ -1395,13 +1395,13 @@ export default function QuestionnairePage() {
     const isLocked = !!employeeData?.questionnaireLocked;
 
     // References
-    const { data: countries } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireCountries') : null, [firestore]));
-    const { data: schools } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireSchools') : null, [firestore]));
-    const { data: degrees } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireDegrees') : null, [firestore]));
-    const { data: academicRanks } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [firestore]));
-    const { data: languages } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireLanguages') : null, [firestore]));
-    const { data: familyRelationships } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [firestore]));
-    const { data: emergencyRelationships } = useCollection<ReferenceItem>(useMemoFirebase(() => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [firestore]));
+    const { data: countries } = useCollection<ReferenceItem>(useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireCountries') : null, []));
+    const { data: schools } = useCollection<ReferenceItem>(useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireSchools') : null, []));
+    const { data: degrees } = useCollection<ReferenceItem>(useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireDegrees') : null, []));
+    const { data: academicRanks } = useCollection<ReferenceItem>(useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireAcademicRanks') : null, []));
+    const { data: languages } = useCollection<ReferenceItem>(useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireLanguages') : null, []));
+    const { data: familyRelationships } = useCollection<ReferenceItem>(useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireFamilyRelationships') : null, []));
+    const { data: emergencyRelationships } = useCollection<ReferenceItem>(useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireEmergencyRelationships') : null, []));
 
     const defaultValues = React.useMemo(() => {
         const baseValues: Partial<FullQuestionnaireValues> = {

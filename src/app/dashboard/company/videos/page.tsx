@@ -35,8 +35,7 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, X, PlusCircle, Trash2, Upload, Film, CheckCircle2, AlertCircle, ChevronLeft, Video } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -101,8 +100,8 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
     const [uploadingVideos, setUploadingVideos] = React.useState<{ [key: number]: number }>({});
 
     const companyProfileRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'profile') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
+        []
     );
 
     const form = useForm<VideosFormValues>({
@@ -455,8 +454,8 @@ export default function EditCompanyVideosPage() {
     const { firestore } = useFirebase();
 
     const companyProfileRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'profile') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
+        []
     );
 
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<VideosFormValues>(companyProfileRef);

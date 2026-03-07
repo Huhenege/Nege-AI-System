@@ -17,6 +17,7 @@ import {
     useFirebase,
     useMemoFirebase,
     useCollection,
+    useTenantWrite,
 } from '@/firebase';
 import { doc, increment, writeBatch, collection, getDocs, addDoc } from 'firebase/firestore';
 import { Loader2, UserPlus, UserRoundCheck, Calendar as CalendarIcon, X, Save, Sparkles } from 'lucide-react';
@@ -92,6 +93,7 @@ export function AssignEmployeeDialog({
     onAssignmentComplete,
 }: AssignEmployeeDialogProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [step, setStep] = React.useState(1);
     const [localSelectedEmployee, setLocalSelectedEmployee] = React.useState<Employee | null>(null);
@@ -141,7 +143,7 @@ export function AssignEmployeeDialog({
             const batch = writeBatch(firestore);
 
             // 1. Update employee's document (departmentId from position to show алба correctly)
-            const employeeDocRef = doc(firestore, 'employees', localSelectedEmployee.id);
+            const employeeDocRef = tDoc('employees', localSelectedEmployee.id);
             batch.update(employeeDocRef, {
                 positionId: position.id,
                 jobTitle: position.title,
@@ -149,13 +151,13 @@ export function AssignEmployeeDialog({
             });
 
             // 2. Update position's filled count
-            const positionDocRef = doc(firestore, 'positions', position.id);
+            const positionDocRef = tDoc('positions', position.id);
             batch.update(positionDocRef, {
                 filled: increment(1)
             });
 
             // 3. Add to employment history
-            const historyCollectionRef = collection(firestore, `employees/${localSelectedEmployee.id}/employmentHistory`);
+            const historyCollectionRef = tCollection('employees', localSelectedEmployee.id, 'employmentHistory');
             const historyDocRef = doc(historyCollectionRef);
             let historyNotes = `${position.title} албан тушаалд ${format(values.assignmentDate, 'yyyy-MM-dd')}-нд томилов.`;
             if (values.assignmentType === 'trial' && values.trialEndDate) {

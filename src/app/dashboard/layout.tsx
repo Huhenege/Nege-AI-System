@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { useUser, useMemoFirebase, useDoc, useFirebase } from '@/firebase';
+import { useUser, useMemoFirebase, useDoc, useFirebase, tenantDoc } from '@/firebase';
+import { useTenant } from '@/contexts/tenant-context';
 import { useRouter } from 'next/navigation';
-import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 import { Loader2, Home, Building, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,11 +21,11 @@ interface CompanyProfile {
 
 function AdminDashboard({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
+  const { companyId, isLoading: isTenantLoading, role } = useTenant();
   const router = useRouter();
   const { firestore } = useFirebase();
 
-  // Fetch Company Profile Globally
-  const companyProfileRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
+  const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), []);
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
 
   React.useEffect(() => {
@@ -34,11 +34,15 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || !user) {
+  const isFullyLoading = isUserLoading || isTenantLoading;
+
+  if (isFullyLoading || !user) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <p className="text-caption text-muted-foreground">Ачаалж байна...</p>
+        <p className="text-caption text-muted-foreground">
+          {isUserLoading ? 'Нэвтрэлт шалгаж байна...' : 'Байгууллага ачаалж байна...'}
+        </p>
       </div>
     );
   }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirebase, useDoc, useCollection } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useTenantWrite } from '@/firebase';
 import { doc, updateDoc, Timestamp, collection, addDoc, query, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
 import { ERDocument, ProcessActivity } from '../../../dashboard/employment-relations/types';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
@@ -25,6 +25,7 @@ import { getDoc, getDocs } from 'firebase/firestore';
 export default function DocumentReviewDetailPage() {
     const router = useRouter();
     const { firestore, auth } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
 
@@ -126,7 +127,7 @@ export default function DocumentReviewDetailPage() {
         if (!commentText.trim() || !firestore || !employeeProfile) return;
 
         try {
-            await addDoc(collection(firestore, `er_documents/${id}/activity`), {
+            await addDoc(tCollection('er_documents', id!, 'activity'), {
                 type: 'COMMENT',
                 actorId: employeeProfile.id,
                 content: commentText,
@@ -144,11 +145,11 @@ export default function DocumentReviewDetailPage() {
 
         setIsProcessing(true);
         try {
-            const docRef = doc(firestore, 'er_documents', document.id);
+            const docRef = tDoc('er_documents', document.id);
             const batch = (await import('firebase/firestore')).writeBatch(firestore);
 
             // 1. Add Activity Log
-            const activityRef = doc(collection(firestore, `er_documents/${id}/activity`));
+            const activityRef = doc(tCollection('er_documents', id!, 'activity'));
             batch.set(activityRef, {
                 type: 'APPROVE',
                 actorId: employeeProfile.id,
@@ -211,13 +212,13 @@ export default function DocumentReviewDetailPage() {
         setIsAcknowledging(true);
         try {
             const batch = writeBatch(firestore);
-            batch.update(doc(firestore, 'er_documents', document.id), {
+            batch.update(tDoc('er_documents', document.id), {
                 status: 'ACKNOWLEDGED',
                 employeeAckAt: Timestamp.now(),
                 employeeAckBy: employeeProfile.id,
                 updatedAt: Timestamp.now(),
             });
-            batch.set(doc(collection(firestore, `er_documents/${id}/activity`)), {
+            batch.set(doc(tCollection('er_documents', id!, 'activity')), {
                 type: 'STATUS_CHANGE',
                 actorId: employeeProfile.id,
                 content: 'Ажилтан танилцлаа',

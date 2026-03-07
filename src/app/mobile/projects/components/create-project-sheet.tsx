@@ -35,8 +35,10 @@ import {
     useMemoFirebase,
     useCollection,
     addDocumentNonBlocking,
+    tenantCollection,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, CalendarIcon, Users, ChevronRight, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
@@ -68,6 +70,7 @@ interface CreateProjectSheetProps {
 
 export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetProps) {
     const { firestore, user } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
     const container = useMobileContainer();
@@ -76,7 +79,7 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
 
     // Fetch employees
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -143,7 +146,7 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
                 projectData.pointsDistributed = false;
             }
 
-            await addDocumentNonBlocking(collection(firestore, 'projects'), projectData);
+            await addDocumentNonBlocking(tCollection('projects'), projectData);
 
             toast({
                 title: 'Амжилттай',

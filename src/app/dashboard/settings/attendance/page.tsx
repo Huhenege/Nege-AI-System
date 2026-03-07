@@ -19,8 +19,10 @@ import {
   addDocumentNonBlocking,
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
+  tenantCollection,
+  useTenantWrite,
 } from '@/firebase';
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { query, orderBy } from 'firebase/firestore';
 import {
   Form,
   FormControl,
@@ -270,14 +272,15 @@ function LocationDialog({
 
 export default function AttendanceSettingsPage() {
   const { firestore } = useFirebase();
+  const { tDoc, tCollection } = useTenantWrite();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingLocation, setEditingLocation] = React.useState<AttendanceLocation | null>(null);
 
   const locationsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'attendanceLocations'), orderBy('name')) : null),
-    [firestore]
+    ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'attendanceLocations'), orderBy('name')) : null),
+    []
   );
 
   const { data: locations, isLoading } = useCollection<AttendanceLocation>(locationsQuery);
@@ -295,7 +298,7 @@ export default function AttendanceSettingsPage() {
   const handleDelete = async (id: string) => {
     if (!firestore) return;
     try {
-      await deleteDocumentNonBlocking(doc(firestore, 'attendanceLocations', id));
+      await deleteDocumentNonBlocking(tDoc('attendanceLocations', id));
       toast({ title: "Амжилттай устгагдлаа" });
     } catch (error) {
       toast({ title: "Устгахад алдаа гарлаа", variant: "destructive" });
@@ -306,10 +309,10 @@ export default function AttendanceSettingsPage() {
     if (!firestore) return;
     try {
       if (editingLocation) {
-        await updateDocumentNonBlocking(doc(firestore, 'attendanceLocations', editingLocation.id), data);
+        await updateDocumentNonBlocking(tDoc('attendanceLocations', editingLocation.id), data);
         toast({ title: "Амжилттай шинэчлэгдлээ" });
       } else {
-        await addDocumentNonBlocking(collection(firestore, 'attendanceLocations'), data);
+        await addDocumentNonBlocking(tCollection('attendanceLocations'), data);
         toast({ title: "Шинэ байршил нэмэгдлээ" });
       }
     } catch (error) {
@@ -320,7 +323,7 @@ export default function AttendanceSettingsPage() {
   const handleToggleStatus = async (location: AttendanceLocation) => {
     if (!firestore) return;
     try {
-      await updateDocumentNonBlocking(doc(firestore, 'attendanceLocations', location.id), {
+      await updateDocumentNonBlocking(tDoc('attendanceLocations', location.id), {
         isActive: !location.isActive
       });
       toast({ title: location.isActive ? "Идэвхгүй болголоо" : "Идэвхтэй болголоо" });

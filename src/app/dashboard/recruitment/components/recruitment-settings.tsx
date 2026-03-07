@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { getDoc, setDoc } from 'firebase/firestore';
 import { RecruitmentStage, StageType, MessageTemplate } from '@/types/recruitment';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,6 +98,7 @@ function SortableStage({ stage, onEdit, onDelete }: SortableStageProps) {
 
 export function RecruitmentSettings() {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [stages, setStages] = useState<RecruitmentStage[]>([]);
     const [loading, setLoading] = useState(true);
@@ -192,7 +193,7 @@ export function RecruitmentSettings() {
             if (!firestore) return;
             try {
                 // Fetch General Settings
-                const docRef = doc(firestore, 'recruitment_settings', 'default');
+                const docRef = tDoc('recruitment_settings', 'default');
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
@@ -415,7 +416,7 @@ export function RecruitmentSettings() {
         try {
             const orderedStages = stages.map((s, index) => ({ ...s, order: index }));
 
-            await setDoc(doc(firestore, 'recruitment_settings', 'default'), {
+            await setDoc(tDoc('recruitment_settings', 'default'), {
                 defaultStages: orderedStages,
                 defaultCriteria: criteria,
                 messageTemplates: templates,

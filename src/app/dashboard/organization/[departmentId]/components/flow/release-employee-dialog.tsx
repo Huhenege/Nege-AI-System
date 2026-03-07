@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2, ExternalLink, Calendar as CalendarIcon, Clock, UserX, AlertTriangle, UserMinus, XCircle, Info } from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useCollection, useFirebase, useDoc } from '@/firebase';
+import { useCollection, useFirebase, useDoc, useTenantWrite } from '@/firebase';
 import { collection, query, where, doc, Timestamp, writeBatch, increment, arrayUnion, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
@@ -66,6 +66,7 @@ export function ReleaseEmployeeDialog({
     position,
 }: ReleaseEmployeeDialogProps) {
     const { firestore, user: firebaseUser } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const { employeeProfile: currentUserProfile } = useEmployeeProfile();
@@ -97,7 +98,7 @@ export function ReleaseEmployeeDialog({
         if (!firestore) return;
         setSelectedActionId(type.id);
         try {
-            const actionSnap = await getDoc(doc(firestore, 'organization_actions', type.id));
+            const actionSnap = await getDoc(tDoc('organization_actions', type.id));
             const cfg = actionSnap.exists() ? (actionSnap.data() as any) : null;
             if (!cfg?.templateId) {
                 showActionNotConfiguredToast(type.name);
@@ -327,7 +328,7 @@ export function ReleaseEmployeeDialog({
             if (pendingAppointmentDocs?.length) {
                 for (const erDoc of pendingAppointmentDocs) {
                     if (!['SIGNED', 'APPROVED', 'ACKNOWLEDGED', 'SENT_TO_EMPLOYEE'].includes(erDoc.status)) {
-                        const erDocRef = doc(firestore, 'er_documents', erDoc.id);
+                        const erDocRef = tDoc('er_documents', erDoc.id);
                         batch.delete(erDocRef);
                         deletedDocsCount++;
                     }
@@ -336,7 +337,7 @@ export function ReleaseEmployeeDialog({
             
             // 2. Delete onboarding processes and projects
             const onboardingProcessQuery = query(
-                collection(firestore, 'onboarding_processes'),
+                tCollection('onboarding_processes'),
                 where('employeeId', '==', employee.id)
             );
             const onboardingSnap = await getDocs(onboardingProcessQuery);
@@ -345,7 +346,7 @@ export function ReleaseEmployeeDialog({
             }
             
             const onboardingProjectsQuery = query(
-                collection(firestore, 'projects'),
+                tCollection('projects'),
                 where('type', '==', 'onboarding'),
                 where('onboardingEmployeeId', '==', employee.id)
             );
@@ -355,7 +356,7 @@ export function ReleaseEmployeeDialog({
             }
             
             // 3. Update employee: revert to pre-appointment status
-            const empRef = doc(firestore, 'employees', employee.id);
+            const empRef = tDoc('employees', employee.id);
             batch.update(empRef, {
                 status: 'active_recruitment',
                 lifecycleStage: 'recruitment',
@@ -366,7 +367,7 @@ export function ReleaseEmployeeDialog({
             });
             
             // 4. Decrement position filled count
-            const posRef = doc(firestore, 'positions', position.id);
+            const posRef = tDoc('positions', position.id);
             batch.update(posRef, {
                 filled: increment(-1),
                 updatedAt: Timestamp.now()
@@ -439,7 +440,7 @@ export function ReleaseEmployeeDialog({
                 releaseStatus = willCreateERDoc ? 'releasing' : 'terminated';
             }
 
-            const empRef = doc(firestore, 'employees', employee.id);
+            const empRef = tDoc('employees', employee.id);
             batch.update(empRef, {
                 positionId: null,
                 jobTitle: null,
@@ -451,7 +452,7 @@ export function ReleaseEmployeeDialog({
             });
 
             // 2. Decrement Position Filled Count
-            const posRef = doc(firestore, 'positions', position.id);
+            const posRef = tDoc('positions', position.id);
             batch.update(posRef, {
                 filled: increment(-1),
                 updatedAt: Timestamp.now()
@@ -485,7 +486,7 @@ export function ReleaseEmployeeDialog({
                         },
                     });
 
-                    const erDocRef = doc(collection(firestore, 'er_documents'));
+                    const erDocRef = doc(tCollection('er_documents'));
                     batch.set(erDocRef, {
                         ...(documentNumber ? { documentNumber } : {}),
                         documentTypeId: templateData.documentTypeId || null,

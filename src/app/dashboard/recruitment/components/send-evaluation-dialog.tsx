@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase } from '@/firebase';
-import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { getDocs, addDoc, query, where } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -44,6 +44,7 @@ export function SendEvaluationDialog({
     participantIds = [],
 }: SendEvaluationDialogProps) {
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(false);
@@ -57,7 +58,7 @@ export function SendEvaluationDialog({
         const fetchData = async () => {
             setLoading(true);
             try {
-                const empSnap = await getDocs(collection(firestore, 'employees'));
+                const empSnap = await getDocs(tCollection('employees'));
                 let emps = empSnap.docs
                     .map(d => ({ id: d.id, ...d.data() } as Employee))
                     .filter(e => e.id !== requestedByUid && e.status !== 'terminated');
@@ -67,7 +68,7 @@ export function SendEvaluationDialog({
                 setEmployees(emps);
 
                 const reqQuery = query(
-                    collection(firestore, 'evaluation_requests'),
+                    tCollection('evaluation_requests'),
                     where('applicationId', '==', applicationId),
                 );
                 const reqSnap = await getDocs(reqQuery);
@@ -134,12 +135,12 @@ export function SendEvaluationDialog({
                     status: 'pending',
                     createdAt: new Date().toISOString(),
                 };
-                return addDoc(collection(firestore, 'evaluation_requests'), reqData);
+                return addDoc(tCollection('evaluation_requests'), reqData);
             });
             await Promise.all(promises);
 
             const names = selectedEmps.map(e => `${e!.lastName} ${e!.firstName}`).join(', ');
-            await addDoc(collection(firestore, 'application_events'), {
+            await addDoc(tCollection('application_events'), {
                 applicationId,
                 type: 'EVALUATION_REQUESTED',
                 stageId,

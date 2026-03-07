@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
 import { Newspaper, Image as ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -54,7 +54,7 @@ function PostCard({ post }: { post: Post }) {
 export default function PostsPage() {
   const { firestore } = useFirebase();
   const postsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'posts'), orderBy('createdAt', 'desc')) : null),
+    ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'posts'), orderBy('createdAt', 'desc')) : null),
     [firestore]
   );
   const {

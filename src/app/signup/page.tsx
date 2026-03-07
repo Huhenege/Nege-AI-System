@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getCountFromServer, collection, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function SignupPage() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
 
+  const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -37,7 +38,13 @@ export default function SignupPage() {
         return;
       }
 
-      // Signup нээлттэй эсэхийг шалгах: system/signup_config { open: true }
+      if (!companyName.trim()) {
+        setError('Байгууллагын нэрийг оруулна уу.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Signup нээлттэй эсэхийг шалгах
       const signupConfigRef = doc(firestore, 'system', 'signup_config');
       let configSnap = await getDoc(signupConfigRef);
       if (!configSnap.exists()) {
@@ -45,25 +52,11 @@ export default function SignupPage() {
         configSnap = await getDoc(signupConfigRef);
       }
       if (!configSnap.exists() || !configSnap.data()?.open) {
-        setError('Одоогоор админ бүртгэл хаалттай байна.');
+        setError('Одоогоор бүртгэл хаалттай байна.');
         toast({
           variant: 'destructive',
           title: 'Бүртгэл хаалттай',
-          description: 'Админ бүртгэл нээгдээгүй байна.',
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Анхны админ эсэхийг шалгах (employees тоо)
-      const usersCollection = collection(firestore, 'employees');
-      const snapshot = await getCountFromServer(usersCollection);
-      if (snapshot.data().count > 0) {
-        setError('Админ хэрэглэгч бүртгэгдсэн байна. Нэвтрэх хэсэг рүү шилжинэ үү.');
-        toast({
-          variant: 'destructive',
-          title: 'Бүртгэл хаалттай',
-          description: 'Зөвхөн нэг админ хэрэглэгч бүртгүүлэх боломжтой.',
+          description: 'Бүртгэл нээгдээгүй байна.',
         });
         setIsLoading(false);
         return;
@@ -73,63 +66,66 @@ export default function SignupPage() {
 
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
-          const userData = {
-            id: user.uid,
-            email: user.email,
-            role: 'admin',
-            firstName: 'Admin',
-            lastName: 'User',
-            jobTitle: 'Системийн Админ',
-            department: 'HR',
-            hireDate: new Date().toISOString(),
-          };
-          const userDocRef = doc(firestore, 'employees', user.uid);
-          await setDoc(userDocRef, userData, { merge: true });
-
-          // Анхны админ бүртгэгдсэн тул signup хаах (isAdmin() одоо true болно)
           try {
-            await setDoc(doc(firestore, 'system', 'signup_config'), { open: false }, { merge: true });
-          } catch (_) {
-            // Алдаа гарвал админ Firebase Console-оос signup_config засна
-          }
+            const idToken = await user.getIdToken();
 
-          toast({
-            title: 'Амжилттай бүртгүүллээ',
-            description: 'Та одоо нэвтэрч орно уу.',
-          });
-          router.push('/login');
+            const res = await fetch('/api/companies/register', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
+              },
+              body: JSON.stringify({
+                companyName: companyName.trim(),
+                plan: 'free',
+              }),
+            });
+
+            const result = await res.json();
+
+            if (!res.ok) {
+              throw new Error(result.error || 'Компани үүсгэхэд алдаа гарлаа');
+            }
+
+            // Close signup after first company is registered
+            try {
+              await setDoc(doc(firestore, 'system', 'signup_config'), { open: false }, { merge: true });
+            } catch {
+              // Admin can fix this from Firebase Console
+            }
+
+            toast({
+              title: 'Амжилттай бүртгүүллээ!',
+              description: `"${companyName}" компани үүсгэгдлээ. Нэвтрэх хэсэг рүү шилжинэ.`,
+            });
+            router.push('/login');
+          } catch (regError: unknown) {
+            const msg = regError instanceof Error ? regError.message : 'Компани үүсгэхэд алдаа гарлаа';
+            setError(msg);
+            toast({ variant: 'destructive', title: 'Алдаа', description: msg });
+            setIsLoading(false);
+          }
           unsubscribe();
         } else {
-          // This timeout gives Firebase auth state a moment to propagate
           setTimeout(() => {
             if (!auth.currentUser) {
-              const errorMessage = 'Бүртгэл үүсгэхэд алдаа гарлаа.';
-              setError(errorMessage);
-              toast({
-                variant: 'destructive',
-                title: 'Алдаа гарлаа',
-                description: errorMessage,
-              });
+              setError('Бүртгэл үүсгэхэд алдаа гарлаа.');
+              toast({ variant: 'destructive', title: 'Алдаа', description: 'Бүртгэл үүсгэхэд алдаа гарлаа.' });
               setIsLoading(false);
             }
           }, 2000);
         }
-      }, (error) => {
-          const errorMessage = 'Бүртгэл үүсгэхэд алдаа гарлаа.';
-          setError(errorMessage);
-          toast({
-              variant: 'destructive',
-              title: 'Алдаа гарлаа',
-              description: error.message || errorMessage,
-          });
-          console.error(error);
-          setIsLoading(false);
-          unsubscribe();
+      }, (authError) => {
+        setError(authError.message || 'Бүртгэл үүсгэхэд алдаа гарлаа.');
+        toast({ variant: 'destructive', title: 'Алдаа', description: authError.message });
+        console.error(authError);
+        setIsLoading(false);
+        unsubscribe();
       });
-
-    } catch (err: any) {
-      console.error("Error during signup check: ", err);
-      setError(err.message || 'Системийн дотоод алдаа гарлаа.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Системийн дотоод алдаа гарлаа.';
+      console.error('Signup error:', err);
+      setError(msg);
       setIsLoading(false);
     }
   };
@@ -141,15 +137,31 @@ export default function SignupPage() {
           <div className="mb-4 flex justify-center">
             <Logo className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Админ бүртгүүлэх</CardTitle>
+          <CardTitle className="text-2xl">Байгууллага бүртгүүлэх</CardTitle>
           <CardDescription>
-            Системийн анхны админ хэрэглэгчийг үүсгэх.
+            Шинэ байгууллага үүсгэж, админ хэрэглэгчээр бүртгүүлэх.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Имэйл</Label>
+              <Label htmlFor="companyName">Байгууллагын нэр</Label>
+              <div className="relative">
+                <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="companyName"
+                  type="text"
+                  placeholder="Миний компани ХХК"
+                  required
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  disabled={isLoading}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Админ имэйл</Label>
               <Input
                 id="email"
                 type="email"

@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirebase } from '@/firebase';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, onSnapshot, writeBatch, setDoc } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { getDoc, updateDoc, query, where, getDocs, addDoc, onSnapshot, writeBatch, setDoc } from 'firebase/firestore';
 import { JobApplication, Vacancy, RecruitmentStage, Candidate, Scorecard, MessageTemplate, ApplicationFile, Interview } from '@/types/recruitment';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { format } from 'date-fns';
@@ -185,6 +185,7 @@ export default function CandidateDetailPage() {
     const { applicationId } = useParams();
     const router = useRouter();
     const { firestore, storage, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     // --- State ---
@@ -205,7 +206,7 @@ export default function CandidateDetailPage() {
         if (!firestore) return null;
         if (empCache.current.has(authorId)) return empCache.current.get(authorId)!;
         try {
-            const empDoc = await getDoc(doc(firestore, 'employees', authorId));
+            const empDoc = await getDoc(tDoc('employees', authorId));
             if (empDoc.exists()) {
                 const d = empDoc.data();
                 const info = {
@@ -278,7 +279,7 @@ export default function CandidateDetailPage() {
             if (!firestore || !applicationId) return;
 
             try {
-                const appRef = doc(firestore, 'applications', applicationId as string);
+                const appRef = tDoc('applications', applicationId as string);
                 const appSnap = await getDoc(appRef);
                 if (!appSnap.exists()) {
                     toast({ title: 'Өргөдөл олдсонгүй', variant: 'destructive' });
@@ -289,12 +290,12 @@ export default function CandidateDetailPage() {
                 setApplication(appData);
                 setSelectedStageId(appData.currentStageId);
 
-                const candidateSnap = await getDoc(doc(firestore, 'candidates', appData.candidateId));
+                const candidateSnap = await getDoc(tDoc('candidates', appData.candidateId));
                 if (candidateSnap.exists()) {
                     setCandidate({ id: candidateSnap.id, ...candidateSnap.data() } as Candidate);
                 }
 
-                const vacancySnap = await getDoc(doc(firestore, 'vacancies', appData.vacancyId));
+                const vacancySnap = await getDoc(tDoc('vacancies', appData.vacancyId));
                 let vacancyStages: RecruitmentStage[] | null = null;
                 if (vacancySnap.exists()) {
                     const vacancyData = { id: vacancySnap.id, ...vacancySnap.data() } as Vacancy;
@@ -304,7 +305,7 @@ export default function CandidateDetailPage() {
                     }
                 }
 
-                const settingsSnap = await getDoc(doc(firestore, 'recruitment_settings', 'default'));
+                const settingsSnap = await getDoc(tDoc('recruitment_settings', 'default'));
                 let fallbackStages = DEFAULT_STAGES;
                 if (settingsSnap.exists()) {
                     const settingsData = settingsSnap.data();
@@ -331,14 +332,14 @@ export default function CandidateDetailPage() {
     useEffect(() => {
         if (!firestore || !applicationId) return;
 
-        const eventsQuery = query(collection(firestore, 'application_events'), where('applicationId', '==', applicationId));
+        const eventsQuery = query(tCollection('application_events'), where('applicationId', '==', applicationId));
         const unsubEvents = onSnapshot(eventsQuery, (snapshot) => {
             const evts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ApplicationEvent));
             evts.sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt));
             setEvents(evts);
         });
 
-        const notesQuery = query(collection(firestore, 'application_notes'), where('applicationId', '==', applicationId));
+        const notesQuery = query(tCollection('application_notes'), where('applicationId', '==', applicationId));
         const unsubNotes = onSnapshot(notesQuery, async (snapshot) => {
             const raw = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InternalNote));
             const uniqueIds = [...new Set(raw.map(n => n.authorId).filter(Boolean))];
@@ -356,14 +357,14 @@ export default function CandidateDetailPage() {
             setNotes(nts);
         });
 
-        const scorecardsQuery = query(collection(firestore, 'scorecards'), where('applicationId', '==', applicationId));
+        const scorecardsQuery = query(tCollection('scorecards'), where('applicationId', '==', applicationId));
         const unsubScorecards = onSnapshot(scorecardsQuery, (snapshot) => {
             const scs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Scorecard));
             scs.sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt));
             setScorecards(scs);
         });
 
-        const interviewsQuery = query(collection(firestore, 'interviews'), where('applicationId', '==', applicationId));
+        const interviewsQuery = query(tCollection('interviews'), where('applicationId', '==', applicationId));
         const unsubInterviews = onSnapshot(interviewsQuery, (snapshot) => {
             const ints = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Interview));
             ints.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
@@ -392,7 +393,7 @@ export default function CandidateDetailPage() {
     const logEvent = async (type: ApplicationEvent['type'], title: string, description: string, extraData?: any) => {
         if (!firestore || !applicationId || !user) return;
         try {
-            await addDoc(collection(firestore, 'application_events'), {
+            await addDoc(tCollection('application_events'), {
                 applicationId,
                 type,
                 stageId: application?.currentStageId || selectedStageId,
@@ -420,7 +421,7 @@ export default function CandidateDetailPage() {
     const confirmAdvanceStage = async () => {
         if (!pendingNextStageId || !firestore || !applicationId) return;
         try {
-            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+            await updateDoc(tDoc('applications', applicationId as string), {
                 currentStageId: pendingNextStageId,
                 updatedAt: new Date().toISOString()
             });
@@ -442,7 +443,7 @@ export default function CandidateDetailPage() {
 
     const generateEmployeeCode = async (): Promise<string> => {
         if (!firestore) throw new Error("Firestore холбогдоогүй");
-        const configRef = doc(firestore, 'company', 'employeeCodeConfig');
+        const configRef = tDoc('company', 'employeeCodeConfig');
         const configSnap = await getDoc(configRef);
         if (!configSnap.exists()) throw new Error("Кодчлолын тохиргоо олдсонгүй");
         const { prefix, digitCount, nextNumber } = configSnap.data() as { prefix: string; digitCount: number; nextNumber: number };
@@ -462,7 +463,7 @@ export default function CandidateDetailPage() {
             const password = candidate.phone || '123456';
             const newUser = await createUserWithSecondaryAuth(authEmail, password);
             if (!newUser.uid) throw new Error("Auth хэрэглэгч үүсгэж чадсангүй");
-            const empDocRef = doc(firestore, 'employees', employeeId || newUser.uid);
+            const empDocRef = tDoc('employees', employeeId || newUser.uid);
             const employeeData: Record<string, any> = {
                 id: newUser.uid, employeeCode, firstName: candidate.firstName, lastName: candidate.lastName,
                 email: candidate.email, phoneNumber: candidate.phone, status: 'active_recruitment',
@@ -470,10 +471,10 @@ export default function CandidateDetailPage() {
             };
             if (employeeId) { await updateDoc(empDocRef, employeeData); }
             else {
-                await setDoc(doc(firestore, 'employees', newUser.uid), employeeData);
-                await updateDoc(doc(firestore, 'applications', applicationId as string), { employeeId: newUser.uid });
+                await setDoc(tDoc('employees', newUser.uid), employeeData);
+                await updateDoc(tDoc('applications', applicationId as string), { employeeId: newUser.uid });
             }
-            await updateDoc(doc(firestore, 'applications', applicationId as string), { status: 'HIRED', currentStageId: 'hired', updatedAt: now });
+            await updateDoc(tDoc('applications', applicationId as string), { status: 'HIRED', currentStageId: 'hired', updatedAt: now });
             setApplication(prev => prev ? { ...prev, status: 'HIRED', currentStageId: 'hired' } : null);
             setSelectedStageId('hired');
             await logEvent('SYSTEM', 'Ажилд авсан', `${candidate.lastName} ${candidate.firstName} — Код: ${employeeCode}`);
@@ -492,7 +493,7 @@ export default function CandidateDetailPage() {
         if (newStatus === 'HIRED') { setShowHireConfirm(true); return; }
         if (newStatus === 'REJECTED') { setRejectReason(''); setRejectType('employer'); setRejectStep(1); setRejectCategory('archive'); setShowRejectConfirm(true); return; }
         try {
-            await updateDoc(doc(firestore, 'applications', applicationId as string), { status: newStatus, updatedAt: new Date().toISOString() });
+            await updateDoc(tDoc('applications', applicationId as string), { status: newStatus, updatedAt: new Date().toISOString() });
             setApplication(prev => prev ? { ...prev, status: newStatus } : null);
             const labels: Record<string, string> = { REJECTED: 'Татгалзсан', HIRED: 'Ажилд авсан', WITHDRAWN: 'Нэрээ татсан', ACTIVE: 'Идэвхтэй' };
             await logEvent('SYSTEM', 'Төлөв өөрчлөгдсөн', `Шинэ төлөв: ${labels[newStatus] || newStatus}`);
@@ -506,7 +507,7 @@ export default function CandidateDetailPage() {
             const now = new Date().toISOString();
             const typeLabel = rejectType === 'employer' ? 'Ажил олгогч талаас' : 'Горилогч өөрөө';
             const categoryLabels: Record<string, string> = { reserve: 'Нөөц', blacklist: 'Хар жагсаалт', archive: 'Архив' };
-            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+            await updateDoc(tDoc('applications', applicationId as string), {
                 status: 'REJECTED',
                 currentStageId: 'rejected',
                 rejectionReason: rejectReason.trim() || undefined,
@@ -534,14 +535,14 @@ export default function CandidateDetailPage() {
         try {
             // Өмнөх үнэлгээний хүсэлт + scorecard-уудыг устгах
             for (const collName of ['scorecards', 'evaluation_requests']) {
-                const q = query(collection(firestore, collName), where('applicationId', '==', applicationId));
+                const q = query(tCollection(collName), where('applicationId', '==', applicationId));
                 const snapshot = await getDocs(q);
                 const batch = writeBatch(firestore);
                 snapshot.docs.forEach(d => batch.delete(d.ref));
                 if (snapshot.docs.length > 0) await batch.commit();
             }
 
-            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+            await updateDoc(tDoc('applications', applicationId as string), {
                 status: 'ACTIVE',
                 currentStageId: firstStageId,
                 rejectionReason: null,
@@ -562,7 +563,7 @@ export default function CandidateDetailPage() {
         if (!firestore || !user || !noteText.trim() || !applicationId || !selectedStageId) return;
         setSendingNote(true);
         try {
-            await addDoc(collection(firestore, 'application_notes'), {
+            await addDoc(tCollection('application_notes'), {
                 applicationId,
                 stageId: selectedStageId,
                 authorId: user.uid,
@@ -650,7 +651,7 @@ export default function CandidateDetailPage() {
                 notes: editCandidate.notes.trim() || null,
                 updatedAt: new Date().toISOString(),
             };
-            await updateDoc(doc(firestore, 'candidates', candidate.id), updates);
+            await updateDoc(tDoc('candidates', candidate.id), updates);
             setCandidate(prev => prev ? { ...prev, ...updates } : null);
             await logEvent('SYSTEM', 'Горилогчийн мэдээлэл засагдсан', `${updates.lastName} ${updates.firstName}`);
             toast({ title: 'Мэдээлэл шинэчлэгдлээ' });
@@ -669,7 +670,7 @@ export default function CandidateDetailPage() {
         try {
             const averageScore = scores.reduce((acc, curr) => acc + curr.score, 0) / scores.length;
             const cleanCriteria = scores.map(c => ({ id: c.id, name: c.name, description: c.description || '', score: c.score }));
-            await addDoc(collection(firestore, 'scorecards'), {
+            await addDoc(tCollection('scorecards'), {
                 applicationId: application.id, candidateId: candidate.id,
                 stageId: selectedStageId || application.currentStageId,
                 interviewerId: user?.uid || 'unknown',
@@ -712,7 +713,7 @@ export default function CandidateDetailPage() {
 
             const existingFiles = application?.files || [];
             const updatedFiles = [...existingFiles, ...newFiles];
-            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+            await updateDoc(tDoc('applications', applicationId as string), {
                 files: updatedFiles,
                 updatedAt: new Date().toISOString(),
             });
@@ -738,7 +739,7 @@ export default function CandidateDetailPage() {
             } catch {}
 
             const updatedFiles = (application.files || []).filter(f => f.id !== fileToDelete.id);
-            await updateDoc(doc(firestore, 'applications', applicationId as string), {
+            await updateDoc(tDoc('applications', applicationId as string), {
                 files: updatedFiles,
                 updatedAt: new Date().toISOString(),
             });
@@ -770,14 +771,14 @@ export default function CandidateDetailPage() {
             // 2. Delete all related Firestore documents
             const batch = writeBatch(firestore);
             for (const collName of ['application_messages', 'application_events', 'application_notes', 'scorecards', 'evaluation_requests', 'interviews']) {
-                const q = query(collection(firestore, collName), where('applicationId', '==', applicationId));
+                const q = query(tCollection(collName), where('applicationId', '==', applicationId));
                 const snapshot = await getDocs(q);
                 snapshot.forEach((d) => batch.delete(d.ref));
             }
 
             // 3. Delete candidate and application documents
-            if (application?.candidateId) batch.delete(doc(firestore, 'candidates', application.candidateId));
-            batch.delete(doc(firestore, 'applications', applicationId as string));
+            if (application?.candidateId) batch.delete(tDoc('candidates', application.candidateId));
+            batch.delete(tDoc('applications', applicationId as string));
             await batch.commit();
 
             router.push('/dashboard/recruitment');

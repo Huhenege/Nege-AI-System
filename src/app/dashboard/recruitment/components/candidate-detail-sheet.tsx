@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useFirebase } from '@/firebase';
-import { collection, addDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { addDoc, onSnapshot, query, where } from 'firebase/firestore';
 import {
     Sheet,
     SheetContent,
@@ -47,12 +47,13 @@ export function CandidateDetailSheet({ application, open, onOpenChange }: Candid
     const [scorecards, setScorecards] = useState<Scorecard[]>([]);
 
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
 
     React.useEffect(() => {
         if (!firestore || !application.id || !open) return;
 
         const scorecardsQuery = query(
-            collection(firestore, 'scorecards'),
+            tCollection('scorecards'),
             where('applicationId', '==', application.id)
         );
 
@@ -87,7 +88,7 @@ export function CandidateDetailSheet({ application, open, onOpenChange }: Candid
                 score: c.score
             }));
 
-            await addDoc(collection(firestore, 'scorecards'), {
+            await addDoc(tCollection('scorecards'), {
                 applicationId: application.id,
                 candidateId: candidate.id,
                 stageId: application.currentStageId,

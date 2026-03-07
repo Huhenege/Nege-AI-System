@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { Loader2, FolderKanban, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,10 +21,10 @@ export default function OnboardingDetailRedirectPage() {
     const employeeId = params.id as string;
 
     // Fetch onboarding projects for this employee
-    const projectsQuery = useMemoFirebase(() =>
+    const projectsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore && employeeId
             ? query(
-                collection(firestore, 'projects'),
+                tenantCollection(firestore, companyPath, 'projects'),
                 where('type', '==', 'onboarding'),
                 where('onboardingEmployeeId', '==', employeeId)
             )

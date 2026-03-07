@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { collection, doc, query, where } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useDoc, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -64,6 +64,7 @@ export default function SkillDetailPage() {
     const params = useParams();
     const skillId = Array.isArray(params.skillId) ? params.skillId[0] : params.skillId;
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
 
     // ── Queries ──
     const skillRef = useMemo(() =>
@@ -237,8 +238,7 @@ export default function SkillDetailPage() {
             toast({ title: 'Ур чадварын нэр оруулна уу', variant: 'destructive' });
             return;
         }
-        const docRef = doc(firestore, 'skills_inventory', skillId);
-        updateDocumentNonBlocking(docRef, {
+        updateDocumentNonBlocking(tDoc('skills_inventory', skillId), {
             code: editCode.trim() || null,
             name: editName.trim(),
             type: editType || null,
@@ -550,8 +550,7 @@ export default function SkillDetailPage() {
                                                         const updatedSkills = (pos.skills || []).map(s =>
                                                             s.name === skill.name ? { ...s, level: newLevel } : s
                                                         );
-                                                        const posDocRef = doc(firestore, 'positions', pos.id);
-                                                        updateDocumentNonBlocking(posDocRef, { skills: updatedSkills });
+                                                        updateDocumentNonBlocking(tDoc('positions', pos.id), { skills: updatedSkills });
                                                         toast({ title: `${pos.title} — түвшин хадгалагдлаа` });
                                                     }}
                                                 >

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useDoc, useFirebase } from '@/firebase';
+import { useDoc, useFirebase, useTenantWrite } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -440,6 +440,7 @@ function BrandingPreview({ colors, mapping, isDark }: { colors: BrandColor[]; ma
 
 export default function BrandingPage() {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [colors, setColors] = React.useState<BrandColor[]>([]);
     const [mapping, setMapping] = React.useState<ThemeMapping>(DEFAULT_MAPPING);
@@ -602,7 +603,7 @@ export default function BrandingPage() {
         setIsSaving(true);
         try {
             await setDoc(
-                doc(firestore, 'company', 'branding'),
+                tDoc('company', 'branding'),
                 {
                     brandColors: colors,
                     themeMapping: mapping,

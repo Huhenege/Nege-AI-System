@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, Circle, Clock, Loader2, Info, CheckCircle, FileText, UserCircle2, ExternalLink, FolderKanban } from 'lucide-react';
-import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { useCollection, useMemoFirebase, updateDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Employee } from '../data';
 import { cn } from '@/lib/utils';
@@ -32,19 +32,19 @@ interface ProjectWithTasks extends Project {
 }
 
 export function OnboardingTabContent({ employeeId, employee }: { employeeId: string; employee: Employee }) {
-    const { firestore } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     // Fetch onboarding projects for this employee
-    const projectsQuery = useMemoFirebase(() =>
+    const projectsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore && employeeId
             ? query(
-                collection(firestore, 'projects'),
+                tenantCollection(firestore, companyPath, 'projects'),
                 where('type', '==', 'onboarding'),
                 where('onboardingEmployeeId', '==', employeeId)
             )
             : null
-        , [firestore, employeeId]);
+        , [employeeId]);
     const { data: projects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery as any);
 
     const [projectsWithTasks, setProjectsWithTasks] = useState<ProjectWithTasks[]>([]);
@@ -64,7 +64,7 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                 const withTasks: ProjectWithTasks[] = [];
 
                 for (const project of projects) {
-                    const tasksSnap = await getDocs(collection(firestore, 'projects', project.id, 'tasks'));
+                    const tasksSnap = await getDocs(tCollection('projects', project.id, 'tasks'));
                     const tasks = tasksSnap.docs.map(d => ({ ...d.data(), id: d.id } as Task));
                     const completed = tasks.filter(t => t.status === 'DONE').length;
                     const total = tasks.length;
@@ -112,7 +112,7 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
         setIsTogglingTask(task.id);
         try {
             const newStatus: TaskStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
-            const taskRef = doc(firestore, 'projects', projectId, 'tasks', task.id);
+            const taskRef = tDoc('projects', projectId, 'tasks', task.id);
 
             await updateDocumentNonBlocking(taskRef, {
                 status: newStatus,
@@ -151,7 +151,7 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                 // All onboarding complete
                 // Only update lifecycleStage; the active sub-status (туршилт/үндсэн)
                 // was already set by the appointment document and should not be overwritten.
-                await updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
+                await updateDocumentNonBlocking(tDoc('employees', employeeId), {
                     lifecycleStage: 'development',
                 });
                 toast({ title: 'Onboarding дууслаа!', description: 'Ажилтан development шатанд шилжлээ.' });

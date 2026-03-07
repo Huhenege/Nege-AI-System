@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { JobApplication, RejectionCategory } from '@/types/recruitment';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +46,7 @@ export function RejectedApplications() {
     const [activeTab, setActiveTab] = useState<RejectionCategory>('reserve');
 
     const rejectedQuery = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'applications'), where('status', '==', 'REJECTED')) : null),
+        ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'applications'), where('status', '==', 'REJECTED')) : null),
         [firestore]
     );
     const { data: rejectedApps, isLoading } = useCollection<JobApplication>(rejectedQuery as any);

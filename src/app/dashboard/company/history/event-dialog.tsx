@@ -23,8 +23,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { doc, collection, Timestamp } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { doc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Image, X, PlusCircle, Video, Upload, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +51,7 @@ interface EventDialogProps {
 
 export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
     const { firestore, storage } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isUploading, setIsUploading] = React.useState(false);
     const [newVideoUrl, setNewVideoUrl] = React.useState('');
@@ -166,7 +167,7 @@ export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
             
             if (isEditing && event) {
                 // Update existing
-                const eventRef = doc(firestore, 'companyHistory', event.id);
+                const eventRef = tDoc('companyHistory', event.id);
                 updateDocumentNonBlocking(eventRef, {
                     ...values,
                     updatedAt: now,
@@ -174,7 +175,7 @@ export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
                 toast({ title: 'Амжилттай шинэчлэгдлээ' });
             } else {
                 // Create new
-                const newEventRef = doc(collection(firestore, 'companyHistory'));
+                const newEventRef = doc(tCollection('companyHistory'));
                 setDocumentNonBlocking(newEventRef, {
                     ...values,
                     order: Date.now(),

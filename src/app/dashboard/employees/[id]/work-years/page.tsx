@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useDoc, useCollection, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useDoc, useCollection, setDocumentNonBlocking, useMemoFirebase, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import type { Employee } from '@/types';
 import { parseISO } from 'date-fns';
 import {
@@ -72,7 +72,7 @@ export default function WorkYearsPage() {
     const { id } = useParams();
     const router = useRouter();
     const { toast } = useToast();
-    const { firestore } = useFirebase();
+    const { firestore, tDoc } = useTenantWrite();
     const employeeId = Array.isArray(id) ? id[0] : id;
 
     const [file, setFile] = React.useState<File | null>(null);
@@ -107,22 +107,22 @@ export default function WorkYearsPage() {
 
     // Load saved NDSH data from Firebase
     const ndshDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/ndsh`, 'data') : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, `employees/${employeeId}/ndsh`, 'data') : null),
+        [employeeId]
     );
     const { data: savedNdshData, isLoading: isLoadingSaved } = useDoc<NDSHParsedData>(ndshDocRef);
 
     // Employee profile (for appointment/hire date)
     const employeeDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, 'employees', employeeId) : null),
+        [employeeId]
     );
     const { data: employeeProfile } = useDoc<Employee>(employeeDocRef as any);
 
     // ER documents (for appointment date extraction)
     const erDocsQuery = useMemoFirebase(
-        () => (firestore && employeeId ? query(collection(firestore, 'er_documents'), where('employeeId', '==', employeeId)) : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? query(tenantCollection(firestore, companyPath, 'er_documents'), where('employeeId', '==', employeeId)) : null),
+        [employeeId]
     );
     const { data: erDocuments } = useCollection<any>(erDocsQuery as any);
 
@@ -156,7 +156,7 @@ export default function WorkYearsPage() {
             });
             
             // Also save vacation days to employee document
-            const employeeDocRef = doc(firestore, 'employees', employeeId);
+            const employeeDocRef = tDoc('employees', employeeId);
             await setDocumentNonBlocking(employeeDocRef, {
                 vacationConfig: {
                     baseDays: vacationCalculation.total,

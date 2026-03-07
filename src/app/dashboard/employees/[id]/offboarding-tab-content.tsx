@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc, getDocs, query, Timestamp, where } from 'firebase/firestore';
+import { useCollection, useMemoFirebase, updateDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { getDocs, query, Timestamp, where } from 'firebase/firestore';
 import { Project, Task } from '@/types/project';
 import { FileText, LogOut, Loader2 } from 'lucide-react';
 
@@ -31,13 +31,13 @@ function extractReleaseDate(docData?: ERDocument | null): string | null {
 }
 
 export function OffboardingTabContent({ employeeId, employee }: { employeeId: string; employee: Employee }) {
-  const { firestore } = useFirebase();
+  const { firestore, tDoc, tCollection } = useTenantWrite();
 
   // --- 1) ER documents (release/offboarding paperwork progress) ---
-  const erDocsQuery = useMemoFirebase(() => {
+  const erDocsQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore || !employeeId) return null;
-    return query(collection(firestore, 'er_documents'), where('employeeId', '==', employeeId));
-  }, [firestore, employeeId]);
+    return query(tenantCollection(firestore, companyPath, 'er_documents'), where('employeeId', '==', employeeId));
+  }, [employeeId]);
   const { data: erDocs, isLoading: erDocsLoading } = useCollection<ERDocument>(erDocsQuery as any);
 
   const releaseDocs = React.useMemo(() => {
@@ -73,14 +73,14 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
     const actionId = String((finalDoc as any)?.metadata?.actionId || '');
     if (actionId === 'release_temporary') {
       // Түр чөлөөлөлт: Түр эзгүй статус, retention lifecycle
-      updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
+      updateDocumentNonBlocking(tDoc('employees', employeeId), {
         status: 'on_leave',
         lifecycleStage: 'retention',
         updatedAt: Timestamp.now(),
       });
     } else {
       // Бүрэн чөлөөлөлт: Ажлаас гарсан статус, alumni lifecycle
-      updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
+      updateDocumentNonBlocking(tDoc('employees', employeeId), {
         status: 'terminated',
         lifecycleStage: 'alumni',
         ...(terminationDate ? { terminationDate } : {}),
@@ -90,14 +90,14 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
   }, [firestore, employeeId, employee, releaseDocs]);
 
   // --- 2) Offboarding projects progress ---
-  const projectsQuery = useMemoFirebase(() => {
+  const projectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore || !employeeId) return null;
     return query(
-      collection(firestore, 'projects'),
+      tenantCollection(firestore, companyPath, 'projects'),
       where('type', '==', 'offboarding'),
       where('offboardingEmployeeId', '==', employeeId)
     );
-  }, [firestore, employeeId]);
+  }, [employeeId]);
 
   const { data: projects, isLoading } = useCollection<Project>(projectsQuery as any);
   const [taskCounts, setTaskCounts] = React.useState<Record<string, { total: number; completed: number }>>({});
@@ -107,7 +107,7 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
       if (!firestore || !projects || projects.length === 0) return;
       const counts: Record<string, { total: number; completed: number }> = {};
       for (const p of projects) {
-        const snap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+        const snap = await getDocs(tCollection('projects', p.id, 'tasks'));
         const tasks = snap.docs.map(d => d.data() as Task);
         counts[p.id] = { total: tasks.length, completed: tasks.filter(t => t.status === 'DONE').length };
       }

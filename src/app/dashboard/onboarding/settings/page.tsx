@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Plus, Trash2, Pencil, Check, X, GripVertical, Info, FileText } from 'lucide-react';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, setDoc, query, collection, orderBy } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { setDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -81,13 +81,14 @@ const DEFAULT_STAGES: OnboardingStage[] = [
 
 export default function OnboardingSettingsPage() {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'settings', 'onboarding') : null), [firestore]);
+    const configRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'settings', 'onboarding') : null), [firestore]);
     const { data: config, isLoading } = useDoc<any>(configRef as any);
 
     // Fetch policies for selection
-    const policiesQuery = useMemoFirebase(() =>
-        (firestore ? query(collection(firestore, 'companyPolicies'), orderBy('title', 'asc')) : null),
+    const policiesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        (firestore ? query(tenantCollection(firestore, companyPath, 'companyPolicies'), orderBy('title', 'asc')) : null),
         [firestore]);
     const { data: policies } = useCollection<any>(policiesQuery);
 
@@ -109,7 +110,7 @@ export default function OnboardingSettingsPage() {
     const handleSaveConfig = async (newStages: OnboardingStage[]) => {
         if (!firestore) return;
         try {
-            await setDoc(doc(firestore, 'settings', 'onboarding'), { stages: newStages });
+            await setDoc(tDoc('settings', 'onboarding'), { stages: newStages });
             toast({
                 title: 'Амжилттай хадгалагдлаа',
                 description: 'Чиглүүлэх хөтөлбөрийн тохиргоог шинэчиллээ.'

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { getDoc, setDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { PointsConfig } from '@/types/points';
 
 export function PointConfigManager() {
     const firestore = useFirestore();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [config, setConfig] = useState<PointsConfig | null>(null);
     const [loading, setLoading] = useState(true);
@@ -31,13 +32,13 @@ export function PointConfigManager() {
     const [pointToMNT, setPointToMNT] = useState(100);
 
     // Fetch employees count for budget calculation
-    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null, [firestore]);
     const { data: employees } = useCollection<{ id: string }>(employeesQuery);
     const employeeCount = employees?.length || 0;
 
     // Fetch positions with point budgets
-    const positionsQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'positions'), where('hasPointBudget', '==', true)) : null
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'positions'), where('hasPointBudget', '==', true)) : null
         , [firestore]);
     const { data: budgetPositions } = useCollection<{ id: string; yearlyPointBudget?: number }>(positionsQuery);
 
@@ -55,7 +56,7 @@ export function PointConfigManager() {
         const fetchConfig = async () => {
             if (!firestore) return;
             try {
-                const configRef = doc(firestore, 'points_config', 'main');
+                const configRef = tDoc('points_config', 'main');
                 const snap = await getDoc(configRef);
                 if (snap.exists()) {
                     const data = snap.data() as PointsConfig;
@@ -89,7 +90,7 @@ export function PointConfigManager() {
 
         setSaving(true);
         try {
-            const configRef = doc(firestore, 'points_config', 'main');
+            const configRef = tDoc('points_config', 'main');
             const newConfig: PointsConfig = {
                 year,
                 monthlyAllowanceBase,

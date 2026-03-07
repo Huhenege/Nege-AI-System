@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { Employee } from '@/types';
 import {
@@ -84,25 +84,25 @@ export function StartPositionPreparationWizardDialog({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [taskPlanByStage, setTaskPlanByStage] = React.useState<TaskPlanByStage>({});
 
-  const employeesQuery = useMemoFirebase(() => {
+  const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']));
+    return query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']));
   }, [firestore]);
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery as any);
 
-  const existingPrepProjectsQuery = useMemoFirebase(() => {
+  const existingPrepProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore || !positionId) return null;
     return query(
-      collection(firestore, 'projects'),
+      tenantCollection(firestore, companyPath, 'projects'),
       where('type', '==', 'position_preparation'),
       where('positionPreparationPositionId', '==', positionId),
     );
   }, [firestore, positionId]);
   const { data: existingPrepProjects, isLoading: projectsLoading } = useCollection<any>(existingPrepProjectsQuery as any);
 
-  const prepConfigRef = useMemoFirebase(() => {
+  const prepConfigRef = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return doc(firestore, 'settings', 'positionPreparation');
+    return tenantDoc(firestore, companyPath, 'settings', 'positionPreparation');
   }, [firestore]);
   const { data: prepConfig, isLoading: configLoading } = useDoc<any>(prepConfigRef as any);
 

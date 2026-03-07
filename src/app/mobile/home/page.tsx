@@ -5,9 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, useDoc, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, orderBy, doc, getDoc, where, limit } from 'firebase/firestore';
+import { query, orderBy, doc, getDoc, where, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, ThumbsUp, ChevronsDown, ChevronsUp, Heart, Clock, Calendar, CheckCircle, ArrowRight, BookOpen, User, Bell, Search, Sparkles, Palmtree, ChevronRight, Star, Trophy, FolderKanban, Building, ClipboardList } from 'lucide-react';
@@ -92,13 +92,14 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
     const [isReactionsOpen, setIsReactionsOpen] = React.useState(false);
     const [reactionDetails, setReactionDetails] = React.useState<{ employee: Employee; reaction: ReactionType }[]>([]);
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
 
     const reactions = post.reactions || {};
     const userReaction = userId ? reactions[userId] : null;
 
     const handleReaction = (reaction: ReactionType) => {
         if (!firestore || !userId) return;
-        const postRef = doc(firestore, 'posts', post.id);
+        const postRef = tDoc('posts', post.id);
         const currentReaction = reactions[userId];
         const newReactions = { ...reactions };
         if (currentReaction === reaction) {
@@ -111,10 +112,10 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
 
     const showReactions = async () => {
         if (!firestore || Object.keys(reactions).length === 0) return;
-        const employeeCollection = collection(firestore, 'employees');
+        const employeeCol = tCollection('employees');
         const details: { employee: Employee; reaction: ReactionType }[] = [];
         for (const uid in reactions) {
-            const userDoc = await getDoc(doc(employeeCollection, uid));
+            const userDoc = await getDoc(doc(employeeCol, uid));
             if (userDoc.exists()) {
                 details.push({ employee: userDoc.data() as Employee, reaction: reactions[uid] });
             }
@@ -234,6 +235,7 @@ function PostCard({ post, userId }: { post: Post, userId: string | null }) {
 
 function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: string | null }) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const [sender, setSender] = React.useState<any>(null);
     const [receivers, setReceivers] = React.useState<any[]>([]);
     const [valueData, setValueData] = React.useState<CoreValue | null>(null);
@@ -250,16 +252,16 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
 
     React.useEffect(() => {
         if (!firestore) return;
-        getDoc(doc(firestore, 'employees', post.fromUserId)).then(s => setSender(s.data()));
-        Promise.all(post.toUserId.map(id => getDoc(doc(firestore, 'employees', id)))).then(snaps => {
+        getDoc(tDoc('employees', post.fromUserId)).then(s => setSender(s.data()));
+        Promise.all(post.toUserId.map(id => getDoc(tDoc('employees', id)))).then(snaps => {
             setReceivers(snaps.map(s => s.data()));
         });
-        getDoc(doc(firestore, 'company', 'branding', 'values', post.valueId)).then(v => setValueData({ id: v.id, ...v.data() } as CoreValue));
-    }, [post, firestore]);
+        getDoc(tDoc('company', 'branding', 'values', post.valueId)).then(v => setValueData({ id: v.id, ...v.data() } as CoreValue));
+    }, [post, firestore, tDoc]);
 
     const handleReaction = (reaction: ReactionType) => {
         if (!firestore || !userId) return;
-        const postRef = doc(firestore, 'recognition_posts', post.id);
+        const postRef = tDoc('recognition_posts', post.id);
         const currentReaction = reactions[userId];
         const newReactions = { ...reactions };
         if (currentReaction === reaction) {
@@ -272,10 +274,10 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
 
     const showReactions = async () => {
         if (!firestore || Object.keys(reactions).length === 0) return;
-        const employeeCollection = collection(firestore, 'employees');
+        const employeeCol = tCollection('employees');
         const details: { employee: Employee; reaction: ReactionType }[] = [];
         for (const uid in reactions) {
-            const userDoc = await getDoc(doc(employeeCollection, uid));
+            const userDoc = await getDoc(doc(employeeCol, uid));
             if (userDoc.exists()) {
                 details.push({ employee: userDoc.data() as Employee, reaction: reactions[uid] });
             }
@@ -391,7 +393,7 @@ function RecognitionPostCard({ post, userId }: { post: RecognitionPost, userId: 
 function EmployeeCarousel() {
     const { firestore } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
-    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const employeesQuery = useMemoFirebase(({ companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null, [firestore]);
     const { data: employees, isLoading } = useCollection<Employee>(employeesQuery);
 
     const isViewerAdmin = employeeProfile?.role === 'admin';
@@ -462,8 +464,8 @@ function AttendanceStatusWidget() {
     }, []);
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const attendanceQuery = useMemoFirebase(() => employeeProfile ? query(
-        collection(firestore, 'attendance'),
+    const attendanceQuery = useMemoFirebase(({ companyPath }) => employeeProfile ? query(
+        tenantCollection(firestore, companyPath, 'attendance'),
         where('employeeId', '==', employeeProfile.id),
         where('date', '==', todayStr)
     ) : null, [firestore, employeeProfile, todayStr]);
@@ -573,11 +575,11 @@ export default function MobileHomePage() {
     const [logoFailed, setLogoFailed] = React.useState(false);
 
     const postsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'posts'), orderBy('createdAt', 'desc'), limit(15)) : null,
+        ({ companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'posts'), orderBy('createdAt', 'desc'), limit(15)) : null,
         [firestore]
     );
     const recognitionQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'recognition_posts'), orderBy('createdAt', 'desc'), limit(15)) : null,
+        ({ companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'recognition_posts'), orderBy('createdAt', 'desc'), limit(15)) : null,
         [firestore]
     );
 
@@ -601,7 +603,7 @@ export default function MobileHomePage() {
     const isLoading = isPostsLoading || isRecLoading;
 
     const { data: companyProfile } = useDoc<any>(
-        useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore])
+        useMemoFirebase(({ companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), [firestore])
     );
 
     // Format today's date in Mongolian

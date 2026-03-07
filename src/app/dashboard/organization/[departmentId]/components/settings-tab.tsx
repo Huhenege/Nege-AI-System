@@ -7,8 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { useFirebase, updateDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirebase, updateDocumentNonBlocking, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Department, DepartmentType } from '@/app/dashboard/organization/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -41,6 +40,7 @@ function InfoItem({ label, value }: { label: string, value: React.ReactNode }) {
 
 export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTabProps) => {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -48,8 +48,8 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
     const [isGenerating, setIsGenerating] = useState(false);
 
     // Queries for dropdowns
-    const typesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
-    const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const typesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
+    const deptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
 
     const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
     const { data: allDepartments } = useCollection<Department>(deptsQuery);
@@ -87,7 +87,7 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
 
         setIsLoading(true);
         try {
-            const docRef = doc(firestore, 'departments', department.id);
+            const docRef = tDoc('departments', department.id);
             const dataToSave = {
                 name: formData.name,
                 code: formData.code,

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Employee } from '@/app/dashboard/employees/data';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -326,19 +326,19 @@ export default function EmployeesListPage() {
 
     // Fetch employees
     const employeesQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'employees'), orderBy('firstName')) : null,
+        ({ companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'employees'), orderBy('firstName')) : null,
         [firestore]
     );
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
 
     const departmentsQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'departments') : null,
+        ({ companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'departments') : null,
         [firestore]
     );
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery as any);
 
     const positionsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'positions'), orderBy('title')) : null,
+        ({ companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'positions'), orderBy('title')) : null,
         [firestore]
     );
     const { data: positions, isLoading: isLoadingPositions } = useCollection<Position>(positionsQuery as any);

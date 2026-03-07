@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/patterns/page-layout';
-import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
 import { ChevronLeft, Building2, Plus, Loader2, Pencil, Trash2, X, Check, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,8 +35,8 @@ export default function SubsidiariesPage() {
     const { toast } = useToast();
     
     const companyProfileRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'profile') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
+        []
     );
     
     const { data: companyProfile, isLoading } = useDoc<CompanyProfile>(companyProfileRef as any);

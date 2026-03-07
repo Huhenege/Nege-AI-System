@@ -3,8 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { collection, doc } from 'firebase/firestore';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +39,7 @@ interface PlansTabProps {
 
 export function PlansTab({ plans, themes, employees, companyProfile, coreValues, isLoading }: PlansTabProps) {
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
     const [isThemeDialogOpen, setIsThemeDialogOpen] = useState(false);
@@ -65,7 +65,7 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
 
     const handleCreatePlan = (values: BusinessPlanFormValues) => {
         if (!firestore || !user) return;
-        addDocumentNonBlocking(collection(firestore, 'bp_plans'), {
+        addDocumentNonBlocking(tCollection('bp_plans'), {
             ...values,
             createdAt: new Date().toISOString(),
             createdBy: user.uid,
@@ -75,14 +75,14 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
 
     const handleUpdatePlan = (values: BusinessPlanFormValues) => {
         if (!firestore || !editingPlan) return;
-        updateDocumentNonBlocking(doc(firestore, 'bp_plans', editingPlan.id), values);
+        updateDocumentNonBlocking(tDoc('bp_plans', editingPlan.id), values);
         toast({ title: 'Төлөвлөгөө шинэчлэгдлээ' });
         setEditingPlan(null);
     };
 
     const handleCreateTheme = (values: StrategicThemeFormValues) => {
         if (!firestore || !currentPlan) return;
-        addDocumentNonBlocking(collection(firestore, 'bp_themes'), {
+        addDocumentNonBlocking(tCollection('bp_themes'), {
             ...values,
             planId: currentPlan.id,
             order: planThemes.length,
@@ -93,7 +93,7 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
 
     const handleUpdateTheme = (values: StrategicThemeFormValues) => {
         if (!firestore || !editingTheme) return;
-        updateDocumentNonBlocking(doc(firestore, 'bp_themes', editingTheme.id), values);
+        updateDocumentNonBlocking(tDoc('bp_themes', editingTheme.id), values);
         toast({ title: 'Чиглэл шинэчлэгдлээ' });
         setEditingTheme(null);
     };

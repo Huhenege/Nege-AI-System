@@ -4,7 +4,7 @@ import * as React from 'react';
 import { format, getDay, eachDayOfInterval, startOfYear, endOfYear, getMonth } from 'date-fns';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useTenantWrite } from '@/firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,6 +47,7 @@ export default function CalendarPage() {
     const [isLoading, setIsLoading] = React.useState(true);
 
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
 
     // Байгууллагын календарыг татах эсвэл автоматаар үүсгэх
@@ -310,7 +311,7 @@ export default function CalendarPage() {
         } : null);
 
         try {
-            const calendarRef = doc(firestore, 'workCalendars', DEFAULT_CALENDAR_ID);
+            const calendarRef = tDoc('workCalendars', DEFAULT_CALENDAR_ID);
             
             // Firestore-д хадгалах
             await updateDoc(calendarRef, {
@@ -357,7 +358,7 @@ export default function CalendarPage() {
         });
 
         try {
-            const calendarRef = doc(firestore, 'workCalendars', DEFAULT_CALENDAR_ID);
+            const calendarRef = tDoc('workCalendars', DEFAULT_CALENDAR_ID);
             
             // Firestore-оос устгах (deleteField ашиглах)
             const { deleteField } = await import('firebase/firestore');
@@ -421,7 +422,7 @@ export default function CalendarPage() {
         });
 
         try {
-            const calendarRef = doc(firestore, 'workCalendars', DEFAULT_CALENDAR_ID);
+            const calendarRef = tDoc('workCalendars', DEFAULT_CALENDAR_ID);
             
             const { deleteField } = await import('firebase/firestore');
             await updateDoc(calendarRef, {

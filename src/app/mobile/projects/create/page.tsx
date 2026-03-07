@@ -29,8 +29,10 @@ import {
   useMemoFirebase,
   useCollection,
   addDocumentNonBlocking,
+  tenantCollection,
+  useTenantWrite,
 } from '@/firebase';
-import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
+import { query, orderBy, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Employee, isActiveStatus } from '@/types';
@@ -59,6 +61,7 @@ export default function MobileCreateProjectPage() {
   const container = useMobileContainer();
   const router = useRouter();
   const { firestore } = useFirebase();
+  const { tCollection } = useTenantWrite();
   const { employeeProfile } = useEmployeeProfile();
   const { toast } = useToast();
 
@@ -68,7 +71,7 @@ export default function MobileCreateProjectPage() {
 
   // Fetch employees
   const employeesQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'employees') : null),
+    ({ companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null),
     [firestore]
   );
   const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -79,7 +82,7 @@ export default function MobileCreateProjectPage() {
 
   // Fetch project groups
   const groupsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'project_groups'), orderBy('name', 'asc')) : null),
+    ({ companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'project_groups'), orderBy('name', 'asc')) : null),
     [firestore]
   );
   const { data: groups } = useCollection<{ id: string; name: string; color?: string }>(groupsQuery as any);
@@ -158,7 +161,7 @@ export default function MobileCreateProjectPage() {
         projectData.groupIds = values.groupIds;
       }
 
-      await addDocumentNonBlocking(collection(firestore, 'projects'), projectData);
+      await addDocumentNonBlocking(tCollection('projects'), projectData);
 
       toast({ title: 'Амжилттай', description: 'Шинэ төсөл үүсгэгдлээ' });
       router.push('/mobile/projects');

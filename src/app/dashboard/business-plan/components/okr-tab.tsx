@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { collection, doc } from 'firebase/firestore';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +45,7 @@ export function OkrTab({
     activePlan, themes, objectives, keyResults, employees, isLoading,
 }: OkrTabProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(getCurrentQuarter());
     const [isObjDialogOpen, setIsObjDialogOpen] = useState(false);
@@ -78,13 +78,13 @@ export function OkrTab({
             progress: 0,
             createdAt: new Date().toISOString(),
         };
-        addDocumentNonBlocking(collection(firestore, 'bp_objectives'), data);
+        addDocumentNonBlocking(tCollection('bp_objectives'), data);
         toast({ title: 'OKR зорилго үүсгэлээ', description: values.title });
     };
 
     const handleUpdateObjective = (values: ObjectiveFormValues) => {
         if (!firestore || !editingObjective) return;
-        updateDocumentNonBlocking(doc(firestore, 'bp_objectives', editingObjective.id), values);
+        updateDocumentNonBlocking(tDoc('bp_objectives', editingObjective.id), values);
         toast({ title: 'Зорилго шинэчлэгдлээ' });
         setEditingObjective(null);
     };
@@ -98,13 +98,13 @@ export function OkrTab({
             themeId: obj?.themeId || '',
             createdAt: new Date().toISOString(),
         };
-        addDocumentNonBlocking(collection(firestore, 'bp_key_results'), data);
+        addDocumentNonBlocking(tCollection('bp_key_results'), data);
         toast({ title: 'Гол үр дүн нэмэгдлээ', description: values.title });
     };
 
     const handleUpdateKeyResult = (values: KeyResultFormValues) => {
         if (!firestore || !editingKeyResult) return;
-        updateDocumentNonBlocking(doc(firestore, 'bp_key_results', editingKeyResult.id), values);
+        updateDocumentNonBlocking(tDoc('bp_key_results', editingKeyResult.id), values);
         toast({ title: 'Гол үр дүн шинэчлэгдлээ' });
         setEditingKeyResult(null);
     };

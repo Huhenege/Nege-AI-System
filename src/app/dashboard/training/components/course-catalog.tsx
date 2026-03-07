@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { collection, doc } from 'firebase/firestore';
-import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +49,7 @@ interface CourseCatalogProps {
 
 export function CourseCatalog({ courses, skills, categories, isLoading }: CourseCatalogProps) {
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -87,26 +87,26 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
             createdAt: new Date().toISOString(),
             createdBy: user.uid,
         };
-        addDocumentNonBlocking(collection(firestore, 'training_courses'), data);
+        addDocumentNonBlocking(tCollection('training_courses'), data);
         toast({ title: 'Сургалт үүсгэлээ', description: values.title });
     };
 
     const handleEdit = (values: TrainingCourseFormValues) => {
         if (!firestore || !editingCourse) return;
-        updateDocumentNonBlocking(doc(firestore, 'training_courses', editingCourse.id), values);
+        updateDocumentNonBlocking(tDoc('training_courses', editingCourse.id), values);
         toast({ title: 'Сургалт шинэчлэгдлээ', description: values.title });
         setEditingCourse(null);
     };
 
     const handleArchive = (course: TrainingCourse) => {
         if (!firestore) return;
-        updateDocumentNonBlocking(doc(firestore, 'training_courses', course.id), { status: 'archived' });
+        updateDocumentNonBlocking(tDoc('training_courses', course.id), { status: 'archived' });
         toast({ title: 'Архивлагдлаа', description: course.title });
     };
 
     const handleDelete = (course: TrainingCourse) => {
         if (!firestore) return;
-        deleteDocumentNonBlocking(doc(firestore, 'training_courses', course.id));
+        deleteDocumentNonBlocking(tDoc('training_courses', course.id));
         toast({ title: 'Сургалт устгагдлаа', description: course.title });
         setCourseToDelete(null);
     };

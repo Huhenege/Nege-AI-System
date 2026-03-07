@@ -26,8 +26,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc, orderBy, getDoc } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, where, updateDoc, orderBy, getDoc } from 'firebase/firestore';
 import { JobApplication, Vacancy, RecruitmentStage } from '@/types/recruitment';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, ExternalLink, X } from 'lucide-react';
@@ -179,6 +179,7 @@ function Column({
 
 export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: string }) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const [selectedVacancyId, setSelectedVacancyId] = useState<string>(initialVacancyId || '');
@@ -197,7 +198,7 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
         const fetchGlobalStages = async () => {
             if (!firestore) return;
             try {
-                const docRef = doc(firestore, 'recruitment_settings', 'default');
+                const docRef = tDoc('recruitment_settings', 'default');
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists() && docSnap.data().defaultStages) {
                     setGlobalStages(docSnap.data().defaultStages as RecruitmentStage[]);
@@ -216,7 +217,7 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
 
     // Fetch vacancies
     const vacanciesQuery = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'vacancies'), where('status', '==', 'OPEN')) : null),
+        ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'vacancies'), where('status', '==', 'OPEN')) : null),
         [firestore]
     );
     const { data: vacancies } = useCollection<Vacancy>(vacanciesQuery as any);
@@ -232,8 +233,8 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
 
     // Fetch applications for selected vacancy
     const applicationsQuery = useMemoFirebase(
-        () => (firestore && selectedVacancyId ?
-            query(collection(firestore, 'applications'), where('vacancyId', '==', selectedVacancyId))
+        ({ firestore, companyPath }) => (firestore && selectedVacancyId ?
+            query(tenantCollection(firestore, companyPath, 'applications'), where('vacancyId', '==', selectedVacancyId))
             : null),
         [firestore, selectedVacancyId]
     );
@@ -296,7 +297,7 @@ export function PipelineBoard({ vacancyId: initialVacancyId }: { vacancyId?: str
             // Update Firestore
             if (firestore) {
                 try {
-                    const appRef = doc(firestore, 'applications', activeAppId);
+                    const appRef = tDoc('applications', activeAppId);
                     await updateDoc(appRef, { currentStageId: newStageId });
 
                     // Send Notification

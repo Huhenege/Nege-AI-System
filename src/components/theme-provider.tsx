@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useDoc, useMemoFirebase } from '@/firebase';
+import { useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { hexToHsl } from '@/lib/color-utils';
@@ -29,7 +29,7 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
     const { firestore } = useFirebase();
 
     const brandingRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'branding') : null),
+        ({ companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'branding') : null),
         [firestore]
     );
 

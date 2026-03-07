@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useDoc, useMemoFirebase } from '@/firebase';
+import { useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,7 +77,7 @@ export default function PolicyDetailPage() {
     const policyId = Array.isArray(id) ? id[0] : id;
 
     const policyDocRef = useMemoFirebase(
-        ({firestore}) => (firestore && policyId ? doc(firestore, 'companyPolicies', policyId) : null),
+        ({firestore, companyPath}) => (firestore && policyId ? tenantDoc(firestore, companyPath, 'companyPolicies', policyId) : null),
         [policyId]
     );
 

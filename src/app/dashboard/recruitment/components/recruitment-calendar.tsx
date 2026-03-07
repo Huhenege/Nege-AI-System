@@ -21,8 +21,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Clock, Plus, Video, MapPin, User, Calendar as CalendarIcon, Edit, ExternalLink } from 'lucide-react';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, where, Timestamp } from 'firebase/firestore';
 import { Interview } from '@/types/recruitment';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,12 +47,12 @@ export function RecruitmentCalendar({ vacancyId }: { vacancyId?: string }) {
 
     // In a real app with many events, we should filter by date range in Firestore.
     const interviewsQuery = useMemoFirebase(
-        () => {
+        ({ firestore, companyPath }) => {
             if (!firestore) return null;
             if (vacancyId) {
-                return query(collection(firestore, 'interviews'), where('vacancyId', '==', vacancyId));
+                return query(tenantCollection(firestore, companyPath, 'interviews'), where('vacancyId', '==', vacancyId));
             }
-            return collection(firestore, 'interviews');
+            return tenantCollection(firestore, companyPath, 'interviews');
         },
         [firestore, vacancyId]
     );

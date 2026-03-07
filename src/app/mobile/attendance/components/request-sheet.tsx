@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, tenantCollection } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -68,24 +68,24 @@ export function RequestSheet({ open, onOpenChange, employeeId, disabledDates }: 
     const container = useMobileContainer();
     const [requestType, setRequestType] = React.useState<'time-off' | 'attendance'>('time-off');
 
-    const timeOffCollectionRef = useMemoFirebase(() => (
-        firestore && employeeId ? collection(firestore, `employees/${employeeId}/timeOffRequests`) : null
+    const timeOffCollectionRef = useMemoFirebase(({ companyPath }) => (
+        firestore && employeeId ? tenantCollection(firestore, companyPath, `employees/${employeeId}/timeOffRequests`) : null
     ), [firestore, employeeId]);
     
-    const attendanceCollectionRef = useMemoFirebase(() => (
-        firestore && employeeId ? collection(firestore, `employees/${employeeId}/attendanceRequests`) : null
+    const attendanceCollectionRef = useMemoFirebase(({ companyPath }) => (
+        firestore && employeeId ? tenantCollection(firestore, companyPath, `employees/${employeeId}/attendanceRequests`) : null
     ), [firestore, employeeId]);
 
-    const requestTypesQuery = useMemoFirebase(() => (
-        firestore ? collection(firestore, 'timeOffRequestTypes') : null
+    const requestTypesQuery = useMemoFirebase(({ companyPath }) => (
+        firestore ? tenantCollection(firestore, companyPath, 'timeOffRequestTypes') : null
     ), [firestore]);
     
-    const positionsQuery = useMemoFirebase(() => (
-        firestore ? query(collection(firestore, 'positions'), where('canApproveAttendance', '==', true)) : null
+    const positionsQuery = useMemoFirebase(({ companyPath }) => (
+        firestore ? query(tenantCollection(firestore, companyPath, 'positions'), where('canApproveAttendance', '==', true)) : null
     ), [firestore]);
     
-    const employeesQuery = useMemoFirebase(() => (
-        firestore ? collection(firestore, 'employees') : null
+    const employeesQuery = useMemoFirebase(({ companyPath }) => (
+        firestore ? tenantCollection(firestore, companyPath, 'employees') : null
     ), [firestore]);
 
     const { data: requestTypes, isLoading: isLoadingTypes } = useCollection<ReferenceItem>(requestTypesQuery);

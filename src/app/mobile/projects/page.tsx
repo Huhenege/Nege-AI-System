@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, where } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,9 +40,9 @@ export default function MobileProjectsPage() {
     // Fetch projects where user is a team member
     // Note: array-contains with orderBy requires composite index, so we sort client-side
     const projectsQuery = useMemoFirebase(
-        () => employeeProfile?.id && firestore
+        ({ companyPath }) => employeeProfile?.id && firestore
             ? query(
-                collection(firestore, 'projects'),
+                tenantCollection(firestore, companyPath, 'projects'),
                 where('teamMemberIds', 'array-contains', employeeProfile.id)
             )
             : null,
@@ -62,7 +62,7 @@ export default function MobileProjectsPage() {
 
     // Fetch all employees for display
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);

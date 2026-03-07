@@ -1,5 +1,5 @@
 import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
-import { useCollection, useFirebase, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase, setDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,6 +12,7 @@ import { ensureSystemTemplates } from '../../../employment-relations/seed';
 
 export function OrganizationActionSettings() {
     const { firestore, user } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editItemData, setEditItemData] = useState({
@@ -62,14 +63,14 @@ export function OrganizationActionSettings() {
 
     // Fetch Actions from Firestore to get the configured templateId
     const actionsRef = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'organization_actions') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'organization_actions') : null),
         [firestore]
     );
     const { data: configuredActions, isLoading: isLoadingActions } = useCollection<any>(actionsRef);
 
     // Fetch only system templates (isSystem === true) for action configuration
     const templatesRef = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'er_templates'), where('isActive', '==', true), where('isSystem', '==', true)) : null),
+        ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'er_templates'), where('isActive', '==', true), where('isSystem', '==', true)) : null),
         [firestore]
     );
     const { data: templates } = useCollection<ERTemplate>(templatesRef as any);
@@ -108,7 +109,7 @@ export function OrganizationActionSettings() {
         setIsSubmitting(true);
         try {
             // Use setDocumentNonBlocking with merge: true to handle both create and update
-            const actionDocRef = doc(firestore, 'organization_actions', id);
+            const actionDocRef = tDoc('organization_actions', id);
             setDocumentNonBlocking(actionDocRef, {
                 templateId: editItemData.templateId,
                 dateMappings: editItemData.dateMappings,

@@ -8,8 +8,7 @@ import { PageHeader } from '@/components/patterns/page-layout';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, tenantDoc, tenantCollection } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -212,8 +211,8 @@ const DynamicField = ({ form, fieldDef }: { form: any, fieldDef: FieldDefinition
 function DocumentDetailsCard({ documentData }: { documentData: Document }) {
     const [isEditing, setIsEditing] = React.useState(false);
     const { toast } = useToast();
-    const documentRef = useMemoFirebase(({ firestore }) => doc(firestore, 'documents', documentData.id), [documentData.id]);
-    const docTypesQuery = useMemoFirebase(({ firestore }) => collection(firestore, 'er_document_types'), []);
+    const documentRef = useMemoFirebase(({ firestore, companyPath }) => tenantDoc(firestore, companyPath, 'documents', documentData.id), [documentData.id]);
+    const docTypesQuery = useMemoFirebase(({ firestore, companyPath }) => tenantCollection(firestore, companyPath, 'er_document_types'), []);
     const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<DocumentType>(docTypesQuery);
 
     const form = useForm<DocumentFormValues>({
@@ -352,7 +351,7 @@ export default function DocumentDetailPage() {
     const documentId = Array.isArray(id) ? id[0] : id;
 
     const documentRef = useMemoFirebase(
-        ({ firestore }) => (firestore && documentId ? doc(firestore, 'documents', documentId) : null),
+        ({ firestore, companyPath }) => (firestore && documentId ? tenantDoc(firestore, companyPath, 'documents', documentId) : null),
         [documentId]
     );
 

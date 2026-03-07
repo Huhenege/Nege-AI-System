@@ -41,8 +41,10 @@ import {
     useMemoFirebase,
     useCollection,
     addDocumentNonBlocking,
+    tenantCollection,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -71,12 +73,13 @@ interface CreateTaskDialogProps {
 
 export function CreateTaskDialog({ open, onOpenChange, projectId, teamMemberIds }: CreateTaskDialogProps) {
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     // Fetch employees
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -122,7 +125,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, teamMemberIds 
             };
 
             await addDocumentNonBlocking(
-                collection(firestore, 'projects', projectId, 'tasks'),
+                tCollection('projects', projectId, 'tasks'),
                 taskData
             );
 

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Position, SalaryRangeVersion } from '../../../types';
 import { doc, collection, addDoc } from 'firebase/firestore';
-import { useFirebase, updateDocumentNonBlocking, useCollection } from '@/firebase';
+import { useFirebase, updateDocumentNonBlocking, useCollection, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
     Select,
@@ -34,6 +34,7 @@ export function PositionCompensation({
     position
 }: PositionCompensationProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
 
     // Helper to normalize salary steps from any previous format
@@ -129,7 +130,7 @@ export function PositionCompensation({
         const min = Math.min(...values);
         const max = Math.max(...values);
 
-        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+        await updateDocumentNonBlocking(tDoc('positions', position.id), {
             salarySteps: editSalarySteps,
             salaryRange: {
                 min,
@@ -143,7 +144,7 @@ export function PositionCompensation({
 
     const saveIncentives = async () => {
         if (!firestore) return;
-        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+        await updateDocumentNonBlocking(tDoc('positions', position.id), {
             incentives: editIncentives.filter(inc => inc.type),
             updatedAt: new Date().toISOString(),
         });

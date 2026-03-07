@@ -25,8 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Save, Mail, RotateCcw, Eye, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { useMemoFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useMemoFirebase, useDoc, setDocumentNonBlocking, tenantDoc } from '@/firebase';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,8 +79,8 @@ export function InvitationEmailTemplateSection() {
   const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false);
   const [mode, setMode] = React.useState<'fields' | 'html'>('fields');
   const templateRef = useMemoFirebase(
-    ({ firestore }) =>
-      firestore ? doc(firestore, 'company', INVITATION_EMAIL_TEMPLATE_DOC_ID) : null,
+    ({ firestore, companyPath }) =>
+      firestore ? tenantDoc(firestore, companyPath, 'company', INVITATION_EMAIL_TEMPLATE_DOC_ID) : null,
     []
   );
 

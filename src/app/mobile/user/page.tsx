@@ -7,8 +7,8 @@ import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { signOut } from 'firebase/auth';
-import { useAuth, useFirebase } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useAuth, useFirebase, useTenantWrite } from '@/firebase';
+import { query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
@@ -84,6 +84,7 @@ function PageSkeleton() {
 export default function MobileUserPage() {
   const { employeeProfile, isProfileLoading, user, isUserLoading, error } = useEmployeeProfile();
   const { firestore } = useFirebase();
+  const { tCollection } = useTenantWrite();
   const auth = useAuth();
   const router = useRouter();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = React.useState(false);
@@ -105,25 +106,25 @@ export default function MobileUserPage() {
       // 1) Email-ээр хайх
       if (user.email) {
         try {
-          const byEmail = query(collection(firestore, 'evaluation_requests'), where('assignedToEmail', '==', user.email));
+          const byEmail = query(tCollection('evaluation_requests'), where('assignedToEmail', '==', user.email));
           countPending(await getDocs(byEmail));
         } catch (_) { /* index may not exist yet */ }
       }
 
       // 2) Auth UID-аар хайх
       try {
-        const byUid = query(collection(firestore, 'evaluation_requests'), where('assignedTo', '==', user.uid));
+        const byUid = query(tCollection('evaluation_requests'), where('assignedTo', '==', user.uid));
         countPending(await getDocs(byUid));
       } catch (_) { /* ignore */ }
 
       // 3) Employee doc ID-аар хайх
       if (user.email) {
         try {
-          const empQ = query(collection(firestore, 'employees'), where('email', '==', user.email));
+          const empQ = query(tCollection('employees'), where('email', '==', user.email));
           const empSnap = await getDocs(empQ);
           const empIds = empSnap.docs.map(d => d.id).filter(id => id !== user.uid);
           if (empIds.length > 0) {
-            const byEmpId = query(collection(firestore, 'evaluation_requests'), where('assignedTo', 'in', empIds));
+            const byEmpId = query(tCollection('evaluation_requests'), where('assignedTo', 'in', empIds));
             countPending(await getDocs(byEmpId));
           }
         } catch (_) { /* ignore */ }

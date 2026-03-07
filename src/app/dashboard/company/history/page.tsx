@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -178,13 +178,14 @@ function EventCard({
 
 export default function CompanyHistoryPage() {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingEvent, setEditingEvent] = React.useState<CompanyHistoryEvent | null>(null);
 
     const historyQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'companyHistory'), orderBy('startDate', 'desc')) : null,
-        [firestore]
+        ({ firestore, companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'companyHistory'), orderBy('startDate', 'desc')) : null,
+        []
     );
 
     const { data: events, isLoading } = useCollection<CompanyHistoryEvent>(historyQuery);
@@ -198,8 +199,7 @@ export default function CompanyHistoryPage() {
         if (!firestore) return;
         
         try {
-            const { doc } = await import('firebase/firestore');
-            const eventRef = doc(firestore, 'companyHistory', event.id);
+            const eventRef = tDoc('companyHistory', event.id);
             deleteDocumentNonBlocking(eventRef);
             toast({
                 title: 'Амжилттай устгалаа',

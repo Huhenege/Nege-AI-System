@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { useFirebase, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { ERDocument, ERDocumentHistory, DocumentStatus, ActionType } from '../types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +26,7 @@ const STEPS = [
 
 export function ProcessFlow({ document: docData, onUpdate }: ProcessFlowProps) {
     const { firestore, user } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [comment, setComment] = useState('');
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -99,7 +100,7 @@ export function ProcessFlow({ document: docData, onUpdate }: ProcessFlowProps) {
             // Append history
             updates.history = [...(docData.history || []), historyItem];
 
-            await updateDocumentNonBlocking(doc(firestore, 'er_documents', docData.id), updates);
+            await updateDocumentNonBlocking(tDoc('er_documents', docData.id), updates);
             toast({ title: "Амжилттай", description: "Үйлдэл амжилттай хийгдлээ" });
             if (onUpdate) onUpdate();
         } catch (error) {

@@ -11,7 +11,10 @@ import {
     useCollection,
     addDocumentNonBlocking,
     deleteDocumentNonBlocking,
-    updateDocumentNonBlocking
+    updateDocumentNonBlocking,
+    tenantCollection,
+    tenantDoc,
+    useTenantWrite
 } from '@/firebase';
 import { addDepartmentHistoryEvent } from '@/app/dashboard/organization/department-history-log';
 import { Button } from '@/components/ui/button';
@@ -52,6 +55,7 @@ export default function DepartmentPage() {
     const departmentId = Array.isArray(params?.departmentId) ? params.departmentId[0] : params?.departmentId;
     const router = useRouter();
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const performedByName = user?.displayName || user?.email || 'Систем';
     const performedBy = user?.uid ?? '';
@@ -75,23 +79,23 @@ export default function DepartmentPage() {
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
     // -- Queries --
-    const deptDocRef = useMemoFirebase(() => (firestore && departmentId ? doc(firestore, 'departments', departmentId) : null), [firestore, departmentId]);
+    const deptDocRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && departmentId ? tenantDoc(firestore, companyPath, 'departments', departmentId) : null), [firestore, departmentId]);
     const { data: department, isLoading: isDeptLoading } = useDoc<Department>(deptDocRef as any);
 
-    const positionsColRef = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-    const positionsQuery = useMemoFirebase(() => (firestore && departmentId ? query(collection(firestore, 'positions'), where('departmentId', '==', departmentId)) : null), [firestore, departmentId]);
+    const positionsColRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), [firestore]);
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore && departmentId ? query(tenantCollection(firestore, companyPath, 'positions'), where('departmentId', '==', departmentId)) : null), [firestore, departmentId]);
     const { data: positions } = useCollection<Position>(positionsQuery as any);
 
     // Lookups for Edit Form
-    const typesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
-    const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const categoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-    const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
-    const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
-    const schedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
+    const typesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
+    const deptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
+    const categoriesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'jobCategories') : null), [firestore]);
+    const levelsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null), [firestore]);
+    const empTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employmentTypes') : null), [firestore]);
+    const schedulesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'workSchedules') : null), [firestore]);
     const deptEmployeesQuery = useMemoFirebase(
-        () => (firestore
-            ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']))
+        ({ firestore, companyPath }) => (firestore
+            ? query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']))
             : null),
         [firestore, departmentId]
     );
@@ -195,7 +199,7 @@ export default function DepartmentPage() {
         setIsDeptDeleting(true);
 
         try {
-            const historyRef = collection(firestore, 'departmentHistory');
+            const historyRef = tCollection('departmentHistory');
             const hq = query(historyRef, where('departmentId', '==', department.id));
             const historySnapshot = await getDocs(hq);
             const hasHistory = !historySnapshot.empty;
@@ -229,7 +233,7 @@ export default function DepartmentPage() {
         if (!firestore || !department) return;
         setIsDeptDeleting(true);
         try {
-            await deleteDocumentNonBlocking(doc(firestore, 'departments', department.id));
+            await deleteDocumentNonBlocking(tDoc('departments', department.id));
             toast({ title: "Нэгж амжилттай устгагдлаа" });
             router.push('/dashboard/organization');
         } catch (error) {
@@ -246,18 +250,18 @@ export default function DepartmentPage() {
             const timestamp = new Date().toISOString();
 
             // 1. Fetch all employees in this department
-            const employeesRef = collection(firestore, 'employees');
+            const employeesRef = tCollection('employees');
             const eq = query(employeesRef, where('departmentId', '==', department.id));
             const employeeSnapshot = await getDocs(eq);
-            const deptEmployees = employeeSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
+            const deptEmployees = employeeSnapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data()
             })) as any[];
 
             const batch = writeBatch(firestore);
 
             // 2. Prepare History Entry
-            const historyRef = collection(firestore, 'departmentHistory');
+            const historyRef = tCollection('departmentHistory');
             const newHistoryDoc = doc(historyRef);
 
             const snapshot = {
@@ -297,10 +301,10 @@ export default function DepartmentPage() {
             });
 
             // 4. Delete Dept and Positions
-            batch.delete(doc(firestore, 'departments', department.id));
+            batch.delete(tDoc('departments', department.id));
             if (positions) {
                 positions.forEach(pos => {
-                    batch.delete(doc(firestore, 'positions', pos.id));
+                    batch.delete(tDoc('positions', pos.id));
                 });
             }
 
@@ -320,7 +324,7 @@ export default function DepartmentPage() {
     };
 
     const posCodeConfigRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
         []
     );
 
@@ -356,11 +360,12 @@ export default function DepartmentPage() {
                 isApproved: false,
                 createdAt: new Date().toISOString(),
             };
-            const ref = await addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            const ref = await addDocumentNonBlocking(tCollection('positions'), newPositionData);
             const deptId = newPositionData.departmentId || department?.id;
             if (ref && deptId && performedBy) {
                 addDepartmentHistoryEvent({
                     firestore,
+                    companyPath,
                     departmentId: deptId,
                     eventType: 'position_added',
                     positionId: ref.id,

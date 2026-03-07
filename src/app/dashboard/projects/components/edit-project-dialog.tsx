@@ -42,8 +42,10 @@ import {
     useMemoFirebase,
     useCollection,
     updateDocumentNonBlocking,
+    tenantCollection,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, doc, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, CalendarIcon, Users } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -79,12 +81,13 @@ interface EditProjectDialogProps {
 
 export function EditProjectDialog({ open, onOpenChange, project }: EditProjectDialogProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     // Fetch employees
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -164,7 +167,7 @@ export function EditProjectDialog({ open, onOpenChange, project }: EditProjectDi
             };
 
             await updateDocumentNonBlocking(
-                doc(firestore, 'projects', project.id),
+                tDoc('projects', project.id),
                 updateData
             );
 

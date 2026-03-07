@@ -6,6 +6,7 @@ import {
     useFirebase,
     useCollection,
     useMemoFirebase,
+    tenantCollection,
 } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { DepartmentHistory } from '../types';
@@ -33,8 +34,8 @@ export default function OrganizationHistoryPage() {
     const router = useRouter();
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
-    const historyQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'departmentHistory'), orderBy('approvedAt', 'desc')) : null
+    const historyQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'departmentHistory'), orderBy('approvedAt', 'desc')) : null
         , [firestore]);
 
     const { data: history, isLoading } = useCollection<DepartmentHistory>(historyQuery);

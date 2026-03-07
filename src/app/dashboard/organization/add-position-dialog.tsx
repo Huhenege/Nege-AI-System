@@ -51,6 +51,9 @@ import {
   useDoc,
   deleteDocumentNonBlocking,
   useCollection,
+  tenantCollection,
+  tenantDoc,
+  useTenantWrite,
 } from '@/firebase';
 import { addDepartmentHistoryEvent } from './department-history-log';
 import {
@@ -134,6 +137,7 @@ export function AddPositionDialog({
   initialMode = 'full',
 }: AddPositionDialogProps) {
   const { firestore, user } = useFirebase();
+  const { tDoc, tCollection, companyPath } = useTenantWrite();
   const router = useRouter();
   const { toast } = useToast();
   const performedByName = user?.displayName || user?.email || 'Систем';
@@ -149,7 +153,7 @@ export function AddPositionDialog({
   }, [open, initialMode]);
 
   const posCodeConfigRef = useMemoFirebase(
-    ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
     []
   );
   const { data: posCodeConfig } = useDoc<any>(posCodeConfigRef as any);
@@ -254,7 +258,7 @@ export function AddPositionDialog({
   // This prevents duplicates if multiple dialogs are open or if counter lags.
 
   const positionsCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'positions') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null),
     [firestore]
   );
 
@@ -299,7 +303,7 @@ export function AddPositionDialog({
     }
 
     if (finalCode) {
-      const dupQuery = query(collection(firestore, 'positions'), where('code', '==', finalCode));
+      const dupQuery = query(tCollection('positions'), where('code', '==', finalCode));
       const dupSnap = await getDocs(dupQuery);
       const existing = dupSnap.docs.find(d => !isEditMode || d.id !== editingPosition?.id);
       if (existing) {
@@ -365,10 +369,11 @@ export function AddPositionDialog({
       }, {} as any);
 
       if (isEditMode && editingPosition) {
-        await updateDoc(doc(firestore, 'positions', editingPosition.id), cleanBaseData);
+        await updateDoc(tDoc('positions', editingPosition.id), cleanBaseData);
         if (finalDepartmentId && performedBy) {
           addDepartmentHistoryEvent({
             firestore,
+            companyPath,
             departmentId: finalDepartmentId,
             eventType: 'position_updated',
             positionId: editingPosition.id,
@@ -378,7 +383,7 @@ export function AddPositionDialog({
           }).catch(() => {});
         }
       } else {
-        const ref = await addDoc(collection(firestore, 'positions'), {
+        const ref = await addDoc(tCollection('positions'), {
           ...cleanBaseData,
           filled: 0,
           isApproved: false,
@@ -387,6 +392,7 @@ export function AddPositionDialog({
         if (finalDepartmentId && performedBy) {
           addDepartmentHistoryEvent({
             firestore,
+            companyPath,
             departmentId: finalDepartmentId,
             eventType: 'position_added',
             positionId: ref.id,
@@ -422,7 +428,7 @@ export function AddPositionDialog({
     }
 
 
-    const docRef = doc(firestore, 'positions', editingPosition.id);
+    const docRef = tDoc('positions', editingPosition.id);
     const deptId = editingPosition.departmentId;
     const title = editingPosition.title || '';
 
@@ -430,6 +436,7 @@ export function AddPositionDialog({
     if (deptId && performedBy) {
       addDepartmentHistoryEvent({
         firestore,
+        companyPath,
         departmentId: deptId,
         eventType: 'position_deleted',
         positionId: editingPosition.id,

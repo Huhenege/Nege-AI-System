@@ -12,8 +12,8 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Shield, ShieldOff, Loader2 } from 'lucide-react';
-import { useFirebase } from '@/firebase';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { useTenantWrite } from '@/firebase';
+import { updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Employee } from '@/types';
 
@@ -32,7 +32,7 @@ export function MakeAdminDialog({
     currentUserId,
     onSuccess,
 }: MakeAdminDialogProps) {
-    const { firestore } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = React.useState(false);
 
@@ -47,7 +47,7 @@ export function MakeAdminDialog({
         try {
             // If removing admin, check if this is the last admin
             if (isCurrentlyAdmin) {
-                const employeesRef = collection(firestore, 'employees');
+                const employeesRef = tCollection('employees');
                 const adminQuery = query(employeesRef, where('role', '==', 'admin'));
                 const adminSnapshot = await getDocs(adminQuery);
                 
@@ -62,7 +62,7 @@ export function MakeAdminDialog({
                 }
             }
 
-            const employeeRef = doc(firestore, 'employees', employee.id);
+            const employeeRef = tDoc('employees', employee.id);
             await updateDoc(employeeRef, {
                 role: isCurrentlyAdmin ? 'employee' : 'admin',
             });

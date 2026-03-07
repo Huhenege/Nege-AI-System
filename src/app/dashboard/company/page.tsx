@@ -17,8 +17,8 @@ import {
     CarouselApi
 } from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, addDoc, updateDoc, Timestamp, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
+import { collection, addDoc, updateDoc, Timestamp, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Pencil, Building, Hash, Users, User, Globe, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, Handshake, Zap, Users2, ScrollText, ChevronLeft, ExternalLink, Calendar, Palette, Building2, Crown, UserPlus, ArrowRight, Loader2, Check, Plus, Trash2, ChevronRight, DollarSign, Gift, Layers, Briefcase, RotateCcw, AlertTriangle, History } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { z } from 'zod';
@@ -200,6 +200,7 @@ export default function CompanyPage() {
     const [wizardStep, setWizardStep] = React.useState(1);
     const [isResettingCEO, setIsResettingCEO] = React.useState(false);
     const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+    const { tDoc, tCollection } = useTenantWrite();
     const [ceoSetupData, setCeoSetupData] = React.useState<CEOSetupData>({
         levelId: '',
         employmentTypeId: '',
@@ -210,24 +211,24 @@ export default function CompanyPage() {
     });
     
     const companyProfileRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'profile') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
+        []
     );
 
-    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-    const policiesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'companyPolicies') : null), [firestore]);
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), []);
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), []);
+    const policiesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'companyPolicies') : null), []);
     
     // For CEO Setup Wizard
-    const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
-    const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
+    const positionLevelsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null), []);
+    const employmentTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employmentTypes') : null), []);
 
     const brandingRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'branding') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'branding') : null),
+        []
     );
 
-    const valuesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null), [firestore]);
+    const valuesQuery = useMemoFirebase(({ firestore }) => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null), []);
     const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef as any);
     const { data: branding, isLoading: isLoadingBranding } = useDoc<CompanyBranding>(brandingRef as any);
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
@@ -241,23 +242,23 @@ export default function CompanyPage() {
 
     // CEO Position and Employee fetching
     const ceoPositionRef = useMemoFirebase(
-        () => {
+        ({ firestore, companyPath }) => {
             if (!firestore || !companyProfile) return null;
             const ceoPositionId = (companyProfile as any).ceoPositionId;
             if (!ceoPositionId) return null;
-            return doc(firestore, 'positions', ceoPositionId);
+            return tenantDoc(firestore, companyPath, 'positions', ceoPositionId);
         },
-        [firestore, companyProfile]
+        [companyProfile]
     );
     
     const ceoEmployeeRef = useMemoFirebase(
-        () => {
+        ({ firestore, companyPath }) => {
             if (!firestore || !companyProfile) return null;
             const ceoEmployeeId = (companyProfile as any).ceoEmployeeId;
             if (!ceoEmployeeId) return null;
-            return doc(firestore, 'employees', ceoEmployeeId);
+            return tenantDoc(firestore, companyPath, 'employees', ceoEmployeeId);
         },
-        [firestore, companyProfile]
+        [companyProfile]
     );
 
     const { data: ceoPosition, isLoading: isLoadingCeoPosition } = useDoc<Position>(ceoPositionRef as any);
@@ -320,7 +321,7 @@ export default function CompanyPage() {
             const existingDept = departments?.find(d => d.name === 'Удирдлага');
             if (!existingDept) {
                 // Create new department
-                const deptRef = await addDoc(collection(firestore, 'departments'), {
+                const deptRef = await addDoc(tCollection('departments'), {
                     name: 'Удирдлага',
                     type: 'executive',
                     description: 'Байгууллагын удирдлага',
@@ -333,7 +334,7 @@ export default function CompanyPage() {
             }
 
             // Step 2: Create "Гүйцэтгэх захирал" position with all wizard data
-            const posRef = await addDoc(collection(firestore, 'positions'), {
+            const posRef = await addDoc(tCollection('positions'), {
                 title: 'Гүйцэтгэх захирал',
                 code: 'CEO',
                 departmentId: ceoDepartmentId,
@@ -354,7 +355,7 @@ export default function CompanyPage() {
             });
 
             // Step 3: Update company profile with CEO IDs
-            await updateDoc(doc(firestore, 'company', 'profile'), {
+            await updateDoc(tDoc('company', 'profile'), {
                 ceoDepartmentId: ceoDepartmentId,
                 ceoPositionId: posRef.id,
                 ceoEmployeeId: null
@@ -446,7 +447,7 @@ export default function CompanyPage() {
         
         try {
             // Update company profile with CEO employee ID
-            await updateDoc(doc(firestore, 'company', 'profile'), {
+            await updateDoc(tDoc('company', 'profile'), {
                 ceoEmployeeId: employeeId
             });
             
@@ -470,7 +471,7 @@ export default function CompanyPage() {
             // 1. If CEO employee is appointed, release them (use individual update with try-catch)
             if (profile.ceoEmployeeId && ceoEmployee) {
                 try {
-                    const empRef = doc(firestore, 'employees', profile.ceoEmployeeId);
+                    const empRef = tDoc('employees', profile.ceoEmployeeId);
                     await updateDoc(empRef, {
                         positionId: null,
                         jobTitle: null,
@@ -485,7 +486,7 @@ export default function CompanyPage() {
             // 2. Delete CEO position if exists
             if (profile.ceoPositionId) {
                 try {
-                    const posRef = doc(firestore, 'positions', profile.ceoPositionId);
+                    const posRef = tDoc('positions', profile.ceoPositionId);
                     await deleteDoc(posRef);
                 } catch (posError) {
                     console.warn('Position delete skipped:', posError);
@@ -503,7 +504,7 @@ export default function CompanyPage() {
                     );
                     if (!otherPositions || otherPositions.length === 0) {
                         try {
-                            const deptRef = doc(firestore, 'departments', profile.ceoDepartmentId);
+                            const deptRef = tDoc('departments', profile.ceoDepartmentId);
                             await deleteDoc(deptRef);
                         } catch (deptError) {
                             console.warn('Department delete skipped:', deptError);
@@ -513,7 +514,7 @@ export default function CompanyPage() {
             }
             
             // 4. Clear CEO IDs from company profile
-            const profileRef = doc(firestore, 'company', 'profile');
+            const profileRef = tDoc('company', 'profile');
             await updateDoc(profileRef, {
                 ceoDepartmentId: null,
                 ceoPositionId: null,

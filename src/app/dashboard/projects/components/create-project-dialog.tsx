@@ -42,8 +42,10 @@ import {
     useMemoFirebase,
     useCollection,
     addDocumentNonBlocking,
+    tenantCollection,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, CalendarIcon, Users, Star, Tag } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -81,12 +83,13 @@ interface CreateProjectDialogProps {
 
 export function CreateProjectDialog({ open, onOpenChange, groups = [] }: CreateProjectDialogProps) {
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     // Fetch employees for owner selection
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -159,7 +162,7 @@ export function CreateProjectDialog({ open, onOpenChange, groups = [] }: CreateP
                 projectData.groupIds = values.groupIds;
             }
 
-            await addDocumentNonBlocking(collection(firestore, 'projects'), projectData);
+            await addDocumentNonBlocking(tCollection('projects'), projectData);
 
             toast({
                 title: 'Амжилттай',

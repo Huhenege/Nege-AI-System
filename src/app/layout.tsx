@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { CompanyThemeProvider } from '@/components/theme-provider';
 import { FirebaseClientProvider } from '@/firebase';
 import { InactivityLogout } from '@/components/inactivity-logout';
+import { TenantProvider } from '@/contexts/tenant-context';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -27,11 +28,13 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning className={`${inter.variable} font-body antialiased`}>
         <FirebaseClientProvider>
-          <CompanyThemeProvider>
-            {children}
-            <Toaster />
-            <InactivityLogout />
-          </CompanyThemeProvider>
+          <TenantProvider>
+            <CompanyThemeProvider>
+              {children}
+              <Toaster />
+              <InactivityLogout />
+            </CompanyThemeProvider>
+          </TenantProvider>
         </FirebaseClientProvider>
       </body>
     </html>

@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Star, Save, Loader2 } from 'lucide-react';
-import { useFirebase } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { getDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -33,6 +33,7 @@ const DEFAULT_CRITERIA: ScorecardCriteria[] = [
 
 export function InterviewScorecard({ candidateName, onSubmit, onCancel, isLoading: externalLoading }: InterviewScorecardProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const [criteria, setCriteria] = useState<ScorecardCriteria[]>([]);
     const [notes, setNotes] = useState('');
     const [loadingCriteria, setLoadingCriteria] = useState(true);
@@ -41,7 +42,7 @@ export function InterviewScorecard({ candidateName, onSubmit, onCancel, isLoadin
         const fetchCriteria = async () => {
             if (!firestore) return;
             try {
-                const docRef = doc(firestore, 'recruitment_settings', 'default');
+                const docRef = tDoc('recruitment_settings', 'default');
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists() && docSnap.data().defaultCriteria) {

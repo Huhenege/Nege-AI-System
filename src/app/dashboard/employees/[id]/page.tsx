@@ -4,8 +4,8 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, query, orderBy, where, getDocs } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { query, orderBy, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { type Employee } from '../data';
 import { isActiveStatus, EMPLOYEE_STATUS_LABELS } from '@/types';
@@ -221,32 +221,32 @@ function ProfileSkeleton() {
 
 
 const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
-    const { firestore } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     const documentsQuery = useMemoFirebase(
-        () =>
+        ({ firestore, companyPath }) =>
             firestore
                 ? query(
-                    collection(firestore, 'documents'),
+                    tenantCollection(firestore, companyPath, 'documents'),
                     where('metadata.employeeId', '==', employee.id),
                     orderBy('uploadDate', 'desc')
                 )
                 : null,
-        [firestore, employee.id]
+        [employee.id]
     );
 
     const { data: documents, isLoading: isLoadingDocs, error } = useCollection<any>(documentsQuery as any);
 
     const mandatoryQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'er_document_types') : null,
-        [firestore]
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_document_types') : null,
+        []
     );
     const { data: allDocTypes, isLoading: isLoadingDocTypes } = useCollection<any>(mandatoryQuery);
 
     const legacyDocTypesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'documentTypes') : null,
-        [firestore]
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'documentTypes') : null,
+        []
     );
     const { data: legacyDocTypes, isLoading: isLoadingLegacyDocTypes } = useCollection<any>(legacyDocTypesQuery);
 
@@ -285,7 +285,7 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
                 // Create missing legacy types in `er_document_types`
                 for (const t of toImport) {
                     const name = String(t?.name || '').trim();
-                    await addDocumentNonBlocking(collection(firestore, 'er_document_types'), {
+                    await addDocumentNonBlocking(tCollection('er_document_types'), {
                         name,
                         isMandatory: t?.isMandatory === true,
                         fields: Array.isArray(t?.fields) ? t.fields : [],
@@ -478,7 +478,7 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
                                             <AlertDialogAction
                                                 onClick={() => {
                                                     if (!firestore) return;
-                                                    deleteDocumentNonBlocking(doc(firestore, 'documents', docItem.id));
+                                                    deleteDocumentNonBlocking(tDoc('documents', docItem.id));
                                                 }}
                                                 className="bg-rose-600 hover:bg-rose-700"
                                             >
@@ -639,7 +639,8 @@ export default function EmployeeProfilePage() {
     const { id } = useParams();
     const router = useRouter();
     const employeeId = Array.isArray(id) ? id[0] : id;
-    const { firestore, storage } = useFirebase();
+    const { storage } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const { user } = useUser();
     const [showAdminDialog, setShowAdminDialog] = React.useState(false);
@@ -693,7 +694,7 @@ export default function EmployeeProfilePage() {
 
         setIsSaving(true);
         try {
-            const empRef = doc(firestore, 'employees', employeeId);
+            const empRef = tDoc('employees', employeeId);
             await updateDocumentNonBlocking(empRef, {
                 firstName: editForm.firstName.trim(),
                 lastName: editForm.lastName.trim(),
@@ -731,7 +732,7 @@ export default function EmployeeProfilePage() {
             const storageRef = ref(storage, `employee-photos/${employeeId}/${Date.now()}-${file.name}`);
             await uploadBytes(storageRef, file);
             const url = await getDownloadURL(storageRef);
-            const empRef = doc(firestore, 'employees', employeeId);
+            const empRef = tDoc('employees', employeeId);
             await updateDocumentNonBlocking(empRef, { photoURL: url });
             toast({ title: 'Амжилттай', description: 'Аватар зураг шинэчлэгдлээ' });
         } catch (error) {
@@ -744,70 +745,70 @@ export default function EmployeeProfilePage() {
     }, [employeeId, firestore, storage, toast]);
 
     const employeeDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, 'employees', employeeId) : null),
+        [employeeId]
     );
 
     const departmentsQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'departments') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null),
+        []
     );
 
     const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef as any);
 
     // Fetch questionnaire for gender & birthDate
     const questionnaireDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, `employees/${employeeId}/questionnaire`, 'data') : null),
+        [employeeId]
     );
     const { data: questionnaireData } = useDoc<any>(questionnaireDocRef as any);
 
     const positionDocRef = useMemoFirebase(
-        ({ firestore }) => (firestore && employee?.positionId ? doc(firestore, 'positions', employee.positionId) : null),
+        ({ firestore, companyPath }) => (firestore && employee?.positionId ? tenantDoc(firestore, companyPath, 'positions', employee.positionId) : null),
         [employee]
     );
 
     const { data: position, isLoading: isLoadingPosition } = useDoc<Position>(positionDocRef as any);
 
     const workScheduleDocRef = useMemoFirebase(
-        ({ firestore }) => (firestore && position?.workScheduleId ? doc(firestore, 'workSchedules', position.workScheduleId) : null),
+        ({ firestore, companyPath }) => (firestore && position?.workScheduleId ? tenantDoc(firestore, companyPath, 'workSchedules', position.workScheduleId) : null),
         [position?.workScheduleId]
     );
 
     const { data: workSchedule, isLoading: isLoadingWorkSchedule } = useDoc<WorkSchedule>(workScheduleDocRef as any);
 
     const orgActionsRef = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'organization_actions') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'organization_actions') : null),
+        []
     );
     const { data: orgActions, isLoading: isLoadingOrgActions } = useCollection<any>(orgActionsRef);
 
 
     const erDocumentsQuery = React.useMemo(() =>
         firestore && employeeId ? query(
-            collection(firestore, 'er_documents'),
+            tCollection('er_documents'),
             where('employeeId', '==', employeeId)
         ) : null
-        , [firestore, employeeId]);
+        , [firestore, employeeId, tCollection]);
 
     const { data: erDocuments, isLoading: isLoadingDocs } = useCollection<ERDocument>(erDocumentsQuery as any);
 
     // Fetch onboarding process for this employee
     const onboardingProcessRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, 'onboarding_processes', employeeId) : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, 'onboarding_processes', employeeId) : null),
+        [employeeId]
     );
     const { data: onboardingProcess, isLoading: isLoadingOnboarding } = useDoc<any>(onboardingProcessRef as any);
 
     // Fetch offboarding projects for this employee (project-based)
-    const offboardingProjectsQuery = useMemoFirebase(() => {
+    const offboardingProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !employeeId) return null;
         return query(
-            collection(firestore, 'projects'),
+            tenantCollection(firestore, companyPath, 'projects'),
             where('type', '==', 'offboarding'),
             where('offboardingEmployeeId', '==', employeeId)
         );
-    }, [firestore, employeeId]);
+    }, [employeeId]);
     const { data: offboardingProjects, isLoading: isLoadingOffboarding } = useCollection<Project>(offboardingProjectsQuery as any);
     const [offboardingTaskCounts, setOffboardingTaskCounts] = React.useState<Record<string, { total: number; completed: number }>>({});
 
@@ -831,7 +832,7 @@ export default function EmployeeProfilePage() {
             if (!firestore || !offboardingProjects || offboardingProjects.length === 0) return;
             const counts: Record<string, { total: number; completed: number }> = {};
             for (const p of offboardingProjects) {
-                const snap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+                const snap = await getDocs(tCollection('projects', p.id, 'tasks'));
                 const tasks = snap.docs.map(d => d.data() as Task);
                 counts[p.id] = { total: tasks.length, completed: tasks.filter(t => t.status === 'DONE').length };
             }
@@ -856,7 +857,7 @@ export default function EmployeeProfilePage() {
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
 
     const currentUserEmployeeRef = useMemoFirebase(
-        ({ firestore, user }) => (firestore && user ? doc(firestore, 'employees', user.uid) : null),
+        ({ firestore, companyPath, user }) => (firestore && user ? tenantDoc(firestore, companyPath, 'employees', user.uid) : null),
         [user?.uid]
     );
     const { data: currentUserEmployee } = useDoc<Employee>(currentUserEmployeeRef as any);

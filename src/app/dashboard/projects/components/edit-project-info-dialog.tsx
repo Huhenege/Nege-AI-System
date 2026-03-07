@@ -24,8 +24,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, Timestamp } from 'firebase/firestore';
+import { useFirebase, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { Loader2, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Project } from '@/types/project';
@@ -47,6 +47,7 @@ interface EditProjectInfoDialogProps {
 
 export function EditProjectInfoDialog({ open, onOpenChange, project }: EditProjectInfoDialogProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -95,7 +96,7 @@ export function EditProjectInfoDialog({ open, onOpenChange, project }: EditProje
                 }
             }
 
-            await updateDocumentNonBlocking(doc(firestore, 'projects', project.id), updateData);
+            await updateDocumentNonBlocking(tDoc('projects', project.id), updateData);
             toast({ title: 'Амжилттай', description: 'Төслийн мэдээлэл шинэчлэгдлээ.' });
             onOpenChange(false);
         } catch (error) {

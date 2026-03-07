@@ -24,8 +24,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useFirebase, useUser, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirebase, useUser, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   Loader2,
@@ -50,6 +49,7 @@ type PostFormValues = z.infer<typeof postSchema>;
 export default function AddPostPage() {
   const router = useRouter();
   const { firestore, firebaseApp } = useFirebase();
+  const { tCollection } = useTenantWrite();
   const { employeeProfile } = useEmployeeProfile();
   const { toast } = useToast();
   const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
@@ -101,7 +101,7 @@ export default function AddPostPage() {
     }
     setIsUploading(false);
 
-    const postsCollection = collection(firestore, 'posts');
+    const postsCollection = tCollection('posts');
     await addDocumentNonBlocking(postsCollection, {
       ...values,
       imageUrls,

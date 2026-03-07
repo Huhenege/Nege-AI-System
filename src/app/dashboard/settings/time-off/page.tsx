@@ -4,8 +4,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useFirebase, useMemoFirebase, useDoc, setDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { useCollection, useFirebase, useMemoFirebase, useDoc, setDocumentNonBlocking, tenantCollection, tenantDoc } from "@/firebase";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -95,7 +94,7 @@ type TimeOffRequestConfigFormValues = z.infer<typeof timeOffRequestConfigSchema>
 function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormValues> }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'timeConfig') : null), [firestore]);
+    const configRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'timeConfig') : null), []);
 
     const form = useForm<TimeConfigFormValues>({
         resolver: zodResolver(timeConfigSchema),
@@ -195,7 +194,7 @@ function TimeConfigForm({ initialData }: { initialData: Partial<TimeConfigFormVa
 function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOffRequestConfigFormValues> }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), [firestore]);
+    const configRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'timeOffRequestConfig') : null), []);
 
     const form = useForm<TimeOffRequestConfigFormValues>({
         resolver: zodResolver(timeOffRequestConfigSchema),
@@ -255,19 +254,19 @@ function TimeOffRequestConfigForm({ initialData }: { initialData: Partial<TimeOf
 }
 
 export default function TimeAndAttendanceSettingsPage() {
-    const timeOffRequestTypesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'timeOffRequestTypes') : null, []);
+    const timeOffRequestTypesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'timeOffRequestTypes') : null, []);
     const { data: timeOffRequestTypes, isLoading: loadingTimeOffRequestTypes } = useCollection<TimeOffRequestTypeItem>(timeOffRequestTypesQuery);
 
-    const workSchedulesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'workSchedules') : null, []);
+    const workSchedulesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'workSchedules') : null, []);
     const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(workSchedulesQuery);
 
-    const timeConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'timeConfig') : null), []);
+    const timeConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'timeConfig') : null), []);
     const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef as any);
 
-    const timeOffConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'timeOffRequestConfig') : null), []);
+    const timeOffConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'timeOffRequestConfig') : null), []);
     const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useDoc<TimeOffRequestConfig>(timeOffConfigRef as any);
 
-    const vacationConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'vacationConfig') : null), []);
+    const vacationConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'vacationConfig') : null), []);
     const { data: vacationConfigData, isLoading: loadingVacationConfig } = useDoc<VacationConfig>(vacationConfigRef as any);
 
     const workScheduleColumns = [
@@ -375,7 +374,7 @@ type VacationConfigFormValues = z.infer<typeof vacationConfigSchema>;
 function VacationConfigForm({ initialData }: { initialData: Partial<VacationConfigFormValues> }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'vacationConfig') : null), [firestore]);
+    const configRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'vacationConfig') : null), []);
 
     const form = useForm<VacationConfigFormValues>({
         resolver: zodResolver(vacationConfigSchema),

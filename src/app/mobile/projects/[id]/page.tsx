@@ -9,9 +9,12 @@ import {
     useDoc,
     updateDocumentNonBlocking,
     addDocumentNonBlocking,
+    tenantCollection,
+    tenantDoc,
+    useTenantWrite,
 } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, orderBy, doc, Timestamp, DocumentReference } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, DocumentReference } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +61,7 @@ export default function MobileProjectDetailPage() {
     const router = useRouter();
     const projectId = params.id as string;
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { employeeProfile } = useEmployeeProfile();
     
     // UI States
@@ -78,8 +82,8 @@ export default function MobileProjectDetailPage() {
 
     // Fetch project
     const projectRef = useMemoFirebase(
-        () => firestore && projectId
-            ? doc(firestore, 'projects', projectId) as DocumentReference<Project>
+        ({ companyPath }) => firestore && projectId
+            ? tenantDoc(firestore, companyPath, 'projects', projectId) as DocumentReference<Project>
             : null,
         [firestore, projectId]
     );
@@ -87,9 +91,9 @@ export default function MobileProjectDetailPage() {
 
     // Fetch tasks
     const tasksQuery = useMemoFirebase(
-        () => firestore && projectId
+        ({ companyPath }) => firestore && projectId
             ? query(
-                collection(firestore, 'projects', projectId, 'tasks'),
+                collection(firestore, companyPath ? `${companyPath}/projects` : 'projects', projectId, 'tasks'),
                 orderBy('createdAt', 'desc')
             )
             : null,
@@ -99,9 +103,9 @@ export default function MobileProjectDetailPage() {
 
     // Fetch messages
     const messagesQuery = useMemoFirebase(
-        () => firestore && projectId
+        ({ companyPath }) => firestore && projectId
             ? query(
-                collection(firestore, 'projects', projectId, 'messages'),
+                collection(firestore, companyPath ? `${companyPath}/projects` : 'projects', projectId, 'messages'),
                 orderBy('createdAt', 'asc')
             )
             : null,
@@ -111,7 +115,7 @@ export default function MobileProjectDetailPage() {
 
     // Fetch all employees
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -184,7 +188,7 @@ export default function MobileProjectDetailPage() {
     // Handle task status change
     const handleTaskStatusChange = async (task: Task, newStatus: TaskStatus) => {
         if (!firestore || !projectId) return;
-        const taskRef = doc(firestore, 'projects', projectId, 'tasks', task.id);
+        const taskRef = tDoc('projects', projectId, 'tasks', task.id);
         const updateData: any = {
             status: newStatus,
             updatedAt: Timestamp.now(),
@@ -245,7 +249,7 @@ export default function MobileProjectDetailPage() {
         setIsSending(true);
         try {
             await addDocumentNonBlocking(
-                collection(firestore, 'projects', projectId, 'messages'),
+                tCollection('projects', projectId, 'messages'),
                 {
                     projectId,
                     content: message.trim(),

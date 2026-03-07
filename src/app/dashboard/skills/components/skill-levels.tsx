@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc } from 'firebase/firestore';
-import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useDoc, setDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -65,6 +65,7 @@ const DEFAULT_DEFINITIONS: LevelDefinitions = {
 
 export function SkillLevels() {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
 
     const configRef = useMemo(() =>
@@ -104,9 +105,9 @@ export function SkillLevels() {
     };
 
     const handleSave = () => {
-        if (!configRef) return;
+        if (!firestore) return;
         setIsSaving(true);
-        setDocumentNonBlocking(configRef, {
+        setDocumentNonBlocking(tDoc('skill_level_definitions', 'config'), {
             levels: definitions,
             updatedAt: new Date().toISOString(),
         }, { merge: true });

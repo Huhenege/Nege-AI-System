@@ -32,8 +32,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { PlusCircle, Loader2 } from 'lucide-react';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { getDoc, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Vacancy, RecruitmentStage, VacancyStatus } from '@/types/recruitment';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -96,6 +96,7 @@ export function CreateVacancyDialog({
 }) {
     const [internalOpen, setInternalOpen] = useState(false);
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -123,7 +124,7 @@ export function CreateVacancyDialog({
             const fetchPositions = async () => {
                 setIsLoadingPositions(true);
                 try {
-                    const q = query(collection(firestore, 'positions'), where('isApproved', '==', true));
+                    const q = query(tCollection('positions'), where('isApproved', '==', true));
                     const snapshot = await getDocs(q);
                     const positions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setApprovedPositions(positions);
@@ -143,7 +144,7 @@ export function CreateVacancyDialog({
             const fetchStages = async () => {
                 setIsLoadingStages(true);
                 try {
-                    const settingsRef = doc(firestore, 'recruitment_settings', 'default');
+                    const settingsRef = tDoc('recruitment_settings', 'default');
                     const settingsSnap = await getDoc(settingsRef);
                     let stages = DEFAULT_STAGES;
                     if (settingsSnap.exists() && settingsSnap.data().defaultStages) {
@@ -231,7 +232,7 @@ export function CreateVacancyDialog({
                 updatedAt: new Date().toISOString(),
             };
 
-            await addDocumentNonBlocking(collection(firestore, 'vacancies'), newVacancy);
+            await addDocumentNonBlocking(tCollection('vacancies'), newVacancy);
 
             toast({
                 title: 'Ажлын байр үүсгэгдлээ',

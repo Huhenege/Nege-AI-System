@@ -1,5 +1,5 @@
 import { collection, doc, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { useCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection } from '@/firebase';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,7 +74,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
     const [isLoadingUsage, setIsLoadingUsage] = useState(false);
 
     const collectionRef = useMemoFirebase(
-        () => (firestore ? collection(firestore, collectionName) : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, collectionName) : null),
         [firestore, collectionName]
     );
 

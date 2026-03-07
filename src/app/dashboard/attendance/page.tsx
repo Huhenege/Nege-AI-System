@@ -33,8 +33,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X, Search, Filter } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, collectionGroup, where } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, tenantCollection } from '@/firebase';
+import { query, orderBy, doc, collectionGroup, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -155,8 +155,8 @@ function AttendanceHistoryTab() {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [selectedDepartment, setSelectedDepartment] = React.useState<string>('all');
 
-    const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
-    const departmentsQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'departments') : null, []);
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null, []);
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'departments') : null, []);
     const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<Department>(departmentsQuery);
 
@@ -166,7 +166,7 @@ function AttendanceHistoryTab() {
     }, [employees]);
 
     const attendanceQuery = useMemoFirebase(
-        ({ firestore }) => firestore ? query(collection(firestore, 'attendance'), orderBy('checkInTime', 'desc')) : null,
+        ({ firestore, companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'attendance'), orderBy('checkInTime', 'desc')) : null,
         []
     );
     const { data: attendanceRecords, isLoading: isLoadingAttendance, error: errorAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
@@ -360,7 +360,7 @@ function TimeOffRequestsTable() {
     const [statusFilter, setStatusFilter] = React.useState<string>('all');
     const [searchQuery, setSearchQuery] = React.useState('');
 
-    const employeesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'employees') : null, []);
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null, []);
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
     const requestsQuery = useMemoFirebase(({ firestore }) => firestore ? collectionGroup(firestore, 'timeOffRequests') : null, []);

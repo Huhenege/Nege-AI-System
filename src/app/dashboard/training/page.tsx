@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { collection, doc, query, orderBy } from 'firebase/firestore';
-import { useFirebase, useCollection, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { useFirebase, useCollection, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import type { Department, PositionLevel, Position } from '@/app/dashboard/organization/types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -33,6 +33,7 @@ interface SkillInventoryItem {
 
 export default function TrainingPage() {
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     // ── Queries ──────────────────────────────────────
@@ -136,7 +137,7 @@ export default function TrainingPage() {
         if (values.providerType != null && values.providerType !== '') data.providerType = values.providerType;
         if (values.categoryIds != null && values.categoryIds.length > 0) data.categoryIds = values.categoryIds;
 
-        addDocumentNonBlocking(collection(firestore, 'training_plans'), data);
+        addDocumentNonBlocking(tCollection('training_plans'), data);
 
         toast({
             title: 'Төлөвлөгөө үүслээ',
@@ -146,7 +147,7 @@ export default function TrainingPage() {
 
     const handleDeletePlan = (planId: string) => {
         if (!firestore) return;
-        deleteDocumentNonBlocking(doc(firestore, 'training_plans', planId));
+        deleteDocumentNonBlocking(tDoc('training_plans', planId));
         toast({ title: 'Төлөвлөгөө устгагдлаа' });
     };
 

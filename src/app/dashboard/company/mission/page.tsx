@@ -15,8 +15,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, addDoc, deleteDoc, serverTimestamp, query, orderBy, setDoc } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
+import { collection, addDoc, deleteDoc, serverTimestamp, query, orderBy, setDoc } from 'firebase/firestore';
 import { Loader2, Save, PlusCircle, Trash2, Rocket, Eye, ChevronLeft, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -83,6 +83,7 @@ function EditMissionVisionForm({
 }) {
   const router = useRouter();
   const { firestore } = useFirebase();
+  const { tDoc, tCollection } = useTenantWrite();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -99,8 +100,8 @@ function EditMissionVisionForm({
   }), [initialData, coreValues]);
 
   const companyProfileRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'company', 'profile') : null),
-    [firestore]
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
+    []
   );
 
   const form = useForm<MissionVisionFormValues>({
@@ -138,7 +139,7 @@ function EditMissionVisionForm({
       // Deletions
       const toDelete = existingIds.filter(id => !formIds.includes(id));
       for (const id of toDelete) {
-        await deleteDoc(doc(firestore, 'company', 'branding', 'values', id));
+        await deleteDoc(tDoc('company', 'branding', 'values', id));
       }
 
       // Updates and Adds
@@ -154,10 +155,10 @@ function EditMissionVisionForm({
 
         if (val.id) {
           // Update
-          await setDoc(doc(firestore, 'company', 'branding', 'values', val.id), valueData, { merge: true });
+          await setDoc(tDoc('company', 'branding', 'values', val.id), valueData, { merge: true });
         } else {
           // Add
-          await addDoc(collection(firestore, 'company', 'branding', 'values'), {
+          await addDoc(tCollection('company', 'branding', 'values'), {
             ...valueData,
             createdAt: serverTimestamp()
           });
@@ -484,13 +485,13 @@ export default function EditMissionPage() {
   const { firestore } = useFirebase();
 
   const companyProfileRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'company', 'profile') : null),
-    [firestore]
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
+    []
   );
 
   const valuesQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null),
-    [firestore]
+    ({ firestore }) => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null),
+    []
   );
 
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<any>(companyProfileRef);

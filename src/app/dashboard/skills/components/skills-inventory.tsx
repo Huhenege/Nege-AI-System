@@ -3,8 +3,8 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
-import { useFirebase } from '@/firebase';
+import { getDocs, writeBatch, doc } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Award, RefreshCw, Search, ChevronRight, LayoutGrid, List } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +56,7 @@ export function SkillsInventory({
     isLoading,
 }: SkillsInventoryProps) {
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isSyncing, setIsSyncing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -144,7 +145,7 @@ export function SkillsInventory({
         if (!firestore) return;
         setIsSyncing(true);
         try {
-            const positionsSnap = await getDocs(collection(firestore, 'positions'));
+            const positionsSnap = await getDocs(tCollection('positions'));
             const allUniqueSkillNames = new Set<string>();
             positionsSnap.forEach(pDoc => {
                 const data = pDoc.data();
@@ -158,13 +159,13 @@ export function SkillsInventory({
                 toast({ title: 'Бүртгэлтэй ур чадвар олдсонгүй' });
                 return;
             }
-            const inventorySnap = await getDocs(collection(firestore, 'skills_inventory'));
+            const inventorySnap = await getDocs(tCollection('skills_inventory'));
             const existingNames = new Set(inventorySnap.docs.map(d => d.data().name?.trim().toLowerCase()));
             const batch = writeBatch(firestore);
             let count = 0;
             allUniqueSkillNames.forEach(skillName => {
                 if (!existingNames.has(skillName.toLowerCase())) {
-                    const newDocRef = doc(collection(firestore, 'skills_inventory'));
+                    const newDocRef = doc(tCollection('skills_inventory'));
                     batch.set(newDocRef, {
                         name: skillName,
                         createdAt: new Date().toISOString(),

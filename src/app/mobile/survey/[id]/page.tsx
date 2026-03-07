@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { doc, collection, query, where, getDocs, increment, updateDoc } from 'firebase/firestore';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, getDocs, increment, updateDoc } from 'firebase/firestore';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, addDocumentNonBlocking, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ export default function MobileSurveyRespondPage({ params }: { params: Promise<{ 
     const { id } = use(params);
     const router = useRouter();
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const { employeeProfile } = useEmployeeProfile();
     const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -31,13 +32,13 @@ export default function MobileSurveyRespondPage({ params }: { params: Promise<{ 
     const [isSubmitted, setIsSubmitted] = useState(false);
 
     const surveyRef = useMemoFirebase(
-        () => firestore ? doc(firestore, 'surveys', id) : null,
+        ({ companyPath }) => firestore ? tenantDoc(firestore, companyPath, 'surveys', id) : null,
         [firestore, id]
     );
     const { data: survey, isLoading: surveyLoading } = useDoc<Survey>(surveyRef);
 
     const questionsQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'surveys', id, 'questions') : null,
+        ({ firestore, companyPath }) => firestore ? collection(firestore, companyPath ? `${companyPath}/surveys` : 'surveys', id, 'questions') : null,
         [firestore, id]
     );
     const { data: rawQuestions, isLoading: questionsLoading } = useCollection<SurveyQuestion>(questionsQuery);
@@ -92,11 +93,11 @@ export default function MobileSurveyRespondPage({ params }: { params: Promise<{ 
             if (deptId) response.departmentId = deptId;
 
             await addDocumentNonBlocking(
-                collection(firestore, 'surveys', id, 'responses'),
+                tCollection('surveys', id, 'responses'),
                 response
             );
 
-            await updateDoc(doc(firestore, 'surveys', id), {
+            await updateDoc(tDoc('surveys', id), {
                 responsesCount: increment(1),
             });
 

@@ -29,8 +29,11 @@ import {
     useDoc,
     useUser,
     createUserWithSecondaryAuth,
+    tenantDoc,
+    tenantCollection,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import { setDoc, getDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -124,7 +127,8 @@ export function AddEmployeeDialog({
     open,
     onOpenChange,
 }: AddEmployeeDialogProps) {
-    const { firestore, firebaseApp } = useFirebase();
+    const { firebaseApp } = useFirebase();
+    const { firestore, tDoc } = useTenantWrite();
     const auth = useAuth();
     const { user: currentUser } = useUser();
     const { toast } = useToast();
@@ -133,9 +137,9 @@ export function AddEmployeeDialog({
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]) as any;
+    const codeConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null), []) as any;
     const { data: codeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
-    const companyProfileRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
+    const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), []);
     const { data: companyProfile } = useDoc<any>(companyProfileRef);
 
     const form = useForm<EmployeeFormValues>({
@@ -149,8 +153,8 @@ export function AddEmployeeDialog({
     });
 
     const employeesCollection = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'employees') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null),
+        []
     );
 
     const generateEmployeeCode = async (): Promise<string> => {
@@ -195,7 +199,7 @@ export function AddEmployeeDialog({
                 // Админы бүрэн мэдээлэл авах (employees collection-оос)
                 if (firestore && currentUser.uid) {
                     try {
-                        const adminDocRef = doc(firestore, 'employees', currentUser.uid);
+                        const adminDocRef = tDoc('employees', currentUser.uid);
                         const adminDoc = await getDoc(adminDocRef);
                         if (adminDoc.exists()) {
                             const adminData = adminDoc.data();
@@ -230,7 +234,7 @@ export function AddEmployeeDialog({
             let emailText: string;
 
             if (firestore) {
-                const templateRef = doc(firestore, 'company', INVITATION_EMAIL_TEMPLATE_DOC_ID);
+                const templateRef = tDoc('company', INVITATION_EMAIL_TEMPLATE_DOC_ID);
                 const templateSnap = await getDoc(templateRef);
                 if (templateSnap.exists()) {
                     const t = templateSnap.data() as any;
@@ -348,7 +352,7 @@ export function AddEmployeeDialog({
             };
 
             // Create employee document
-            const employeeDocRef = doc(firestore, 'employees', newUser.uid);
+            const employeeDocRef = tDoc('employees', newUser.uid);
             await setDoc(employeeDocRef, employeeData);
 
             // Email илгээх - нэвтрэх мэдээлэл (алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй)

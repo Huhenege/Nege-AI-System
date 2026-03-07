@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { doc, collection, deleteDoc, getDocs } from 'firebase/firestore';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, deleteDoc, getDocs } from 'firebase/firestore';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,6 +55,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
     const { id } = use(params);
     const router = useRouter();
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
     const [editTitle, setEditTitle] = useState<string | null>(null);
@@ -66,13 +67,13 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
     const [isDeleting, setIsDeleting] = useState(false);
 
     const surveyRef = useMemoFirebase(
-        () => firestore ? doc(firestore, 'surveys', id) : null,
+        ({ firestore, companyPath }) => firestore ? tenantDoc(firestore, companyPath, 'surveys', id) : null,
         [firestore, id]
     );
     const { data: survey, isLoading: surveyLoading } = useDoc<Survey>(surveyRef);
 
     const questionsQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'surveys', id, 'questions') : null,
+        ({ firestore, companyPath }) => firestore ? collection(firestore, companyPath ? `${companyPath}/surveys` : 'surveys', id, 'questions') : null,
         [firestore, id]
     );
     const { data: firestoreQuestions, isLoading: questionsLoading } = useCollection<SurveyQuestion>(questionsQuery);
@@ -96,7 +97,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
         if (!firestore || !survey) return;
         setIsSaving(true);
         try {
-            const questionsRef = collection(firestore, 'surveys', id, 'questions');
+            const questionsRef = tCollection('surveys', id, 'questions');
             const existingSnap = await getDocs(questionsRef);
             const deletePromises = existingSnap.docs.map(d => deleteDoc(d.ref));
             await Promise.all(deletePromises);
@@ -122,7 +123,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
             }
             if (localIsAnonymous !== null) surveyUpdates.isAnonymous = localIsAnonymous;
 
-            updateDocumentNonBlocking(doc(firestore, 'surveys', id), surveyUpdates);
+            updateDocumentNonBlocking(tDoc('surveys', id), surveyUpdates);
 
             setLocalQuestions(null);
             setEditTitle(null);
@@ -141,7 +142,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
     const handleStatusChange = async (newStatus: 'active' | 'closed' | 'archived') => {
         if (!firestore) return;
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'surveys', id), {
+            await updateDocumentNonBlocking(tDoc('surveys', id), {
                 status: newStatus,
                 updatedAt: new Date().toISOString(),
             });
@@ -158,19 +159,19 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
         setDeleteDialogOpen(false);
         let success = false;
         try {
-            const responsesRef = collection(firestore, 'surveys', id, 'responses');
+            const responsesRef = tCollection('surveys', id, 'responses');
             const responsesSnap = await getDocs(responsesRef);
             for (const d of responsesSnap.docs) {
                 await deleteDoc(d.ref);
             }
 
-            const questionsRef = collection(firestore, 'surveys', id, 'questions');
-            const questionsSnap = await getDocs(questionsRef);
+            const questionsDelRef = tCollection('surveys', id, 'questions');
+            const questionsSnap = await getDocs(questionsDelRef);
             for (const d of questionsSnap.docs) {
                 await deleteDoc(d.ref);
             }
 
-            await deleteDoc(doc(firestore, 'surveys', id));
+            await deleteDoc(tDoc('surveys', id));
             success = true;
         } catch (error) {
             toast({ title: 'Устгахад алдаа гарлаа', variant: 'destructive' });
@@ -196,7 +197,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
             });
 
             await addDocumentNonBlocking(
-                collection(firestore, 'survey_templates'),
+                tCollection('survey_templates'),
                 {
                     title: survey.title,
                     description: survey.description,

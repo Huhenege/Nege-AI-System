@@ -10,7 +10,10 @@
     "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate:dry": "npx tsx src/scripts/migrate-to-tenant.ts",
+    "migrate:execute": "npx tsx src/scripts/migrate-to-tenant.ts --execute --set-claims",
+    "test:saas": "npx tsx src/scripts/test-saas-flow.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

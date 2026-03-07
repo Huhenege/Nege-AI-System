@@ -33,8 +33,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import {
@@ -52,6 +51,7 @@ interface CreateSurveyDialogProps {
 
 export function CreateSurveyDialog({ open, onOpenChange }: CreateSurveyDialogProps) {
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -96,7 +96,7 @@ export function CreateSurveyDialog({ open, onOpenChange }: CreateSurveyDialogPro
             };
 
             const docRef = await addDocumentNonBlocking(
-                collection(firestore, 'surveys'),
+                tCollection('surveys'),
                 newSurvey
             );
 

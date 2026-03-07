@@ -25,13 +25,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useTenantWrite } from '@/firebase';
 import {
   Timestamp,
   addDoc,
-  collection,
   deleteDoc,
-  doc,
   getDocs,
   query,
   updateDoc,
@@ -51,6 +49,7 @@ export interface ProjectGroupsManagerDialogProps {
 
 export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: ProjectGroupsManagerDialogProps) {
   const { firestore, user } = useFirebase();
+  const { tDoc, tCollection } = useTenantWrite();
   const { toast } = useToast();
 
   const [name, setName] = React.useState('');
@@ -82,7 +81,7 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
     }
     setIsSaving(true);
     try {
-      await addDoc(collection(firestore, 'project_groups'), {
+      await addDoc(tCollection('project_groups'), {
         name: trimmed,
         color: color || null,
         createdAt: Timestamp.now(),
@@ -114,7 +113,7 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
     }
     setIsSaving(true);
     try {
-      await updateDoc(doc(firestore, 'project_groups', editing.id), {
+      await updateDoc(tDoc('project_groups', editing.id), {
         name: trimmed,
         color: editColor || null,
         updatedAt: Timestamp.now(),
@@ -136,7 +135,7 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
     setIsSaving(true);
     try {
       // Remove group reference from projects first (best-effort)
-      const q = query(collection(firestore, 'projects'), where('groupIds', 'array-contains', g.id));
+      const q = query(tCollection('projects'), where('groupIds', 'array-contains', g.id));
       const snap = await getDocs(q);
       const projectDocs = snap.docs;
 
@@ -158,7 +157,7 @@ export function ProjectGroupsManagerDialog({ open, onOpenChange, groups }: Proje
       }
       await commitIfNeeded();
 
-      await deleteDoc(doc(firestore, 'project_groups', g.id));
+      await deleteDoc(tDoc('project_groups', g.id));
       toast({ title: 'Бүлэг устгагдлаа' });
     } catch (e: any) {
       console.error(e);

@@ -14,6 +14,8 @@ import { collection, getDocs } from 'firebase/firestore';
 
 type MessageRole = 'user' | 'model' | 'system';
 
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || '';
+
 interface Message {
   id: string;
   role: MessageRole;
@@ -60,6 +62,24 @@ export function FloatingAssistant() {
   }, [isOpen, employees.length]);
 
   async function loadEmployees() {
+    // Strategy 1: AI microservice (if configured)
+    if (AI_SERVICE_URL) {
+      try {
+        const res = await fetch(`${AI_SERVICE_URL}/employees`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.employees) && data.employees.length > 0) {
+            setEmployees(data.employees);
+            console.log('[FloatingAssistant] Loaded', data.employees.length, 'employees from AI microservice');
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[FloatingAssistant] AI microservice failed:', err);
+      }
+    }
+
+    // Strategy 2: Client-side Firestore
     try {
       const { firestore } = initializeFirebase();
       const [empSnap, posSnap] = await Promise.all([
@@ -90,23 +110,23 @@ export function FloatingAssistant() {
         console.log('[FloatingAssistant] Loaded', emps.length, 'employees from Firestore');
         return;
       }
-      throw new Error('No employees found via client SDK');
     } catch (err) {
-      console.warn('[FloatingAssistant] Client Firestore failed, trying API fallback:', err);
-      try {
-        const res = await fetch('/api/assistant/employees');
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.employees) && data.employees.length > 0) {
-            setEmployees(data.employees);
-            console.log('[FloatingAssistant] Loaded', data.employees.length, 'employees from API fallback');
-            return;
-          }
+      console.warn('[FloatingAssistant] Client Firestore failed:', err);
+    }
+
+    // Strategy 3: Next.js API fallback
+    try {
+      const res = await fetch('/api/assistant/employees');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.employees) && data.employees.length > 0) {
+          setEmployees(data.employees);
+          console.log('[FloatingAssistant] Loaded', data.employees.length, 'employees from API fallback');
+          return;
         }
-      } catch (apiErr) {
-        console.error('[FloatingAssistant] API fallback also failed:', apiErr);
       }
-      console.error('[FloatingAssistant] Could not load employees from any source');
+    } catch (err) {
+      console.error('[FloatingAssistant] All employee sources failed:', err);
     }
   }
 
@@ -153,9 +173,10 @@ export function FloatingAssistant() {
           content: [{ text: m.content }],
         }));
 
-      console.log('[FloatingAssistant] Sending', genkitMessages.length, 'messages,', employees.length, 'employees');
+      const chatUrl = AI_SERVICE_URL ? `${AI_SERVICE_URL}/chat` : '/api/assistant/chat';
+      console.log('[FloatingAssistant] Sending', genkitMessages.length, 'messages,', employees.length, 'employees to', chatUrl);
 
-      const res = await fetch('/api/assistant/chat', {
+      const res = await fetch(chatUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

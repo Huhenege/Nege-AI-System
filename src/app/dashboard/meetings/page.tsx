@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddActionButton } from '@/components/ui/add-action-button';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, where, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { collection, query, orderBy, where, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
     format,
@@ -44,6 +44,7 @@ import { BookingDialog } from './components/booking-dialog';
 
 export default function MeetingsPage() {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -89,10 +90,10 @@ export default function MeetingsPage() {
         };
     }, [currentDate, view]);
 
-    const bookingsQuery = useMemoFirebase(() =>
+    const bookingsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore
             ? query(
-                collection(firestore, 'room_bookings'),
+                tenantCollection(firestore, companyPath, 'room_bookings'),
                 where('date', '>=', dateRange.start),
                 where('date', '<=', dateRange.end),
                 orderBy('date', 'asc')
@@ -169,12 +170,12 @@ export default function MeetingsPage() {
         if (!firestore) return;
         try {
             if (editBooking) {
-                await updateDoc(doc(firestore, 'room_bookings', editBooking.id), {
+                await updateDoc(tDoc('room_bookings', editBooking.id), {
                     ...data,
                 });
                 toast({ title: 'Захиалга шинэчлэгдлээ' });
             } else {
-                await addDoc(collection(firestore, 'room_bookings'), {
+                await addDoc(tCollection('room_bookings'), {
                     ...data,
                     createdAt: new Date().toISOString(),
                 });
@@ -188,7 +189,7 @@ export default function MeetingsPage() {
     const handleDeleteBooking = async (bookingId: string) => {
         if (!firestore) return;
         try {
-            await updateDoc(doc(firestore, 'room_bookings', bookingId), {
+            await updateDoc(tDoc('room_bookings', bookingId), {
                 status: 'cancelled',
             });
             toast({ title: 'Захиалга цуцлагдлаа' });

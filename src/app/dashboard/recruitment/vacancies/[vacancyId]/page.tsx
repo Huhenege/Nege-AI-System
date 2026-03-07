@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { getDoc, updateDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { Vacancy, JobApplication, RecruitmentStage } from '@/types/recruitment';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
@@ -40,6 +40,7 @@ export default function VacancyDetailPage() {
     const { vacancyId } = useParams();
     const router = useRouter();
     const { firestore, storage } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     const [vacancy, setVacancy] = useState<Vacancy | null>(null);
@@ -56,7 +57,7 @@ export default function VacancyDetailPage() {
     const [globalStages, setGlobalStages] = useState<RecruitmentStage[]>(DEFAULT_STAGES);
     const [savingParticipants, setSavingParticipants] = useState(false);
 
-    const employeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null), [firestore]);
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
     useEffect(() => {
@@ -66,7 +67,7 @@ export default function VacancyDetailPage() {
             try {
                 // 1. Fetch global stages first
                 let currentStages = DEFAULT_STAGES;
-                const settingsRef = doc(firestore, 'recruitment_settings', 'default');
+                const settingsRef = tDoc('recruitment_settings', 'default');
                 const settingsSnap = await getDoc(settingsRef);
                 if (settingsSnap.exists() && settingsSnap.data().defaultStages) {
                     currentStages = settingsSnap.data().defaultStages as RecruitmentStage[];
@@ -76,7 +77,7 @@ export default function VacancyDetailPage() {
                 }
 
                 // 2. Fetch vacancy
-                const docRef = doc(firestore, 'vacancies', vacancyId as string);
+                const docRef = tDoc('vacancies', vacancyId as string);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -91,7 +92,7 @@ export default function VacancyDetailPage() {
                     // 3. Fetch department (for name/color in OpenVacancyCard)
                     try {
                         if (vacancyData.departmentId) {
-                            const deptSnap = await getDoc(doc(firestore, 'departments', vacancyData.departmentId));
+                            const deptSnap = await getDoc(tDoc('departments', vacancyData.departmentId));
                             if (deptSnap.exists()) {
                                 setDepartment({ id: deptSnap.id, ...(deptSnap.data() as any) } as Department);
                             } else {
@@ -105,7 +106,7 @@ export default function VacancyDetailPage() {
                     // 4. Fetch employment type name
                     try {
                         if (vacancyData.employmentTypeId) {
-                            const etSnap = await getDoc(doc(firestore, 'employmentTypes', vacancyData.employmentTypeId));
+                            const etSnap = await getDoc(tDoc('employmentTypes', vacancyData.employmentTypeId));
                             if (etSnap.exists()) {
                                 setEmploymentTypeName(etSnap.data().name);
                             }
@@ -131,11 +132,11 @@ export default function VacancyDetailPage() {
         if (!firestore || !vacancyId) return;
         setLoadingCandidates(true);
         try {
-            const q = query(collection(firestore, 'applications'), where('vacancyId', '==', vacancyId));
+            const q = query(tCollection('applications'), where('vacancyId', '==', vacancyId));
             const appSnaps = await getDocs(q);
             const apps = appSnaps.docs.map(d => ({ id: d.id, ...d.data() } as JobApplication));
             const candidatePromises = apps.map(async (app) => {
-                const candidateRef = doc(firestore, 'candidates', app.candidateId);
+                const candidateRef = tDoc('candidates', app.candidateId);
                 const candidateSnap = await getDoc(candidateRef);
                 const stageName = globalStages.find(s => s.id === app.currentStageId)?.title || app.currentStageId;
 
@@ -143,7 +144,7 @@ export default function VacancyDetailPage() {
                 let employee: EmployeeCardEmployee | null = null;
                 if (app.employeeId) {
                     try {
-                        const empSnap = await getDoc(doc(firestore, 'employees', app.employeeId));
+                        const empSnap = await getDoc(tDoc('employees', app.employeeId));
                         if (empSnap.exists()) {
                             employee = { id: empSnap.id, ...empSnap.data() } as EmployeeCardEmployee;
                         }
@@ -176,7 +177,7 @@ export default function VacancyDetailPage() {
         if (!firestore || !vacancyId) return;
         setSaving(true);
         try {
-            const docRef = doc(firestore, 'vacancies', vacancyId as string);
+            const docRef = tDoc('vacancies', vacancyId as string);
             await updateDoc(docRef, {
                 title: draft.title,
                 description: draft.description,
@@ -209,11 +210,11 @@ export default function VacancyDetailPage() {
         if (!firestore || !vacancyId) return;
         setSaving(true);
         try {
-            const applicationsRef = collection(firestore, 'applications');
+            const applicationsRef = tCollection('applications');
             const q = query(applicationsRef, where('vacancyId', '==', vacancyId));
             const snap = await getDocs(q);
             await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
-            await deleteDoc(doc(firestore, 'vacancies', vacancyId as string));
+            await deleteDoc(tDoc('vacancies', vacancyId as string));
             toast({ title: 'Ажлын байр устгагдлаа' });
             router.push('/dashboard/recruitment');
         } catch (error) {
@@ -236,7 +237,7 @@ export default function VacancyDetailPage() {
         setSavingParticipants(true);
         try {
             const next = [...participantIds, employeeId];
-            await updateDoc(doc(firestore, 'vacancies', vacancyId as string), {
+            await updateDoc(tDoc('vacancies', vacancyId as string), {
                 participantIds: next,
                 updatedAt: new Date().toISOString(),
             });
@@ -253,7 +254,7 @@ export default function VacancyDetailPage() {
         setSavingParticipants(true);
         try {
             const next = participantIds.filter(id => id !== employeeId);
-            await updateDoc(doc(firestore, 'vacancies', vacancyId as string), {
+            await updateDoc(tDoc('vacancies', vacancyId as string), {
                 participantIds: next,
                 updatedAt: new Date().toISOString(),
             });

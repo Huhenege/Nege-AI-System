@@ -5,7 +5,8 @@ import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+import { TenantContext } from '@/contexts/tenant-types';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -183,25 +184,37 @@ export const useStorage = (): FirebaseStorage => {
   return storage;
 };
 
+export interface MemoFirebaseServices {
+  firestore: Firestore;
+  auth: Auth;
+  user: User | null;
+  /** Current tenant company ID (null if not yet loaded or no tenant) */
+  companyId: string | null;
+  /** "companies/{companyId}" when tenant is available, otherwise null */
+  companyPath: string | null;
+}
+
 /**
- * A wrapper for React.useMemo that is aware of the Firebase context.
- * This is useful for memoizing Firebase queries or other objects that depend on
- * the Firebase services being available. The factory function will only be
- * called when the services are ready.
+ * A wrapper for React.useMemo that is aware of Firebase + tenant context.
+ * The factory receives { firestore, auth, user, companyId, companyPath }.
+ * companyPath is automatically set from TenantContext when available.
  */
 export const useMemoFirebase = <T,>(
-  factory: (services: { firestore: Firestore, auth: Auth, user: User | null }) => T,
+  factory: (services: MemoFirebaseServices) => T,
   deps: DependencyList
 ): T | null => {
   const { firestore, auth, user } = useFirebase();
+  const tenantCtx = useContext(TenantContext);
+  const companyId = tenantCtx?.companyId ?? null;
+  const companyPath = companyId ? `companies/${companyId}` : null;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => {
     if (!firestore || !auth) {
       return null;
     }
-    return factory({ firestore, auth, user });
-  }, [firestore, auth, user, ...deps]);
+    return factory({ firestore, auth, user, companyId, companyPath });
+  }, [firestore, auth, user, companyId, ...deps]);
 };
 
 /**

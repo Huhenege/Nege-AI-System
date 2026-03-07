@@ -28,8 +28,9 @@ import {
   useFirebase,
   useMemoFirebase,
   useCollection,
+  tenantCollection,
+  useTenantWrite,
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
 import { Loader2, PlusCircle, Trash2, Pencil, Save, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
@@ -83,12 +84,13 @@ function InlineEditType({ type, onSave, onCancel }: { type: DepartmentType, onSa
 
 export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
   const { firestore } = useFirebase();
+  const { tDoc } = useTenantWrite();
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [editingTypeId, setEditingTypeId] = React.useState<string | null>(null);
 
   const departmentTypesCollection = useMemoFirebase(
-    ({firestore}) => (firestore ? collection(firestore, 'departmentTypes') : null),
+    ({firestore, companyPath}) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null),
     []
   );
   
@@ -120,7 +122,7 @@ export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
   const handleDelete = (typeId: string, typeName: string) => {
       if (!firestore) return;
       
-      const docRef = doc(firestore, 'departmentTypes', typeId);
+      const docRef = tDoc('departmentTypes', typeId);
       deleteDocumentNonBlocking(docRef);
 
       toast({
@@ -132,7 +134,7 @@ export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
 
   const handleSaveEdit = (typeId: string, newName: string) => {
     if (!firestore) return;
-    const docRef = doc(firestore, 'departmentTypes', typeId);
+    const docRef = tDoc('departmentTypes', typeId);
     updateDocumentNonBlocking(docRef, { name: newName });
     toast({
         title: 'Амжилттай шинэчлэгдлээ',

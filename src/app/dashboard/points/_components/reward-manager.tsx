@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
-import { useUser, useFirestore, useCollection, useFirebaseApp } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useFirebaseApp, useTenantWrite } from '@/firebase';
+import { collection, query, where, orderBy, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Reward } from '@/types/points';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,6 +30,7 @@ import {
 
 export function RewardManager() {
     const firestore = useFirestore();
+    const { tDoc, tCollection } = useTenantWrite();
     const app = useFirebaseApp();
     const { toast } = useToast();
     const [isAddOpen, setIsAddOpen] = useState(false);
@@ -95,10 +96,10 @@ export function RewardManager() {
             };
 
             if (editingReward) {
-                await updateDoc(doc(firestore, 'rewards', editingReward.id), rewardData);
+                await updateDoc(tDoc('rewards', editingReward.id), rewardData);
                 toast({ title: 'Амжилттай шинэчлэгдлээ' });
             } else {
-                await addDoc(collection(firestore, 'rewards'), {
+                await addDoc(tCollection('rewards'), {
                     ...rewardData,
                     createdAt: serverTimestamp(),
                 });
@@ -117,7 +118,7 @@ export function RewardManager() {
     const toggleStatus = async (reward: Reward) => {
         if (!firestore) return;
         try {
-            await updateDoc(doc(firestore, 'rewards', reward.id), {
+            await updateDoc(tDoc('rewards', reward.id), {
                 isActive: !reward.isActive
             });
             toast({ title: reward.isActive ? 'Идэвхгүй болголоо' : 'Идэвхжүүллээ' });

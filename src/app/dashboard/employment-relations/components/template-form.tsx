@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, setDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { Timestamp, doc, getDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { ERTemplate, ERDocumentType, PrintSettings } from '../types';
 import { Button } from '@/components/ui/button';
@@ -63,6 +63,7 @@ const DEFAULT_PRINT_SETTINGS: PrintSettings = {
 
 export function TemplateForm({ initialData, docTypes, mode, templateId }: TemplateFormProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -454,14 +455,14 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             };
 
             if (mode === 'edit' && templateId) {
-                await setDocumentNonBlocking(doc(firestore, 'er_templates', templateId), templateData, { merge: true });
+                await setDocumentNonBlocking(tDoc('er_templates', templateId), templateData, { merge: true });
                 toast({ title: "Амжилттай", description: "Загвар шинэчлэгдлээ" });
             } else {
                 const newDoc = {
                     ...templateData,
                     createdAt: Timestamp.now()
                 };
-                await addDocumentNonBlocking(collection(firestore, 'er_templates'), newDoc);
+                await addDocumentNonBlocking(tCollection('er_templates'), newDoc);
                 toast({ title: "Амжилттай", description: "Шинэ загвар үүслээ" });
             }
             setHasUnsavedChanges(false);

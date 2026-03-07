@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { collection, doc } from 'firebase/firestore';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +46,7 @@ export function PerformanceTab({
     activePlan, reviews, scores, objectives, kpis, employees, isLoading,
 }: PerformanceTabProps) {
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
     const [isScoreDialogOpen, setIsScoreDialogOpen] = useState(false);
@@ -62,13 +62,13 @@ export function PerformanceTab({
             createdAt: new Date().toISOString(),
             createdBy: user.uid,
         };
-        addDocumentNonBlocking(collection(firestore, 'bp_reviews'), data);
+        addDocumentNonBlocking(tCollection('bp_reviews'), data);
         toast({ title: 'Гүйцэтгэлийн үнэлгээ үүсгэлээ', description: values.title });
     };
 
     const handleUpdateReview = (values: PerformanceReviewFormValues) => {
         if (!firestore || !editingReview) return;
-        updateDocumentNonBlocking(doc(firestore, 'bp_reviews', editingReview.id), values);
+        updateDocumentNonBlocking(tDoc('bp_reviews', editingReview.id), values);
         toast({ title: 'Үнэлгээ шинэчлэгдлээ' });
         setEditingReview(null);
     };
@@ -94,7 +94,7 @@ export function PerformanceTab({
             notes: values.notes || '',
             createdAt: new Date().toISOString(),
         };
-        addDocumentNonBlocking(collection(firestore, 'bp_scores'), data);
+        addDocumentNonBlocking(tCollection('bp_scores'), data);
         toast({ title: 'Ажилтан үнэлэгдлээ', description: `${data.employeeName} — ${computed.rating}` });
     };
 

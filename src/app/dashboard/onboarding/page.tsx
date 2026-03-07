@@ -25,8 +25,8 @@ import {
     Users,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where, collectionGroup, getDocs } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, where, collectionGroup, getDocs } from 'firebase/firestore';
 import { Employee, Department } from '@/types';
 import { Project, Task, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/types/project';
 import { cn } from '@/lib/utils';
@@ -53,23 +53,24 @@ interface OnboardingGroup {
 
 export default function OnboardingDashboardPage() {
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const [searchTerm, setSearchTerm] = useState('');
     const [taskCounts, setTaskCounts] = useState<Record<string, { total: number; completed: number }>>({});
     const [startWizardOpen, setStartWizardOpen] = useState(false);
 
     // Fetch Departments for mapping
-    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
     const { data: departments } = useCollection<Department>(departmentsQuery as any);
 
     // Fetch all employees
-    const employeesQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing'])) : null
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing'])) : null
         , [firestore]);
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery as any);
 
     // Fetch Onboarding Projects (type === 'onboarding')
-    const onboardingProjectsQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'projects'), where('type', '==', 'onboarding')) : null
+    const onboardingProjectsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'projects'), where('type', '==', 'onboarding')) : null
         , [firestore]);
     const { data: onboardingProjects, isLoading: isLoadingProjects } = useCollection<Project>(onboardingProjectsQuery as any);
 
@@ -82,7 +83,7 @@ export default function OnboardingDashboardPage() {
             
             for (const project of onboardingProjects) {
                 try {
-                    const tasksSnap = await getDocs(collection(firestore, 'projects', project.id, 'tasks'));
+                    const tasksSnap = await getDocs(tCollection('projects', project.id, 'tasks'));
                     const tasks = tasksSnap.docs.map(d => d.data() as Task);
                     counts[project.id] = {
                         total: tasks.length,

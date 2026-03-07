@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useFirebase, useDoc, useCollection } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useTenantWrite } from '@/firebase';
 import { doc, Timestamp, updateDoc, collection, query, where, getDoc, deleteDoc, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ERDocument, DOCUMENT_STATUSES, DocumentStatus, ProcessActivity } from '../types';
@@ -40,6 +40,7 @@ import { PrintLayout } from '../components/print-layout';
 
 export default function DocumentDetailPage() {
     const { firestore, storage, user: currentUser } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const currentUserId = currentUser?.uid;
     const { toast } = useToast();
     const router = useRouter();
@@ -197,7 +198,7 @@ export default function DocumentDetailPage() {
         if (!docRef) return;
         setIsSaving(true);
         try {
-            await updateDoc(docRef, {
+            await updateDoc(tDoc('er_documents', id!), {
                 content: editContent,
                 departmentId: selectedDept,
                 positionId: selectedPos,
@@ -243,7 +244,7 @@ export default function DocumentDetailPage() {
             // If review is not required, jump straight to REVIEWED to allow uploading original document
             const nextStatus = isReviewRequired ? 'IN_REVIEW' : 'REVIEWED';
 
-            await updateDoc(docRef, {
+            await updateDoc(tDoc('er_documents', id!), {
                 status: nextStatus,
                 reviewers: isReviewRequired ? reviewers : [],
                 approvalStatus: initialApprovalStatus,
@@ -252,7 +253,7 @@ export default function DocumentDetailPage() {
 
             // Log activity
             const { addDoc } = await import('firebase/firestore');
-            await addDoc(collection(firestore!, `er_documents/${id}/activity`), {
+            await addDoc(tCollection('er_documents', id!, 'activity'), {
                 type: 'STATUS_CHANGE',
                 actorId: currentUser?.uid,
                 content: nextStatus === 'REVIEWED' ? 'Хянагдсан төлөвт шилжив' : 'Хянахаар илгээв',
@@ -300,7 +301,7 @@ export default function DocumentDetailPage() {
             // Check if all approved (using the keys from the reviewers array)
             const allApproved = reviewers.every(id => newApprovalStatus[id]?.status === 'APPROVED');
 
-            await updateDoc(docRef, {
+            await updateDoc(tDoc('er_documents', id!), {
                 approvalStatus: newApprovalStatus,
                 status: allApproved ? 'REVIEWED' : 'IN_REVIEW',
                 updatedAt: Timestamp.now()
@@ -308,7 +309,7 @@ export default function DocumentDetailPage() {
 
             // Log activity
             const { addDoc } = await import('firebase/firestore');
-            await addDoc(collection(firestore!, `er_documents/${id}/activity`), {
+            await addDoc(tCollection('er_documents', id!, 'activity'), {
                 type: 'APPROVE',
                 actorId: currentUser.uid,
                 content: comment?.trim() ? `Батлав: ${comment.trim()}` : 'Баримтыг зөвшөөрөв',
@@ -338,7 +339,7 @@ export default function DocumentDetailPage() {
 
         setIsSaving(true);
         try {
-            await updateDoc(docRef, {
+            await updateDoc(tDoc('er_documents', id!), {
                 status: 'SIGNED',
                 updatedAt: Timestamp.now()
             });
@@ -354,14 +355,14 @@ export default function DocumentDetailPage() {
 
                     if (actionId === 'release_temporary') {
                         // Temporary leave: employee becomes "Түр эзгүй", stays in retention stage
-                        await updateDoc(doc(firestore, 'employees', document.employeeId), {
+                        await updateDoc(tDoc('employees', document.employeeId), {
                             status: 'on_leave',
                             lifecycleStage: 'retention',
                             updatedAt: Timestamp.now()
                         });
                     } else {
                         // Permanent release: employee becomes "Ажлаас гарсан"
-                        await updateDoc(doc(firestore, 'employees', document.employeeId), {
+                        await updateDoc(tDoc('employees', document.employeeId), {
                             status: 'terminated',
                             lifecycleStage: 'alumni',
                             ...(terminationDate ? { terminationDate } : {}),
@@ -375,7 +376,7 @@ export default function DocumentDetailPage() {
                         actionId === 'appointment_permanent' ? 'active_permanent' :
                         actionId === 'appointment_reappoint' ? 'active_permanent' :
                         'active_permanent'; // fallback for any other appointment_ variant
-                    await updateDoc(doc(firestore, 'employees', document.employeeId), {
+                    await updateDoc(tDoc('employees', document.employeeId), {
                         status: appointmentStatus,
                         lifecycleStage: 'active',
                         updatedAt: Timestamp.now()
@@ -387,7 +388,7 @@ export default function DocumentDetailPage() {
 
             // Log activity
             const { addDoc } = await import('firebase/firestore');
-            await addDoc(collection(firestore!, `er_documents/${id}/activity`), {
+            await addDoc(tCollection('er_documents', id!, 'activity'), {
                 type: 'STATUS_CHANGE',
                 actorId: currentUser?.uid,
                 content: 'Баримт баталгаажлаа (эх хувь хавсаргав)',
@@ -412,7 +413,7 @@ export default function DocumentDetailPage() {
 
         setIsSaving(true);
         try {
-            await updateDoc(docRef, {
+            await updateDoc(tDoc('er_documents', id!), {
                 status: 'SENT_TO_EMPLOYEE',
                 employeeAckRequired: true,
                 employeeAckSentAt: Timestamp.now(),
@@ -421,7 +422,7 @@ export default function DocumentDetailPage() {
             });
 
             const { addDoc } = await import('firebase/firestore');
-            await addDoc(collection(firestore!, `er_documents/${id}/activity`), {
+            await addDoc(tCollection('er_documents', id!, 'activity'), {
                 type: 'STATUS_CHANGE',
                 actorId: currentUser?.uid,
                 content: 'Ажилтанд танилцуулахаар илгээлээ',
@@ -441,7 +442,7 @@ export default function DocumentDetailPage() {
         if (!docRef) return;
         setIsSaving(true);
         try {
-            await deleteDoc(docRef);
+            await deleteDoc(tDoc('er_documents', id!));
             toast({ title: "Устгагдлаа", description: "Баримт амжилттай устгагдлаа" });
             router.push('/dashboard/employment-relations');
         } catch (e) {
@@ -466,7 +467,7 @@ export default function DocumentDetailPage() {
             const downloadURL = await getDownloadURL(storageRef);
 
             // Update document - Only upload file, status change happens on Final Approve
-            await updateDoc(docRef, {
+            await updateDoc(tDoc('er_documents', id!), {
                 signedDocUrl: downloadURL,
                 updatedAt: Timestamp.now()
             });
@@ -1012,6 +1013,7 @@ function ActivityFeed({
     onFinalApprove?: () => Promise<void>
 }) {
     const { firestore, user: currentUser } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const [activities, setActivities] = useState<ProcessActivity[]>([]);
     const [commentText, setCommentText] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -1041,7 +1043,7 @@ function ActivityFeed({
         if (!commentText.trim() || !firestore || !currentUser) return;
         setIsSending(true);
         try {
-            await (await import('firebase/firestore')).addDoc(collection(firestore, `er_documents/${documentId}/activity`), {
+            await (await import('firebase/firestore')).addDoc(tCollection('er_documents', documentId, 'activity'), {
                 type: 'COMMENT',
                 actorId: currentUser.uid,
                 content: commentText,

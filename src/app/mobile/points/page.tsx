@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useUser, useFirestore, useDoc } from '@/firebase';
-import { doc, DocumentReference } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useTenantWrite } from '@/firebase';
+import { DocumentReference } from 'firebase/firestore';
 import { UserPointProfile } from '@/types/points';
 import { useMemo, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
@@ -94,20 +94,21 @@ function PointCard({ balance, allowance, baseAllowance }: { balance: number, all
 export default function MobilePointsPage() {
     const { user } = useUser();
     const firestore = useFirestore();
+    const { tDoc } = useTenantWrite();
     const [activeTab, setActiveTab] = useState('feed');
 
     const profileRef = useMemo(() =>
         (user && firestore)
-            ? doc(firestore, 'employees', user.uid, 'point_profile', 'main') as DocumentReference<UserPointProfile>
+            ? tDoc('employees', user.uid, 'point_profile', 'main') as DocumentReference<UserPointProfile>
             : null,
-        [user?.uid, firestore]);
+        [user?.uid, firestore, tDoc]);
 
     const { data: profile } = useDoc<UserPointProfile>(profileRef);
 
     // Fetch system points config
     const configRef = useMemo(() =>
-        firestore ? doc(firestore, 'points_config', 'main') as DocumentReference<PointsConfig> : null
-        , [firestore]);
+        firestore ? tDoc('points_config', 'main') as DocumentReference<PointsConfig> : null
+        , [firestore, tDoc]);
     const { data: config } = useDoc<PointsConfig>(configRef);
 
     const balance = profile?.balance || 0;

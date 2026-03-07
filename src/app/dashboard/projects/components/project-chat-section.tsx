@@ -21,6 +21,8 @@ import {
     useMemoFirebase,
     useCollection,
     addDocumentNonBlocking,
+    tenantCollection,
+    useTenantWrite,
 } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { ProjectMessage } from '@/types/project';
@@ -34,6 +36,7 @@ interface ProjectChatSectionProps {
 
 export function ProjectChatSection({ projectId, teamMembers, employeeMap }: ProjectChatSectionProps) {
     const { firestore, user } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const [message, setMessage] = React.useState('');
     const [isSending, setIsSending] = React.useState(false);
     const [mentionOpen, setMentionOpen] = React.useState(false);
@@ -45,9 +48,9 @@ export function ProjectChatSection({ projectId, teamMembers, employeeMap }: Proj
 
     // Fetch messages in real-time
     const messagesQuery = useMemoFirebase(
-        () => firestore && projectId
+        ({ firestore, companyPath }) => firestore && projectId
             ? query(
-                collection(firestore, 'projects', projectId, 'messages'),
+                collection(firestore, companyPath ? `${companyPath}/projects` : 'projects', projectId, 'messages'),
                 orderBy('createdAt', 'asc')
             )
             : null,
@@ -140,7 +143,7 @@ export function ProjectChatSection({ projectId, teamMembers, employeeMap }: Proj
             };
 
             await addDocumentNonBlocking(
-                collection(firestore, 'projects', projectId, 'messages'),
+                tCollection('projects', projectId, 'messages'),
                 messageData
             );
 

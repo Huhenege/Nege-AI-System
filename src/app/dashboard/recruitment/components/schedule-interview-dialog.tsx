@@ -32,8 +32,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Loader2, CalendarIcon, Plus, DoorOpen, AlertTriangle } from 'lucide-react';
-import { useFirebase, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Interview, Vacancy, Candidate, JobApplication } from '@/types/recruitment';
 import { MeetingRoom, RoomBooking } from '@/types/meeting';
@@ -95,6 +95,7 @@ export function ScheduleInterviewDialog({
     const setOpen = isControlled ? (controlledOnOpenChange ?? (() => {})) : setInternalOpen;
     const isEditMode = !!initialInterview;
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [selectedInterviewerIds, setSelectedInterviewerIds] = useState<string[]>([]);
@@ -102,28 +103,28 @@ export function ScheduleInterviewDialog({
 
     // Fetch vacancies to select from
     const vacanciesQuery = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'vacancies'), where('status', '==', 'OPEN')) : null),
+        ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'vacancies'), where('status', '==', 'OPEN')) : null),
         [firestore]
     );
     const { data: vacancies } = useCollection<Vacancy>(vacanciesQuery as any);
 
     // Legacy: all candidates (used when candidate is preselected from application page)
     const candidatesQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'candidates') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'candidates') : null),
         [firestore]
     );
     const { data: candidates } = useCollection<Candidate>(candidatesQuery as any);
 
     // Fetch active employees for interviewers
     const employeesQuery = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent'])) : null),
+        ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent'])) : null),
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery as any);
 
     // Fetch meeting rooms
     const roomsQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'meeting_rooms') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'meeting_rooms') : null),
         [firestore]
     );
     const { data: meetingRooms } = useCollection<MeetingRoom>(roomsQuery as any);
@@ -154,8 +155,8 @@ export function ScheduleInterviewDialog({
 
     // Fetch applications for selected vacancy (бүртгэлтэй горилогчид)
     const applicationsQuery = useMemoFirebase(
-        () => (firestore && watchedVacancyId
-            ? query(collection(firestore, 'applications'), where('vacancyId', '==', watchedVacancyId))
+        ({ firestore, companyPath }) => (firestore && watchedVacancyId
+            ? query(tenantCollection(firestore, companyPath, 'applications'), where('vacancyId', '==', watchedVacancyId))
             : null),
         [firestore, watchedVacancyId]
     );
@@ -184,7 +185,7 @@ export function ScheduleInterviewDialog({
 
     // Fetch bookings for selected date to check overlaps
     const bookingsQuery = useMemoFirebase(
-        () => (firestore && selectedDateStr ? query(collection(firestore, 'room_bookings'), where('date', '==', selectedDateStr), where('status', '==', 'active')) : null),
+        ({ firestore, companyPath }) => (firestore && selectedDateStr ? query(tenantCollection(firestore, companyPath, 'room_bookings'), where('date', '==', selectedDateStr), where('status', '==', 'active')) : null),
         [firestore, selectedDateStr]
     );
     const { data: existingBookings } = useCollection<RoomBooking>(bookingsQuery as any);
@@ -282,7 +283,7 @@ export function ScheduleInterviewDialog({
             };
 
             if (isEditMode && initialInterview?.id) {
-                await updateDoc(doc(firestore, 'interviews', initialInterview.id), interviewPayload);
+                await updateDoc(tDoc('interviews', initialInterview.id), interviewPayload);
                 if (onUpdated) {
                     onUpdated({ id: initialInterview.id, ...interviewPayload } as Interview);
                 }
@@ -292,10 +293,10 @@ export function ScheduleInterviewDialog({
                 });
             } else {
                 const newInterviewData: Omit<Interview, 'id'> = interviewPayload;
-                const docRef = await addDoc(collection(firestore, 'interviews'), newInterviewData);
+                const docRef = await addDoc(tCollection('interviews'), newInterviewData);
 
                 if (selectedRoom) {
-                    await addDoc(collection(firestore, 'room_bookings'), {
+                    await addDoc(tCollection('room_bookings'), {
                         roomId: selectedRoom.id,
                         roomName: selectedRoom.name,
                         title: `Ярилцлага: ${data.candidateName}`,

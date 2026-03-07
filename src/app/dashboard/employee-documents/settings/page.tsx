@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
-import { collection, doc, writeBatch } from "firebase/firestore";
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection, useTenantWrite } from "@/firebase";
+import { writeBatch } from "firebase/firestore";
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
@@ -35,9 +35,10 @@ type DocumentTypeReferenceItem = ReferenceItem & { name: string; fields?: FieldD
 
 export default function DocumentsSettingsPage() {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [isCleaning, setIsCleaning] = React.useState(false);
-    const documentTypesQuery = useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'er_document_types') : null, []);
+    const documentTypesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_document_types') : null, []);
     const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<DocumentTypeReferenceItem>(documentTypesQuery);
 
     const cleanupSummary = React.useMemo(() => {
@@ -95,7 +96,7 @@ export default function DocumentsSettingsPage() {
                 if (removedInDoc > 0) {
                     affectedDocs++;
                     removedFields += removedInDoc;
-                    batch.update(doc(firestore, 'er_document_types', dt.id), { fields: deduped });
+                    batch.update(tDoc('er_document_types', dt.id), { fields: deduped });
                     writeCount++;
                 }
             }

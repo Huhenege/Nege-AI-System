@@ -13,9 +13,9 @@ import {
     CheckCircle2,
     Eye
 } from 'lucide-react';
-import { useFirebase, useCollection } from '@/firebase';
+import { useFirebase, useCollection, useTenantWrite } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { query, where, orderBy } from 'firebase/firestore';
 import { ERDocument } from '../../dashboard/employment-relations/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export default function DocumentReviewPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const [searchTerm, setSearchTerm] = useState('');
     const [tab, setTab] = useState<'review' | 'ack'>('review');
@@ -40,23 +41,23 @@ export default function DocumentReviewPage() {
         if (employeeProfile.positionId) reviewerIds.push(employeeProfile.positionId);
 
         return query(
-            collection(firestore, 'er_documents'),
+            tCollection('er_documents'),
             where('reviewers', 'array-contains-any', reviewerIds),
             where('status', '==', 'IN_REVIEW'),
             orderBy('updatedAt', 'desc')
         );
-    }, [firestore, employeeProfile]);
+    }, [firestore, employeeProfile, tCollection]);
 
     // Employee acknowledgement docs (ad-hoc): only those explicitly sent for acknowledgement
     const ackDocsQuery = useMemo(() => {
         if (!firestore || !employeeProfile?.id) return null;
         return query(
-            collection(firestore, 'er_documents'),
+            tCollection('er_documents'),
             where('employeeId', '==', employeeProfile.id),
             where('status', '==', 'SENT_TO_EMPLOYEE'),
             orderBy('updatedAt', 'desc')
         );
-    }, [firestore, employeeProfile?.id]);
+    }, [firestore, employeeProfile?.id, tCollection]);
 
     const {
         data: reviewDocs,

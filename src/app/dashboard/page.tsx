@@ -28,13 +28,15 @@ import Link from 'next/link';
 
 import {
     useCollection,
-    useFirebase,
     useMemoFirebase,
     updateDocumentNonBlocking,
     useDoc,
     addDocumentNonBlocking,
+    tenantCollection,
+    tenantDoc,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, doc, query, where, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
+import { query, where, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -370,22 +372,22 @@ const OrganizationChart = () => {
     const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
 
     const { toast } = useToast();
-    const { firestore } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
 
     // Data fetching
-    const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const positionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'positions'), where('isActive', '==', true)) : null, [firestore]);
-    const employeesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
-    const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
-    const positionLevelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
-    const employmentTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
-    const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-    const companyProfileRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
+    const deptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'positions'), where('isActive', '==', true)) : null, [firestore]);
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null, [firestore]);
+    const workSchedulesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'workSchedules') : null), [firestore]);
+    const positionLevelsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null), [firestore]);
+    const employmentTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employmentTypes') : null), [firestore]);
+    const jobCategoriesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'jobCategories') : null), [firestore]);
+    const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), [firestore]);
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
+    const attendanceQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
     const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
-    const postsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'posts') : null, [firestore]);
+    const postsQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'posts') : null, [firestore]);
 
 
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
@@ -403,52 +405,52 @@ const OrganizationChart = () => {
     const { data: vacationRequests } = useCollection<VacationRequest>(vacationRequestsQuery);
 
     // Projects query (for projects widget)
-    const projectsQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'projects'), where('status', 'in', ['DRAFT', 'ACTIVE', 'ON_HOLD', 'PLANNING', 'IN_PROGRESS'])) : null
+    const projectsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'projects'), where('status', 'in', ['DRAFT', 'ACTIVE', 'ON_HOLD', 'PLANNING', 'IN_PROGRESS'])) : null
         , [firestore]);
     const { data: activeProjects } = useCollection<any>(projectsQuery);
 
     // Recruitment queries (for Recruitment widget)
-    const vacanciesQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'vacancies') : null
+    const vacanciesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'vacancies') : null
         , [firestore]);
     const { data: allVacancies } = useCollection<any>(vacanciesQuery);
 
-    const applicationsQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'applications') : null
+    const applicationsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'applications') : null
         , [firestore]);
     const { data: allApplications } = useCollection<any>(applicationsQuery);
 
     // Employment Relations queries (for ER widget)
-    const erDocumentsQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'er_documents') : null
+    const erDocumentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'er_documents') : null
         , [firestore]);
     const { data: erDocuments } = useCollection<any>(erDocumentsQuery);
 
-    const erTemplatesQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'er_templates') : null
+    const erTemplatesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'er_templates') : null
         , [firestore]);
     const { data: erTemplates } = useCollection<any>(erTemplatesQuery);
 
     // Training queries (for Training widget)
-    const trainingCoursesQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'training_courses') : null
+    const trainingCoursesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'training_courses') : null
         , [firestore]);
     const { data: trainingCourses } = useCollection<any>(trainingCoursesQuery);
 
-    const trainingPlansQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'training_plans') : null
+    const trainingPlansQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'training_plans') : null
         , [firestore]);
     const { data: trainingPlans } = useCollection<any>(trainingPlansQuery);
 
     // Skills queries (for Skills widget)
-    const skillsInventoryQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'skills_inventory') : null
+    const skillsInventoryQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'skills_inventory') : null
         , [firestore]);
     const { data: skillsInventory } = useCollection<any>(skillsInventoryQuery);
 
-    const skillAssessmentsQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'skill_assessments') : null
+    const skillAssessmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'skill_assessments') : null
         , [firestore]);
     const { data: skillAssessments } = useCollection<any>(skillAssessmentsQuery);
 
@@ -459,16 +461,16 @@ const OrganizationChart = () => {
     const { data: allTasks } = useCollection<any>(allTasksQuery);
 
     // Meeting rooms and today's bookings (for Meetings widget)
-    const meetingRoomsQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'meeting_rooms') : null
+    const meetingRoomsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'meeting_rooms') : null
         , [firestore]);
     const { data: meetingRooms } = useCollection<any>(meetingRoomsQuery);
 
-    const todayBookingsQuery = useMemoFirebase(() => {
+    const todayBookingsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore) return null;
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         return query(
-            collection(firestore, 'room_bookings'),
+            tenantCollection(firestore, companyPath, 'room_bookings'),
             where('date', '==', todayStr),
             where('status', '==', 'active')
         );
@@ -476,24 +478,24 @@ const OrganizationChart = () => {
     const { data: todayBookings } = useCollection<any>(todayBookingsQuery);
 
     // Business Plan queries (for Business Plan widget)
-    const bpPlansQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'bp_plans'), where('status', '==', 'active')) : null
+    const bpPlansQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'bp_plans'), where('status', '==', 'active')) : null
         , [firestore]);
     const { data: bpPlans } = useCollection<any>(bpPlansQuery);
 
-    const bpObjectivesQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'bp_objectives') : null
+    const bpObjectivesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'bp_objectives') : null
         , [firestore]);
     const { data: bpObjectives } = useCollection<any>(bpObjectivesQuery);
 
-    const bpKpisQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'bp_kpis') : null
+    const bpKpisQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'bp_kpis') : null
         , [firestore]);
     const { data: bpKpis } = useCollection<any>(bpKpisQuery);
 
     // Survey queries (for Survey widget)
-    const surveysQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'surveys') : null
+    const surveysQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'surveys') : null
         , [firestore]);
     const { data: allSurveys } = useCollection<any>(surveysQuery);
 
@@ -561,7 +563,7 @@ const OrganizationChart = () => {
             const today = new Date();
             const promises = employees.map(async (emp) => {
                 try {
-                    const snap = await getDoc(doc(firestore, 'employees', emp.id, 'questionnaire', 'data'));
+                    const snap = await getDoc(tDoc('employees', emp.id, 'questionnaire', 'data'));
                     if (snap.exists()) {
                         const data = snap.data();
                         const g = data?.gender;
@@ -936,7 +938,7 @@ const OrganizationChart = () => {
                 try {
                     const prepSnap = await getDocs(
                         query(
-                            collection(firestore, 'projects'),
+                            tCollection('projects'),
                             where('type', '==', 'position_preparation'),
                             where('positionPreparationPositionId', '==', positionNode.id)
                         )
@@ -959,7 +961,7 @@ const OrganizationChart = () => {
                     }
 
                     const prepProject = prepSnap.docs[0].data() as any;
-                    const tasksSnap = await getDocs(collection(firestore, 'projects', prepProject.id, 'tasks'));
+                    const tasksSnap = await getDocs(tCollection('projects', prepProject.id, 'tasks'));
                     const tasks = tasksSnap.docs.map((d) => d.data() as Task);
                     const total = tasks.length;
                     const done = tasks.filter((t) => t.status === 'DONE').length;

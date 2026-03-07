@@ -4,8 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { collection } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,6 +59,7 @@ const STEPS: { key: WizardStep; label: string }[] = [
 export default function CreateSurveyPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [currentStep, setCurrentStep] = useState<WizardStep>('type');
     const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
@@ -67,7 +67,7 @@ export default function CreateSurveyPage() {
     const [selectedType, setSelectedType] = useState<string>('');
 
     const templatesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'survey_templates') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'survey_templates') : null,
         [firestore]
     );
     const { data: templates, isLoading: templatesLoading } = useCollection<SurveyTemplate>(templatesQuery);
@@ -157,7 +157,7 @@ export default function CreateSurveyPage() {
             };
 
             const docRef = await addDocumentNonBlocking(
-                collection(firestore, 'surveys'),
+                tCollection('surveys'),
                 newSurvey
             );
 
@@ -169,7 +169,7 @@ export default function CreateSurveyPage() {
                         if (value !== undefined) questionData[key] = value;
                     }
                     await addDocumentNonBlocking(
-                        collection(firestore, 'surveys', docRef.id, 'questions'),
+                        tCollection('surveys', docRef.id, 'questions'),
                         questionData
                     );
                 }

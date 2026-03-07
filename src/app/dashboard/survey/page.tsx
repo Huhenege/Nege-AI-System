@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useMemo, useState, useCallback } from 'react';
-import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { query, orderBy, deleteDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -18,18 +18,19 @@ import type { Survey, SurveyTemplate } from './types';
 
 export default function SurveyPage() {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const router = useRouter();
     const { toast } = useToast();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
     const surveysQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'surveys'), orderBy('createdAt', 'desc')) : null,
+        ({ firestore, companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'surveys'), orderBy('createdAt', 'desc')) : null,
         [firestore]
     );
     const { data: surveys, isLoading } = useCollection<Survey>(surveysQuery);
 
     const templatesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'survey_templates') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'survey_templates') : null,
         [firestore]
     );
     const { data: firestoreTemplates, isLoading: templatesLoading } = useCollection<SurveyTemplate>(templatesQuery);
@@ -78,12 +79,12 @@ export default function SurveyPage() {
             };
 
             const docRef = await addDocumentNonBlocking(
-                collection(firestore, 'surveys'),
+                tCollection('surveys'),
                 newSurvey
             );
 
             if (docRef?.id && template.questions.length > 0) {
-                const questionsRef = collection(firestore, 'surveys', docRef.id, 'questions');
+                const questionsRef = tCollection('surveys', docRef.id, 'questions');
                 for (const q of template.questions) {
                     const questionData: Record<string, any> = {};
                     for (const [key, value] of Object.entries(q)) {
@@ -106,7 +107,7 @@ export default function SurveyPage() {
     const handleDeleteTemplate = useCallback(async (templateId: string) => {
         if (!firestore) return;
         try {
-            await deleteDoc(doc(firestore, 'survey_templates', templateId));
+            await deleteDoc(tDoc('survey_templates', templateId));
             toast({ title: 'Загвар устгагдлаа' });
         } catch (error) {
             console.error('Failed to delete template:', error);

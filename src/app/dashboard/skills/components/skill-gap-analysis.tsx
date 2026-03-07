@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { collection, doc } from 'firebase/firestore';
-import { useFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useFirebase, useDoc, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,6 +39,7 @@ export function SkillGapAnalysis({
     isLoading,
 }: SkillGapAnalysisProps) {
     const { firestore, user } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
     const [viewMode, setViewMode] = useState<'employee' | 'department'>('employee');
@@ -160,7 +161,7 @@ export function SkillGapAnalysis({
             notes: values.notes,
         };
 
-        addDocumentNonBlocking(collection(firestore, 'skill_assessments'), data);
+        addDocumentNonBlocking(tCollection('skill_assessments'), data);
         toast({
             title: 'Үнэлгээ хадгалагдлаа',
             description: `${values.skillName}: ${SKILL_LEVEL_LABELS[values.currentLevel]}`,

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useCollection, useFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, Timestamp } from 'firebase/firestore';
+import { useCollection, useFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { ERTemplate, ERDocumentType } from '../types';
 import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
@@ -33,6 +33,7 @@ interface TemplatesTabProps {
 
 export function TemplatesTab({ docTypes }: TemplatesTabProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -67,7 +68,7 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
     const handleDelete = async (id: string) => {
         if (!firestore) return;
         try {
-            await deleteDocumentNonBlocking(doc(firestore, 'er_templates', id));
+            await deleteDocumentNonBlocking(tDoc('er_templates', id));
             toast({ title: "Амжилттай", description: "Загвар устгагдлаа" });
         } catch (error) {
             console.error(error);
@@ -87,7 +88,7 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
             };
             delete (newDoc as any).id;
 
-            await addDocumentNonBlocking(collection(firestore, 'er_templates'), newDoc);
+            await addDocumentNonBlocking(tCollection('er_templates'), newDoc);
             toast({ title: "Амжилттай", description: "Загвар хувилагдлаа" });
         } catch (error) {
             console.error(error);

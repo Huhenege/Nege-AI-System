@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { Position, Department, PositionLevel, JobCategory, EmploymentType, WorkSchedule, WorkingCondition } from '../../../types';
 import { doc, updateDoc } from 'firebase/firestore';
-import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
+import { useFirebase, useMemoFirebase, useDoc, tenantDoc, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { generateCode } from '@/lib/code-generator';
 import { Wand2 } from 'lucide-react';
@@ -77,6 +77,7 @@ export function PositionOverview({
     schedules,
 }: PositionOverviewProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
 
     // Local edit state for each field
@@ -97,13 +98,13 @@ export function PositionOverview({
     const [editCurrency, setEditCurrency] = useState(position.budget?.currency || 'MNT');
 
     const posCodeConfigRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
         []
     );
     const { data: posCodeConfig } = useDoc<any>(posCodeConfigRef as any);
 
     const companyProfileRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? doc(firestore, 'company', 'profile') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
         []
     );
     const { data: companyProfile } = useDoc<CompanyProfile>(companyProfileRef as any);
@@ -149,7 +150,7 @@ export function PositionOverview({
     // Generic save helper
     const saveField = async (field: string, value: any) => {
         if (!firestore) return;
-        await updateDoc(doc(firestore, 'positions', position.id), {
+        await updateDoc(tDoc('positions', position.id), {
             [field]: value,
             updatedAt: new Date().toISOString(),
         });
@@ -316,7 +317,7 @@ export function PositionOverview({
                         }
                         onSave={async () => {
                             if (!firestore) return;
-                            await updateDoc(doc(firestore, 'positions', position.id), {
+                            await updateDoc(tDoc('positions', position.id), {
                                 companyType: editCompanyType,
                                 subsidiaryName: editCompanyType === 'subsidiary' ? editSubsidiaryName : '',
                                 updatedAt: new Date().toISOString(),
@@ -530,7 +531,7 @@ export function PositionOverview({
                         }
                         onSave={async () => {
                             if (!firestore) return;
-                            await updateDoc(doc(firestore, 'positions', position.id), {
+                            await updateDoc(tDoc('positions', position.id), {
                                 'permissions.canApproveVacation': editCanApproveVacation,
                                 updatedAt: new Date().toISOString(),
                             });
@@ -554,7 +555,7 @@ export function PositionOverview({
                         }
                         onSave={async () => {
                             if (!firestore) return;
-                            await updateDoc(doc(firestore, 'positions', position.id), {
+                            await updateDoc(tDoc('positions', position.id), {
                                 'permissions.canApproveLeave': editCanApproveLeave,
                                 updatedAt: new Date().toISOString(),
                             });
@@ -596,7 +597,7 @@ export function PositionOverview({
                         }
                         onSave={async () => {
                             if (!firestore) return;
-                            await updateDoc(doc(firestore, 'positions', position.id), {
+                            await updateDoc(tDoc('positions', position.id), {
                                 budget: {
                                     yearlyBudget: editYearlyBudget,
                                     currency: editCurrency,

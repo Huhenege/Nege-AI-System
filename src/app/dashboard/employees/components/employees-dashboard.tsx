@@ -17,8 +17,8 @@ import {
   Tooltip,
 } from 'recharts';
 import { Employee, Department, isActiveStatus, EMPLOYEE_STATUS_LABELS } from '@/types';
-import { useFirebase } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useTenantWrite } from '@/firebase';
+import { getDoc } from 'firebase/firestore';
 
 // ─── Status colours (semantic, matching the page's statusConfig) ─────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -112,7 +112,7 @@ export function EmployeesDashboard({
   isLoading,
 }: EmployeesDashboardProps) {
   // ── Fetch questionnaire data (gender + birthDate) per employee ──────────
-  const { firestore } = useFirebase();
+  const { firestore, tDoc } = useTenantWrite();
   const [questionnaireMap, setQuestionnaireMap] = React.useState<
     Map<string, { gender?: string; birthDate?: any; education?: any[] }>
   >(new Map());
@@ -129,7 +129,7 @@ export function EmployeesDashboard({
       const map = new Map<string, { gender?: string; birthDate?: any; education?: any[] }>();
       const promises = employees.map(async (emp) => {
         try {
-          const docRef = doc(firestore, 'employees', emp.id, 'questionnaire', 'data');
+          const docRef = tDoc('employees', emp.id, 'questionnaire', 'data');
           const snap = await getDoc(docRef);
           if (snap.exists()) {
             const d = snap.data();

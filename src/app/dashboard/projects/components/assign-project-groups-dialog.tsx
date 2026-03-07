@@ -14,8 +14,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase } from '@/firebase';
-import { Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { Timestamp, updateDoc } from 'firebase/firestore';
 import type { Project, ProjectGroup } from '@/types/project';
 
 export interface AssignProjectGroupsDialogProps {
@@ -27,6 +27,7 @@ export interface AssignProjectGroupsDialogProps {
 
 export function AssignProjectGroupsDialog({ open, onOpenChange, project, groups }: AssignProjectGroupsDialogProps) {
   const { firestore } = useFirebase();
+  const { tDoc } = useTenantWrite();
   const { toast } = useToast();
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -43,7 +44,7 @@ export function AssignProjectGroupsDialog({ open, onOpenChange, project, groups 
     if (!firestore || !project) return;
     setIsSaving(true);
     try {
-      await updateDoc(doc(firestore, 'projects', project.id), {
+      await updateDoc(tDoc('projects', project.id), {
         groupIds: selectedIds,
         updatedAt: Timestamp.now(),
       });

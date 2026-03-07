@@ -14,8 +14,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Search, Crown, Loader2, Check, Briefcase } from 'lucide-react';
-import { useFirebase, useCollection, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useFirebase, useCollection, updateDocumentNonBlocking, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { Position, Department, PositionLevel } from '@/app/dashboard/organization/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -28,18 +28,19 @@ interface AssignManagerDialogProps {
 
 export const AssignManagerDialog = ({ open, onOpenChange, department }: AssignManagerDialogProps) => {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedPositionId, setSelectedPositionId] = useState<string | null>(department.managerPositionId || null);
 
     // 1. Fetch positions for THIS department
-    const positionsQuery = useMemoFirebase(() => {
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !department?.id) return null;
-        return query(collection(firestore, 'positions'), where('departmentId', '==', department.id));
+        return query(tenantCollection(firestore, companyPath, 'positions'), where('departmentId', '==', department.id));
     }, [firestore, department?.id]);
 
-    const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
+    const levelsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null), [firestore]);
 
     const { data: positions, isLoading } = useCollection<Position>(positionsQuery);
     const { data: levels } = useCollection<PositionLevel>(levelsQuery);
@@ -57,7 +58,7 @@ export const AssignManagerDialog = ({ open, onOpenChange, department }: AssignMa
 
         setIsSubmitting(true);
         try {
-            const docRef = doc(firestore, 'departments', department.id);
+            const docRef = tDoc('departments', department.id);
             await updateDocumentNonBlocking(docRef, {
                 managerPositionId: selectedPositionId
             });

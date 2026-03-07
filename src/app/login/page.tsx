@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, useUser, useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useAuth, useUser, useFirebase, useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
 import {
   Card,
   CardContent,
@@ -38,7 +38,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const companyProfileRef = useMemoFirebase(
-    ({ firestore }) => (firestore ? doc(firestore, 'company', 'profile') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
     []
   );
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc(companyProfileRef);
@@ -53,12 +53,11 @@ export default function LoginPage() {
     const email = isEmail(identifier) ? identifier : `${identifier}@example.com`;
 
     try {
-      // Эхлээд нэвтрүүлнэ — employees унших эрх нэвтэрсний дараа л байдаг
       const { signInWithEmailAndPassword, signOut } = await import('firebase/auth');
       const uc = await signInWithEmailAndPassword(auth, email, password);
       const uid = uc.user.uid;
 
-      // Нэвтэрсний дараа loginDisabled шалгана
+      // loginDisabled шалгах (top-level + tenant)
       const employeeRef = doc(firestore, 'employees', uid);
       const empSnap = await getDoc(employeeRef);
       const employee = empSnap.data() as { loginDisabled?: boolean } | undefined;
@@ -67,20 +66,26 @@ export default function LoginPage() {
         setIsLoading(false);
         const errorMessage = 'Нэвтрэх эрх идэвхгүй болсон байна.';
         setError(errorMessage);
-        toast({
-          variant: 'destructive',
-          title: 'Нэвтрэхэд алдаа гарлаа',
-          description: errorMessage,
-        });
+        toast({ variant: 'destructive', title: 'Нэвтрэхэд алдаа гарлаа', description: errorMessage });
         return;
       }
 
-      toast({
-        title: 'Амжилттай нэвтэрлээ',
-        description: 'Хуудас руу шилжиж байна.',
-      });
+      // Custom Claims шалгах — байхгүй бол автоматаар тохируулна
+      const tokenResult = await uc.user.getIdTokenResult();
+      if (!tokenResult.claims.companyId) {
+        const idToken = await uc.user.getIdToken();
+        const res = await fetch('/api/auth/ensure-claims', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${idToken}` },
+        });
+        if (res.ok) {
+          // Claims тохируулагдсан — token refresh хийж шинэ claims авна
+          await uc.user.getIdToken(true);
+        }
+      }
 
-      router.replace('/');
+      toast({ title: 'Амжилттай нэвтэрлээ', description: 'Хуудас руу шилжиж байна.' });
+      router.replace('/dashboard');
 
     } catch (err: any) {
       setIsLoading(false);

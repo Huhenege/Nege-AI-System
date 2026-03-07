@@ -12,8 +12,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { type GeneratedTask } from '@/app/api/generate-project-tasks/route';
 import { TaskStatus, Priority } from '@/types/project';
 import { format } from 'date-fns';
@@ -43,6 +43,7 @@ export function AiGenerateTasksDialog({
     onTasksCreated,
 }: AiGenerateTasksDialogProps) {
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isGenerating, setIsGenerating] = React.useState(false);
     const [isAdding, setIsAdding] = React.useState(false);
@@ -95,7 +96,7 @@ export function AiGenerateTasksDialog({
 
         setIsAdding(true);
         try {
-            const tasksRef = collection(firestore, 'projects', projectId, 'tasks');
+            const tasksRef = tCollection('projects', projectId, 'tasks');
             for (const t of generatedTasks) {
                 await addDocumentNonBlocking(tasksRef, {
                     projectId,

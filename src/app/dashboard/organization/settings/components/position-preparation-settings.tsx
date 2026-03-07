@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Plus, Trash2, Pencil, Info, FileText, Briefcase, Monitor, KeyRound, CheckCircle2 } from 'lucide-react';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, tenantDoc, useTenantWrite } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -82,9 +82,10 @@ const STAGE_ICONS: Record<string, React.ElementType> = {
 
 export function PositionPreparationSettings() {
   const { firestore } = useFirebase();
+  const { tDoc } = useTenantWrite();
   const { toast } = useToast();
 
-  const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'settings', 'positionPreparation') : null), [firestore]);
+  const configRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'settings', 'positionPreparation') : null), [firestore]);
   const { data: config } = useDoc<any>(configRef as any);
 
   const [stages, setStages] = useState<PrepStage[]>(DEFAULT_STAGES);
@@ -101,7 +102,7 @@ export function PositionPreparationSettings() {
   const handleSaveConfig = async (newStages: PrepStage[]) => {
     if (!firestore) return;
     try {
-      await setDoc(doc(firestore, 'settings', 'positionPreparation'), { stages: newStages });
+      await setDoc(tDoc('settings', 'positionPreparation'), { stages: newStages });
       toast({ title: 'Хадгалагдлаа', description: 'Ажлын байр бэлтгэх тохиргоог шинэчиллээ.' });
     } catch {
       toast({ variant: 'destructive', title: 'Алдаа', description: 'Тохиргоо хадгалахад алдаа гарлаа.' });

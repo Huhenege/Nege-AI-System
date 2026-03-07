@@ -14,8 +14,8 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, getDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { Employee, Department } from '@/types';
 import {
   REPORT_FIELD_GROUPS,
@@ -33,11 +33,11 @@ export default function EmployeeReportsPage() {
   const { firestore } = useFirebase();
 
   const employeesQuery = useMemoFirebase(
-    ({ firestore }) => (firestore ? collection(firestore, 'employees') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null),
     [],
   );
   const departmentsQuery = useMemoFirebase(
-    ({ firestore }) => (firestore ? collection(firestore, 'departments') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null),
     [],
   );
 

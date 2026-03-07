@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useCollection, useFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
+import { useCollection, useFirebase, addDocumentNonBlocking, useDoc, useTenantWrite } from '@/firebase';
 import { collection, query, where, Timestamp, doc, getDocs, getDoc, addDoc } from 'firebase/firestore';
 import { ERDocumentType, ERTemplate, ERDocument } from '../types';
 import { Employee } from '@/types';
@@ -26,6 +26,7 @@ import { PageHeader } from '@/components/patterns/page-layout';
 
 export default function CreateDocumentPage() {
     const { firestore, user: firebaseUser } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
 
@@ -150,7 +151,7 @@ export default function CreateDocumentPage() {
             }
 
             // Fetch full data for replacement
-            const empDoc = await getDoc(doc(firestore, 'employees', selectedEmployee.id));
+            const empDoc = await getDoc(tDoc('employees', selectedEmployee.id));
             const deptData = departments?.find(d => d.id === selectedDepartment);
             const posData = positions?.find(p => p.id === selectedPosition);
 
@@ -202,7 +203,7 @@ export default function CreateDocumentPage() {
                 updatedAt: Timestamp.now()
             };
 
-            const docRef = await addDoc(collection(firestore, 'er_documents'), newDoc);
+            const docRef = await addDoc(tCollection('er_documents'), newDoc);
             toast({ 
                 title: "Амжилттай", 
                 description: `Баримт ${documentNumber} үүслээ`

@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Position } from '../../../types';
 import { doc, collection, addDoc, query, orderBy } from 'firebase/firestore';
-import { useFirebase, updateDocumentNonBlocking, useCollection } from '@/firebase';
+import { useFirebase, updateDocumentNonBlocking, useCollection, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { format } from 'date-fns';
@@ -72,6 +72,7 @@ export function PositionCompetency({
     levelName
 }: PositionCompetencyProps) {
     const { firestore, storage } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -153,7 +154,7 @@ export function PositionCompetency({
     // Save helpers
     const saveField = async (field: string, value: any) => {
         if (!firestore) return;
-        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+        await updateDocumentNonBlocking(tDoc('positions', position.id), {
             [field]: value,
             updatedAt: new Date().toISOString(),
         });
@@ -226,7 +227,7 @@ export function PositionCompetency({
                     if (!existingNames.has(genNameLower)) {
                         existingNames.add(genNameLower);
                         try {
-                            await addDoc(collection(firestore, 'skills_inventory'), {
+                            await addDoc(tCollection('skills_inventory'), {
                                 name: genSkill.name,
                                 createdAt: new Date().toISOString(),
                             });
@@ -238,7 +239,7 @@ export function PositionCompetency({
             }
 
             // Save all generated content with reconciled skills
-            await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+            await updateDocumentNonBlocking(tDoc('positions', position.id), {
                 purpose: result.data.purpose || '',
                 responsibilities: result.data.responsibilities || [],
                 skills: reconciledSkills,
@@ -277,7 +278,7 @@ export function PositionCompetency({
             const exists = skillsInventory.some(s => s.name.toLowerCase() === name.toLowerCase());
             if (!exists) {
                 try {
-                    await addDoc(collection(firestore, 'skills_inventory'), {
+                    await addDoc(tCollection('skills_inventory'), {
                         name,
                         createdAt: new Date().toISOString(),
                     });
@@ -299,7 +300,7 @@ export function PositionCompetency({
             await uploadBytes(fileRef, file);
             const url = await getDownloadURL(fileRef);
 
-            await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+            await updateDocumentNonBlocking(tDoc('positions', position.id), {
                 jobDescriptionFile: {
                     name: file.name,
                     url,
@@ -582,7 +583,7 @@ export function PositionCompetency({
                     }
                     onSave={async () => {
                         if (!firestore) return;
-                        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                        await updateDocumentNonBlocking(tDoc('positions', position.id), {
                             'experience.totalYears': editTotalYears,
                             updatedAt: new Date().toISOString(),
                         });
@@ -612,7 +613,7 @@ export function PositionCompetency({
                     }
                     onSave={async () => {
                         if (!firestore) return;
-                        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                        await updateDocumentNonBlocking(tDoc('positions', position.id), {
                             'experience.leadershipYears': editLeadershipYears,
                             updatedAt: new Date().toISOString(),
                         });
@@ -648,7 +649,7 @@ export function PositionCompetency({
                     }
                     onSave={async () => {
                         if (!firestore) return;
-                        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                        await updateDocumentNonBlocking(tDoc('positions', position.id), {
                             'experience.educationLevel': editEducationLevel === 'none' ? '' : editEducationLevel,
                             updatedAt: new Date().toISOString(),
                         });
@@ -724,7 +725,7 @@ export function PositionCompetency({
                     }
                     onSave={async () => {
                         if (!firestore) return;
-                        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                        await updateDocumentNonBlocking(tDoc('positions', position.id), {
                             'experience.professions': editProfessions,
                             updatedAt: new Date().toISOString(),
                         });
@@ -779,7 +780,7 @@ export function PositionCompetency({
                                             className="rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
                                             onClick={async () => {
                                                 if (!firestore) return;
-                                                await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                                                await updateDocumentNonBlocking(tDoc('positions', position.id), {
                                                     jobDescriptionFile: null
                                                 });
                                                 toast({ title: "Файл устгагдлаа" });

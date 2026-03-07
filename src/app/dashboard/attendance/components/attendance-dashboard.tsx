@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where, collectionGroup } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, where, collectionGroup } from 'firebase/firestore';
 import { format, isWithinInterval } from 'date-fns';
 import { UserCheck, CalendarCheck2, UserX, Clock, FileBarChart } from 'lucide-react';
 import { isActiveStatus } from '@/types';
@@ -36,14 +36,14 @@ export function AttendanceDashboard() {
   const today = new Date();
 
   const employeesQuery = useMemoFirebase(
-    ({ firestore }) => (firestore ? collection(firestore, 'employees') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null),
     []
   );
   const attendanceQuery = useMemoFirebase(
-    ({ firestore }) =>
+    ({ firestore, companyPath }) =>
       firestore
         ? query(
-            collection(firestore, 'attendance'),
+            tenantCollection(firestore, companyPath, 'attendance'),
             where('date', '==', todayStr)
           )
         : null,

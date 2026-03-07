@@ -1,11 +1,12 @@
 import { collection, query, where, getDocs, Timestamp, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { ERWorkflow, ERDocumentType, ERTemplate } from './types';
 import { addDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { tenantDoc, tenantCollection } from '@/firebase/tenant-helpers';
 
 // Using the same firebase instance as the app
 import { initializeFirebase } from '@/firebase';
 
-export async function seedDemoData() {
+export async function seedDemoData(companyPath: string | null = null) {
     const { firestore } = initializeFirebase();
     if (!firestore) throw new Error("Firestore not initialized");
 
@@ -44,7 +45,7 @@ export async function seedDemoData() {
     };
 
     // Check if exists
-    const wfQuery = query(collection(firestore, 'er_workflows'), where('name', '==', workflowData.name));
+    const wfQuery = query(tenantCollection(firestore, companyPath, 'er_workflows'), where('name', '==', workflowData.name));
     const wfSnap = await getDocs(wfQuery);
 
     let workflowId = '';
@@ -52,7 +53,7 @@ export async function seedDemoData() {
         console.log("Workflow already exists");
         workflowId = wfSnap.docs[0].id;
     } else {
-        const docRef = await addDoc(collection(firestore, 'er_workflows'), workflowData);
+        const docRef = await addDoc(tenantCollection(firestore, companyPath, 'er_workflows'), workflowData);
         workflowId = docRef.id;
         console.log("Workflow created", workflowId);
     }
@@ -67,19 +68,18 @@ export async function seedDemoData() {
         updatedAt: Timestamp.now()
     };
 
-    const typeQuery = query(collection(firestore, 'er_process_document_types'), where('code', '==', typeData.code));
+    const typeQuery = query(tenantCollection(firestore, companyPath, 'er_process_document_types'), where('code', '==', typeData.code));
     const typeSnap = await getDocs(typeQuery);
 
     let typeId = '';
     if (!typeSnap.empty) {
         console.log("Document Type already exists");
         typeId = typeSnap.docs[0].id;
-        // Ensure workflow is linked
         if (typeSnap.docs[0].data().workflowId !== workflowId) {
-            await updateDocumentNonBlocking(doc(firestore, 'er_process_document_types', typeId), { workflowId });
+            await updateDocumentNonBlocking(tenantDoc(firestore, companyPath, 'er_process_document_types', typeId), { workflowId });
         }
     } else {
-        const docRef = await addDoc(collection(firestore, 'er_process_document_types'), typeData);
+        const docRef = await addDoc(tenantCollection(firestore, companyPath, 'er_process_document_types'), typeData);
         typeId = docRef.id;
         console.log("Document Type created", typeId);
     }
@@ -112,11 +112,11 @@ ____________________                     {{employee.firstName}}
         updatedAt: Timestamp.now()
     };
 
-    const tmplQuery = query(collection(firestore, 'er_templates'), where('name', '==', templateData.name));
+    const tmplQuery = query(tenantCollection(firestore, companyPath, 'er_templates'), where('name', '==', templateData.name));
     const tmplSnap = await getDocs(tmplQuery);
 
     if (tmplSnap.empty) {
-        await addDoc(collection(firestore, 'er_templates'), templateData);
+        await addDoc(tenantCollection(firestore, companyPath, 'er_templates'), templateData);
         console.log("Template created");
     } else {
         console.log("Template already exists");
@@ -292,18 +292,16 @@ const SYSTEM_TEMPLATES = [
  * Safe to call multiple times – only creates if missing.
  * Also links the created templates to organization_actions if not yet configured.
  */
-export async function ensureSystemTemplates() {
+export async function ensureSystemTemplates(companyPath: string | null = null) {
     const { firestore } = initializeFirebase();
     if (!firestore) throw new Error('Firestore not initialized');
 
-    // First, ensure a default workflow exists (reuse if any exists)
-    const wfSnap = await getDocs(query(collection(firestore, 'er_workflows'), where('isActive', '==', true)));
+    const wfSnap = await getDocs(query(tenantCollection(firestore, companyPath, 'er_workflows'), where('isActive', '==', true)));
     let defaultWorkflowId = '';
     if (!wfSnap.empty) {
         defaultWorkflowId = wfSnap.docs[0].id;
     } else {
-        // Create a minimal workflow
-        const wfRef = await addDoc(collection(firestore, 'er_workflows'), {
+        const wfRef = await addDoc(tenantCollection(firestore, companyPath, 'er_workflows'), {
             name: 'Томилгоо батлах',
             description: 'Томилгооны баримт батлах урсгал',
             steps: [
@@ -321,24 +319,22 @@ export async function ensureSystemTemplates() {
     for (const sys of SYSTEM_TEMPLATES) {
         // 1. Check if template with this code already exists
         const tmplSnap = await getDocs(
-            query(collection(firestore, 'er_templates'), where('isSystem', '==', true), where('name', '==', sys.templateName))
+            query(tenantCollection(firestore, companyPath, 'er_templates'), where('isSystem', '==', true), where('name', '==', sys.templateName))
         );
         if (!tmplSnap.empty) {
             console.log(`System template "${sys.templateName}" already exists`);
-            // Still ensure organization_action is linked
-            await linkOrgAction(firestore, sys.actionId, tmplSnap.docs[0].id);
+            await linkOrgAction(firestore, companyPath, sys.actionId, tmplSnap.docs[0].id);
             continue;
         }
 
-        // 2. Ensure document type exists
         const dtSnap = await getDocs(
-            query(collection(firestore, 'er_process_document_types'), where('code', '==', sys.docTypeCode))
+            query(tenantCollection(firestore, companyPath, 'er_process_document_types'), where('code', '==', sys.docTypeCode))
         );
         let docTypeId = '';
         if (!dtSnap.empty) {
             docTypeId = dtSnap.docs[0].id;
         } else {
-            const dtRef = await addDoc(collection(firestore, 'er_process_document_types'), {
+            const dtRef = await addDoc(tenantCollection(firestore, companyPath, 'er_process_document_types'), {
                 name: sys.docTypeName,
                 code: sys.docTypeCode,
                 prefix: sys.docTypePrefix,
@@ -350,8 +346,7 @@ export async function ensureSystemTemplates() {
             docTypeId = dtRef.id;
         }
 
-        // 3. Create the system template
-        const tmplRef = await addDoc(collection(firestore, 'er_templates'), {
+        const tmplRef = await addDoc(tenantCollection(firestore, companyPath, 'er_templates'), {
             name: sys.templateName,
             documentTypeId: docTypeId,
             content: sys.templateContent,
@@ -367,15 +362,13 @@ export async function ensureSystemTemplates() {
 
         console.log(`System template "${sys.templateName}" created (${tmplRef.id})`);
 
-        // 4. Link to organization_action if not yet configured
-        await linkOrgAction(firestore, sys.actionId, tmplRef.id);
+        await linkOrgAction(firestore, companyPath, sys.actionId, tmplRef.id);
     }
 
     return true;
 }
 
-/** Link a system template to an organization_action (only if not already configured) */
-async function linkOrgAction(firestore: any, actionId: string, templateId: string) {
+async function linkOrgAction(firestore: any, companyPath: string | null, actionId: string, templateId: string) {
     const ACTION_NAMES: Record<string, string> = {
         'appointment_probation': 'Туршилтын хугацаатай томилох',
         'appointment_permanent': 'Үндсэн ажилтнаар томилох',
@@ -384,7 +377,7 @@ async function linkOrgAction(firestore: any, actionId: string, templateId: strin
         'release_company': 'Компанийн санаачилгаар чөлөөлөх',
         'release_employee': 'Ажилтны хүсэлтээр чөлөөлөх',
     };
-    const actionRef = doc(firestore, 'organization_actions', actionId);
+    const actionRef = tenantDoc(firestore, companyPath, 'organization_actions', actionId);
     const actionSnap = await getDoc(actionRef);
     if (!actionSnap.exists() || !actionSnap.data()?.templateId) {
         await setDoc(actionRef, {

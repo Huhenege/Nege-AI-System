@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
+import { useUser, useDoc, useFirebase, useMemoFirebase, tenantDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
 import { Employee } from '@/types';
@@ -13,7 +13,7 @@ export const useEmployeeProfile = () => {
   const { user, isUserLoading, userError } = useUser();
 
   const employeeDocRef = useMemoFirebase(
-    ({ firestore, user: memoizedUser }) => (firestore && memoizedUser ? doc(firestore, 'employees', memoizedUser.uid) : null),
+    ({ firestore, user: memoizedUser, companyPath }) => (firestore && memoizedUser ? tenantDoc(firestore, companyPath, 'employees', memoizedUser.uid) : null),
     []
   );
 

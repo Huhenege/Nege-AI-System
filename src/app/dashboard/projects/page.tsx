@@ -23,8 +23,8 @@ import {
     Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, collectionGroup, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { collectionGroup, query, orderBy } from 'firebase/firestore';
 import { Project, ProjectStatus, ProjectGroup } from '@/types/project';
 import { Employee } from '@/types';
 import { CreateProjectDialog } from './components/create-project-dialog';
@@ -49,8 +49,8 @@ export default function ProjectsPage() {
 
     // Fetch projects
     const projectsQuery = useMemoFirebase(
-        () => firestore 
-            ? query(collection(firestore, 'projects'), orderBy('createdAt', 'desc')) 
+        ({ firestore, companyPath }) => firestore 
+            ? query(tenantCollection(firestore, companyPath, 'projects'), orderBy('createdAt', 'desc')) 
             : null,
         [firestore]
     );
@@ -58,7 +58,7 @@ export default function ProjectsPage() {
 
     // Fetch project groups
     const groupsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'project_groups'), orderBy('name', 'asc')) : null,
+        ({ firestore, companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'project_groups'), orderBy('name', 'asc')) : null,
         [firestore]
     );
     const { data: groups, isLoading: isLoadingGroups } = useCollection<ProjectGroup>(groupsQuery as any);
@@ -88,7 +88,7 @@ export default function ProjectsPage() {
 
     // Fetch employees for owner display
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);

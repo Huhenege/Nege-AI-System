@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useTenantWrite } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -63,6 +63,7 @@ interface VacancyGroup {
 export default function MobileEvaluationsPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { user, employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
     const mobileContainer = useMobileContainer();
@@ -333,7 +334,7 @@ export default function MobileEvaluationsPage() {
         try {
             const averageScore = criteria.reduce((sum, c) => sum + c.score, 0) / (criteria.length || 1);
 
-            const scorecardDoc = await addDoc(collection(firestore, 'scorecards'), {
+            const scorecardDoc = await addDoc(tCollection('scorecards'), {
                 applicationId: activeRequest.applicationId,
                 candidateId: activeRequest.candidateId,
                 interviewerId: user.uid,
@@ -345,13 +346,13 @@ export default function MobileEvaluationsPage() {
                 createdAt: new Date().toISOString(),
             });
 
-            await updateDoc(doc(firestore, 'evaluation_requests', activeRequest.id), {
+            await updateDoc(tDoc('evaluation_requests', activeRequest.id), {
                 status: 'completed',
                 scorecardId: scorecardDoc.id,
                 completedAt: new Date().toISOString(),
             });
 
-            await addDoc(collection(firestore, 'application_events'), {
+            await addDoc(tCollection('application_events'), {
                 applicationId: activeRequest.applicationId,
                 type: 'EVALUATION_COMPLETED',
                 stageId: activeRequest.stageId,
@@ -398,7 +399,7 @@ export default function MobileEvaluationsPage() {
                 : (user.displayName || 'Ажилтан');
             const authorPhotoURL = employeeProfile?.photoURL ?? (user as any).photoURL ?? null;
             const stageId = selectedCandidate.application?.currentStageId || null;
-            const noteDoc = await addDoc(collection(firestore, 'application_notes'), {
+            const noteDoc = await addDoc(tCollection('application_notes'), {
                 applicationId: selectedCandidate.applicationId,
                 stageId,
                 authorId: user.uid,

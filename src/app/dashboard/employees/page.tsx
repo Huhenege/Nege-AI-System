@@ -17,8 +17,8 @@ import {
   Eye
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { Employee, Department, Position, EMPLOYEE_STATUS_LABELS } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeleteEmployeeDialog } from './delete-employee-dialog';
@@ -56,18 +56,18 @@ export default function EmployeesPage() {
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [deptFilter, setDeptFilter] = React.useState<string>("all");
 
-  const employeesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'employees') : null), []);
-  const departmentsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'departments') : null), []);
-  const positionsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'positions') : null), []);
-  const documentsQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'documents') : null), []);
-  const onboardingQuery = useMemoFirebase(
-    ({ firestore }) => (firestore ? query(collection(firestore, 'onboarding_processes'), where('status', '==', 'IN_PROGRESS')) : null),
-    []
-  );
-  const offboardingQuery = useMemoFirebase(
-    ({ firestore }) => (firestore ? query(collection(firestore, 'projects'), where('type', '==', 'offboarding')) : null),
-    []
-  );
+  const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+    tenantCollection(firestore, companyPath, 'employees'), []);
+  const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+    tenantCollection(firestore, companyPath, 'departments'), []);
+  const positionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+    tenantCollection(firestore, companyPath, 'positions'), []);
+  const documentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+    tenantCollection(firestore, companyPath, 'documents'), []);
+  const onboardingQuery = useMemoFirebase(({ firestore, companyPath }) =>
+    query(tenantCollection(firestore, companyPath, 'onboarding_processes'), where('status', '==', 'IN_PROGRESS')), []);
+  const offboardingQuery = useMemoFirebase(({ firestore, companyPath }) =>
+    query(tenantCollection(firestore, companyPath, 'projects'), where('type', '==', 'offboarding')), []);
 
   const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
   const { data: departments, isLoading: isLoadingDepartments, error: errorDepartments } = useCollection<Department>(departmentsQuery);

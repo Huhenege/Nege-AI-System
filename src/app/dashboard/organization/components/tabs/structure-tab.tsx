@@ -27,6 +27,8 @@ import {
     updateDocumentNonBlocking,
     deleteDocumentNonBlocking,
     useDoc,
+    tenantDoc,
+    useTenantWrite,
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -61,16 +63,17 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
     const router = useRouter();
 
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
 
     const onDepartmentUpdate = async (id: string, data: Partial<Department>) => {
         if (!firestore) return;
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'departments', id), data);
+            await updateDocumentNonBlocking(tDoc('departments', id), data);
         } catch (error) {
             console.error("Error updating department:", error);
         }
     }
-    const companyProfileQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
+    const companyProfileQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), [firestore]);
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileQuery as any);
 
     // Apply filters
@@ -155,7 +158,7 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
 
     const handleDeleteDepartment = (deptId: string) => {
         if (!firestore) return;
-        const docRef = doc(firestore, 'departments', deptId);
+        const docRef = tDoc('departments', deptId);
         deleteDocumentNonBlocking(docRef);
     }
 

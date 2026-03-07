@@ -1,4 +1,5 @@
 import { Firestore, doc, getDoc, runTransaction } from 'firebase/firestore';
+import { tenantDoc } from '@/firebase/tenant-helpers';
 import { ERDocumentType, NumberingConfig } from '../types';
 
 const DEFAULT_NUMBERING_CONFIG: NumberingConfig = {
@@ -83,9 +84,10 @@ function shouldResetCounter(
  */
 export async function getNextDocumentNumber(
     firestore: Firestore,
-    documentTypeId: string
+    documentTypeId: string,
+    companyPath: string | null = null
 ): Promise<string> {
-    const docTypeRef = doc(firestore, 'er_process_document_types', documentTypeId);
+    const docTypeRef = tenantDoc(firestore, companyPath, 'er_process_document_types', documentTypeId);
     
     return await runTransaction(firestore, async (transaction) => {
         const docTypeSnap = await transaction.get(docTypeRef);
@@ -148,9 +150,10 @@ export async function getNextDocumentNumber(
  */
 export async function getDocumentType(
     firestore: Firestore,
-    documentTypeId: string
+    documentTypeId: string,
+    companyPath: string | null = null
 ): Promise<ERDocumentType | null> {
-    const docTypeRef = doc(firestore, 'er_process_document_types', documentTypeId);
+    const docTypeRef = tenantDoc(firestore, companyPath, 'er_process_document_types', documentTypeId);
     const docTypeSnap = await getDoc(docTypeRef);
     
     if (!docTypeSnap.exists()) {

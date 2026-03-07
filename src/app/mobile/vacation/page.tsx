@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useDoc } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useDoc, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { collection, query, where, orderBy, doc, collectionGroup, DocumentReference } from 'firebase/firestore';
+import { query, where, orderBy, collectionGroup, DocumentReference } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -79,6 +79,7 @@ export default function MobileVacationPage() {
     const router = useRouter();
     const { toast } = useToast();
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
 
     const [isRequestOpen, setIsRequestOpen] = React.useState(false);
@@ -100,7 +101,7 @@ export default function MobileVacationPage() {
     const [splits, setSplits] = React.useState<VacationSplit[]>([{ start: '', end: '', days: 0 }]);
 
     // Fetch Vacation Config
-    const vacationConfigRef = useMemoFirebase(({ firestore }) => (firestore ? doc(firestore, 'company', 'vacationConfig') as DocumentReference<{ maxSplits: number }> : null), []);
+    const vacationConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'vacationConfig') as DocumentReference<{ maxSplits: number }> : null), []);
     const { data: vacationConfig } = useDoc<{ maxSplits: number }>(vacationConfigRef);
     const maxSplits = vacationConfig?.maxSplits || 3;
 
@@ -121,15 +122,15 @@ export default function MobileVacationPage() {
 
     // Fetch company work calendar (single source of truth for working/non-working days)
     const workCalendarRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? (doc(firestore, 'workCalendars', 'default') as DocumentReference<any>) : null),
+        ({ firestore, companyPath }) => (firestore ? (tenantDoc(firestore, companyPath, 'workCalendars', 'default') as DocumentReference<any>) : null),
         [firestore]
     );
     const { data: workCalendar, isLoading: isWorkCalendarLoading } = useDoc<WorkCalendar>(workCalendarRef);
     const recurringDayMap = React.useMemo(() => buildRecurringDayMap(workCalendar), [workCalendar]);
 
     // Fetch current employee's position to check for approval rights
-    const myPositionQuery = useMemoFirebase(() =>
-        employeeProfile?.positionId ? doc(firestore!, 'positions', employeeProfile.positionId) as DocumentReference<Position> : null
+    const myPositionQuery = useMemoFirebase(({ companyPath }) =>
+        employeeProfile?.positionId ? tenantDoc(firestore!, companyPath, 'positions', employeeProfile.positionId) as DocumentReference<Position> : null
         , [firestore, employeeProfile?.positionId]);
     const { data: myPosition, isLoading: isPositionLoading } = useDoc<Position>(myPositionQuery);
 
@@ -153,9 +154,9 @@ export default function MobileVacationPage() {
     }, [employeeProfile?.hireDate]);
 
     // Query: User's own requests
-    const myRequestsQuery = useMemoFirebase(() =>
+    const myRequestsQuery = useMemoFirebase(({ companyPath }) =>
         employeeProfile ? query(
-            collection(firestore!, `employees/${employeeProfile.id}/vacationRequests`),
+            tenantCollection(firestore!, companyPath, `employees/${employeeProfile.id}/vacationRequests`),
             orderBy('startDate', 'desc')
         ) : null
         , [firestore, employeeProfile]);
@@ -198,7 +199,7 @@ export default function MobileVacationPage() {
         , [allAssignedRequests]);
 
     // Query: All employees (for names)
-    const employeesQuery = useMemoFirebase(() => collection(firestore!, 'employees'), [firestore]);
+    const employeesQuery = useMemoFirebase(({ companyPath }) => tenantCollection(firestore!, companyPath, 'employees'), [firestore]);
     const { data: allEmployees } = useCollection<Employee>(employeesQuery);
     const employeeMap = React.useMemo(() => {
         const map = new Map<string, Employee>();
@@ -208,11 +209,11 @@ export default function MobileVacationPage() {
 
     // Approver choices for the form (Vacation approval rights)
     // Some positions store the flag at root `canApproveVacation`, others under `permissions.canApproveVacation`.
-    const approverPositionsQueryRoot = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'positions'), where('canApproveVacation', '==', true)) : null
+    const approverPositionsQueryRoot = useMemoFirebase(({ companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'positions'), where('canApproveVacation', '==', true)) : null
         , [firestore]);
-    const approverPositionsQueryPermissions = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'positions'), where('permissions.canApproveVacation', '==', true)) : null
+    const approverPositionsQueryPermissions = useMemoFirebase(({ companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'positions'), where('permissions.canApproveVacation', '==', true)) : null
         , [firestore]);
 
     const { data: approverPositionsRoot } = useCollection<Position>(approverPositionsQueryRoot);
@@ -423,7 +424,7 @@ export default function MobileVacationPage() {
                 toast({ variant: "destructive", title: "Илгээсэн хүсэлтийг засах боломжгүй", description: "Шинэ хүсэлт үүсгэж илгээнэ үү." });
                 return;
             }
-            await addDocumentNonBlocking(collection(firestore!, `employees/${employeeProfile.id}/vacationRequests`), requestData);
+            await addDocumentNonBlocking(tCollection('employees', employeeProfile.id, 'vacationRequests'), requestData);
 
             toast({ title: "Хүсэлтүүдийг илгээлээ" });
             setIsPlanning(false);
@@ -451,7 +452,7 @@ export default function MobileVacationPage() {
         });
 
         try {
-            const docRef = doc(firestore, 'employees', req.employeeId, 'vacationRequests', req.id);
+            const docRef = tDoc('employees', req.employeeId, 'vacationRequests', req.id);
             const updateData: any = {
                 status: newStatus,
                 decisionAt: newStatus === 'PENDING' ? null : new Date().toISOString(),
@@ -512,7 +513,7 @@ export default function MobileVacationPage() {
         const req = requestToCancel;
         setIsSubmitting(true);
         try {
-            const docRef = doc(firestore, 'employees', employeeProfile.id, 'vacationRequests', req.id);
+            const docRef = tDoc('employees', employeeProfile.id, 'vacationRequests', req.id);
             const nowIso = new Date().toISOString();
             await updateDocumentNonBlocking(docRef, {
                 status: 'CANCELLED',

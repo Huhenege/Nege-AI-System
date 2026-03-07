@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
-import { useCollection, useDoc, useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirebase, setDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { ERWorkflow } from '../../../employment-relations/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 
 export function ProcessWorkflowSettings() {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
 
     // Fetch available workflows
@@ -28,10 +29,10 @@ export function ProcessWorkflowSettings() {
     const { data: settings, isLoading: settingsLoading } = useDoc<any>(settingsRef);
 
     const handleUpdateWorkflow = async (processKey: string, workflowId: string) => {
-        if (!firestore || !settingsRef) return;
+        if (!firestore) return;
 
         try {
-            await setDocumentNonBlocking(settingsRef, {
+            await setDocumentNonBlocking(tDoc('organization_settings', 'workflows'), {
                 [processKey]: workflowId,
                 updatedAt: new Date().toISOString()
             }, { merge: true });

@@ -23,8 +23,7 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useDoc, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, X, Upload, Building, ArrowLeft, Trash, Image as ImageIcon, FileText, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -120,8 +119,8 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
     const certificateBackInputRef = React.useRef<HTMLInputElement>(null);
 
     const companyProfileRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'profile') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
+        []
     );
 
     const form = useForm<CompanyProfileFormValues>({
@@ -719,8 +718,8 @@ export default function EditCompanyPage() {
     const { firestore } = useFirebase();
 
     const companyProfileRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'profile') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
+        []
     );
 
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfileFormValues>(companyProfileRef as any);

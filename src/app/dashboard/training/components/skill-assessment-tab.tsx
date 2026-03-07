@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { collection, doc, query, where } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, addDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useFirebase, useCollection, useDoc, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/patterns/empty-state';
@@ -38,6 +38,7 @@ export function SkillAssessmentTab({
     onAssignTraining,
 }: SkillAssessmentTabProps) {
     const { firestore, user } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
     const [assessDialogOpen, setAssessDialogOpen] = useState(false);
@@ -106,7 +107,7 @@ export function SkillAssessmentTab({
             notes: values.notes,
         };
 
-        addDocumentNonBlocking(collection(firestore, 'skill_assessments'), data);
+        addDocumentNonBlocking(tCollection('skill_assessments'), data);
         toast({ title: 'Үнэлгээ хадгалагдлаа', description: `${values.skillName}: ${SKILL_LEVEL_LABELS[values.currentLevel]}` });
     };
 

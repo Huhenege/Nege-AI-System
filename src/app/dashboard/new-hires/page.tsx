@@ -21,8 +21,7 @@ import type { NewHire, OnboardingStage } from './data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const calculateProgress = (stages: OnboardingStage[]) => {
@@ -35,7 +34,7 @@ const calculateProgress = (stages: OnboardingStage[]) => {
 
 export default function NewHiresPage() {
   const newHiresQuery = useMemoFirebase(
-    ({firestore}) => (firestore ? collection(firestore, 'newHires') : null),
+    ({firestore, companyPath}) => (firestore ? tenantCollection(firestore, companyPath, 'newHires') : null),
     []
   );
   const { data: newHires, isLoading: isLoadingHires } =

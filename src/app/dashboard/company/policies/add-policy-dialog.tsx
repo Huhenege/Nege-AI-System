@@ -40,8 +40,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Upload, File as FileIcon, Search, Calendar as CalendarIcon, Video } from 'lucide-react';
 import { CompanyPolicy, Position } from './types';
@@ -91,6 +90,7 @@ export function AddPolicyDialog({
     positions,
 }: AddPolicyDialogProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const isEditMode = !!editingPolicy;
     const [isUploading, setIsUploading] = React.useState(false);
@@ -99,11 +99,6 @@ export function AddPolicyDialog({
     const [videoFileName, setVideoFileName] = React.useState<string | null>(null);
     const [deptSearch, setDeptSearch] = React.useState('');
     const [posSearch, setPosSearch] = React.useState('');
-
-    const policiesCollectionRef = React.useMemo(
-        () => (firestore ? collection(firestore, 'companyPolicies') : null),
-        [firestore]
-    );
 
     const form = useForm<PolicyFormValues>({
         resolver: zodResolver(policySchema),
@@ -226,7 +221,8 @@ export function AddPolicyDialog({
     };
 
     const onSubmit = (data: PolicyFormValues) => {
-        if (!policiesCollectionRef || !firestore) return;
+        const policiesCollectionRef = tCollection('companyPolicies');
+        if (!firestore) return;
 
         // Clear the non-selected type's IDs
         const finalData = {
@@ -237,11 +233,11 @@ export function AddPolicyDialog({
         };
 
         if (isEditMode && editingPolicy) {
-            const docRef = doc(firestore, 'companyPolicies', editingPolicy.id);
+            const docRef = tDoc('companyPolicies', editingPolicy.id);
             updateDocumentNonBlocking(docRef, finalData);
             toast({ title: 'Амжилттай шинэчлэгдлээ' });
         } else {
-            addDocumentNonBlocking(policiesCollectionRef, finalData);
+            addDocumentNonBlocking(tCollection('companyPolicies'), finalData);
             toast({ title: 'Шинэ журам амжилттай нэмэгдлээ' });
         }
 

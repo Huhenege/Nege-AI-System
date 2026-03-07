@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Position } from '../../../types';
 import { doc } from 'firebase/firestore';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { CurrencyInput } from './currency-input';
 import { FieldCard } from '@/components/organization/field-card';
@@ -45,6 +45,7 @@ export function PositionBenefits({
     position
 }: PositionBenefitsProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
 
     const [editAllowances, setEditAllowances] = useState<any[]>(position.allowances || []);
@@ -76,7 +77,7 @@ export function PositionBenefits({
             toast({ title: 'Алдаа', description: 'Хангамжийн дүн 0-ээс бага байж болохгүй', variant: 'destructive' });
             return;
         }
-        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+        await updateDocumentNonBlocking(tDoc('positions', position.id), {
             allowances: editAllowances.filter(al => al.type),
             updatedAt: new Date().toISOString(),
         });

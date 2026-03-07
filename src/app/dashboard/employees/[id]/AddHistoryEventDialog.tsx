@@ -39,8 +39,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, Loader2, Upload, File, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useFirebase, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, useMemoFirebase, tenantCollection } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -85,16 +84,16 @@ export function AddHistoryEventDialog({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const historyCollectionRef = useMemoFirebase(
-    () =>
+    ({ firestore, companyPath }) =>
       firestore
-        ? collection(firestore, `employees/${employeeId}/employmentHistory`)
+        ? tenantCollection(firestore, companyPath, `employees/${employeeId}/employmentHistory`)
         : null,
-    [firestore, employeeId]
+    [employeeId]
   );
 
   const documentsCollectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'documents') : null),
-    [firestore]
+    ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'documents') : null),
+    []
   );
 
   const form = useForm<HistoryEventFormValues>({

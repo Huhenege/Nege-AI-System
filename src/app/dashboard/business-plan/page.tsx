@@ -3,7 +3,7 @@
 
 import React, { useMemo } from 'react';
 import { collection, doc, query, orderBy, where } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
@@ -86,14 +86,15 @@ export default function BusinessPlanPage() {
     );
 
     // Company profile (vision, mission, values — read-only)
-    const companyProfileRef = useMemoFirebase(() =>
-        firestore ? doc(firestore, 'company', 'profile') : null,
+    const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null,
         [firestore]
     );
-    const coreValuesQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null,
-        [firestore]
-    );
+    const coreValuesQuery = useMemoFirebase(({ firestore, companyPath }) => {
+        if (!firestore) return null;
+        const basePath = companyPath ? `${companyPath}/company` : 'company';
+        return query(collection(firestore, basePath, 'branding', 'values'), orderBy('createdAt', 'asc'));
+    }, []);
 
     // ── Data ─────────────────────────────────────────
     const { data: companyProfile } = useDoc<CompanyProfile>(companyProfileRef);

@@ -2,8 +2,8 @@
 
 import React, { useMemo, use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { doc, collection, getDoc } from 'firebase/firestore';
-import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { getDoc, collection } from 'firebase/firestore';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -199,21 +199,22 @@ export default function SurveyResultsPage({ params }: { params: Promise<{ id: st
     const { id } = use(params);
     const router = useRouter();
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
 
     const surveyRef = useMemoFirebase(
-        () => firestore ? doc(firestore, 'surveys', id) : null,
+        ({ firestore, companyPath }) => firestore ? tenantDoc(firestore, companyPath, 'surveys', id) : null,
         [firestore, id]
     );
     const { data: survey, isLoading: surveyLoading } = useDoc<Survey>(surveyRef);
 
     const questionsQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'surveys', id, 'questions') : null,
+        ({ firestore, companyPath }) => firestore ? collection(firestore, companyPath ? `${companyPath}/surveys` : 'surveys', id, 'questions') : null,
         [firestore, id]
     );
     const { data: rawQuestions, isLoading: questionsLoading } = useCollection<SurveyQuestion>(questionsQuery);
 
     const responsesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'surveys', id, 'responses') : null,
+        ({ firestore, companyPath }) => firestore ? collection(firestore, companyPath ? `${companyPath}/surveys` : 'surveys', id, 'responses') : null,
         [firestore, id]
     );
     const { data: responses, isLoading: responsesLoading } = useCollection<SurveyResponse>(responsesQuery);
@@ -235,7 +236,7 @@ export default function SurveyResultsPage({ params }: { params: Promise<{ id: st
 
         Promise.all(
             missing.map(async (eid) => {
-                const snap = await getDoc(doc(firestore, 'employees', eid));
+                const snap = await getDoc(tDoc('employees', eid));
                 return snap.exists() ? { id: snap.id, ...snap.data() } as Employee : null;
             })
         ).then(results => {

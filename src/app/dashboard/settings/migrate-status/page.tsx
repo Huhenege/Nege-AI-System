@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useFirebase } from '@/firebase';
-import { collection, getDocs, doc, writeBatch, query, where } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { getDocs, writeBatch, query, where } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle2, AlertTriangle, Trash2 } from 'lucide-react';
 
 export default function CleanupCandidateEmployeesPage() {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const [running, setRunning] = useState(false);
     const [previewing, setPreviewing] = useState(false);
     const [preview, setPreview] = useState<{ employeeId: string; name: string; candidateId?: string; applicationIds: string[] }[] | null>(null);
@@ -22,12 +23,12 @@ export default function CleanupCandidateEmployeesPage() {
         setPreview(null);
 
         try {
-            const empQuery = query(collection(firestore, 'employees'), where('status', '==', 'candidate'));
+            const empQuery = query(tCollection('employees'), where('status', '==', 'candidate'));
             const empSnap = await getDocs(empQuery);
 
             const items = await Promise.all(empSnap.docs.map(async (empDoc) => {
                 const data = empDoc.data();
-                const appQuery = query(collection(firestore, 'applications'), where('employeeId', '==', empDoc.id));
+                const appQuery = query(tCollection('applications'), where('employeeId', '==', empDoc.id));
                 const appSnap = await getDocs(appQuery);
                 return {
                     employeeId: empDoc.id,
@@ -57,11 +58,11 @@ export default function CleanupCandidateEmployeesPage() {
             let clearedApplications = 0;
 
             for (const item of preview) {
-                batch.delete(doc(firestore, 'employees', item.employeeId));
+                batch.delete(tDoc('employees', item.employeeId));
                 deletedEmployees++;
 
                 for (const appId of item.applicationIds) {
-                    batch.update(doc(firestore, 'applications', appId), { employeeId: null });
+                    batch.update(tDoc('applications', appId), { employeeId: null });
                     clearedApplications++;
                 }
             }

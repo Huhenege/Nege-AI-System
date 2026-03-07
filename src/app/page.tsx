@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirebase, useMemoFirebase, useDoc } from '@/firebase';
+import { useUser, useFirebase, useMemoFirebase, useDoc, tenantDoc } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { RoleChoiceDialog } from '@/components/role-choice-dialog';
@@ -18,7 +18,7 @@ export default function Home() {
 
   // Fetch company profile for dialog
   const companyProfileRef = useMemoFirebase(
-    ({ firestore }) => (firestore ? doc(firestore, 'company', 'profile') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
     []
   );
   const { data: companyProfile } = useDoc(companyProfileRef);

@@ -1,7 +1,7 @@
 'use client';
 
-import { useCollection, useAuth, useFirestore } from '@/firebase';
-import { collection, query, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { useCollection, useAuth, useFirestore, useTenantWrite } from '@/firebase';
+import { query, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { RecognitionPost } from '@/types/points'; // We'll need to update this type to include expandable fields if we join data client-side
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { useEffect, useState, useMemo } from 'react';
 // Component to rendering a single post
 function FeedCard({ post }: { post: RecognitionPost }) {
     const firestore = useFirestore();
+    const { tDoc } = useTenantWrite();
 
     const [sender, setSender] = useState<any>(null);
     const [receivers, setReceivers] = useState<any[]>([]);
@@ -24,19 +25,19 @@ function FeedCard({ post }: { post: RecognitionPost }) {
 
         // Fetch sender
         if (post.fromUserId) {
-            getDoc(doc(firestore, 'employees', post.fromUserId)).then(s => setSender(s.data()));
+            getDoc(tDoc('employees', post.fromUserId)).then(s => setSender(s.data()));
         }
         // Fetch receivers (just taking first one for now if multiple)
         if (post.toUserId && post.toUserId.length > 0) {
-            Promise.all(post.toUserId.map(id => getDoc(doc(firestore, 'employees', id)))).then(snaps => {
+            Promise.all(post.toUserId.map(id => getDoc(tDoc('employees', id)))).then(snaps => {
                 setReceivers(snaps.map(s => s.data()));
             });
         }
         // Fetch value
         if (post.valueId) {
-            getDoc(doc(firestore, 'company', 'branding', 'values', post.valueId)).then(v => setValueData(v.data()));
+            getDoc(tDoc('company', 'branding', 'values', post.valueId)).then(v => setValueData(v.data()));
         }
-    }, [post, firestore]);
+    }, [post, firestore, tDoc]);
 
     if (!sender || receivers.length === 0) return <div className="animate-pulse h-40 bg-muted/20 rounded-xl mb-4" />;
 
@@ -93,7 +94,8 @@ function FeedCard({ post }: { post: RecognitionPost }) {
 // Main Feed Container
 export function RecognitionFeed() {
     const firestore = useFirestore();
-    const postsQuery = useMemo(() => firestore ? query(collection(firestore, 'recognition_posts'), orderBy('createdAt', 'desc'), limit(20)) : null, [firestore]);
+    const { tCollection } = useTenantWrite();
+    const postsQuery = useMemo(() => firestore ? query(tCollection('recognition_posts'), orderBy('createdAt', 'desc'), limit(20)) : null, [firestore, tCollection]);
     const { data: posts, isLoading } = useCollection<RecognitionPost>(postsQuery);
 
     if (isLoading) return <div className="py-10 text-center text-muted-foreground">Ачааллаж байна...</div>;

@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { collection, doc } from 'firebase/firestore';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +39,7 @@ export function RewardsTab({
     activePlan, reviews, scores, rewards, employees, isLoading,
 }: RewardsTabProps) {
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingReward, setEditingReward] = useState<Reward | null>(null);
@@ -79,13 +79,13 @@ export function RewardsTab({
             proposedByName: 'Админ',
             createdAt: new Date().toISOString(),
         };
-        addDocumentNonBlocking(collection(firestore, 'bp_rewards'), data);
+        addDocumentNonBlocking(tCollection('bp_rewards'), data);
         toast({ title: 'Урамшуулал бүртгэгдлээ', description: data.employeeName });
     };
 
     const handleUpdate = (values: RewardFormValues) => {
         if (!firestore || !editingReward) return;
-        updateDocumentNonBlocking(doc(firestore, 'bp_rewards', editingReward.id), values);
+        updateDocumentNonBlocking(tDoc('bp_rewards', editingReward.id), values);
         toast({ title: 'Урамшуулал шинэчлэгдлээ' });
         setEditingReward(null);
     };

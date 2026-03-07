@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Plus, Trash2, Pencil, Info, LogOut, ClipboardList, Calculator, MessageSquare } from 'lucide-react';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, setDoc, query, collection, orderBy } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { setDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -102,14 +102,15 @@ const STAGE_ICONS: Record<string, React.ElementType> = {
 
 export default function OffboardingSettingsPage() {
   const { firestore } = useFirebase();
+  const { tDoc } = useTenantWrite();
   const { toast } = useToast();
 
-  const configRef = useMemoFirebase(() => (firestore ? doc(firestore, 'settings', 'offboarding') : null), [firestore]);
+  const configRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'settings', 'offboarding') : null), [firestore]);
   const { data: config, isLoading } = useDoc<any>(configRef as any);
 
   // Fetch policies for selection
-  const policiesQuery = useMemoFirebase(() =>
-    (firestore ? query(collection(firestore, 'companyPolicies'), orderBy('title', 'asc')) : null),
+  const policiesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+    (firestore ? query(tenantCollection(firestore, companyPath, 'companyPolicies'), orderBy('title', 'asc')) : null),
     [firestore]);
   const { data: policies } = useCollection<any>(policiesQuery);
 
@@ -126,7 +127,7 @@ export default function OffboardingSettingsPage() {
     if (config && config.stages) {
       setStages(config.stages);
     } else if (config === null && firestore) {
-      setDoc(doc(firestore, 'settings', 'offboarding'), { stages: DEFAULT_STAGES })
+      setDoc(tDoc('settings', 'offboarding'), { stages: DEFAULT_STAGES })
         .catch((err) => console.error('Failed to initialize default offboarding stages:', err));
     }
   }, [config, firestore]);
@@ -134,7 +135,7 @@ export default function OffboardingSettingsPage() {
   const handleSaveConfig = async (newStages: OffboardingStage[]) => {
     if (!firestore) return;
     try {
-      await setDoc(doc(firestore, 'settings', 'offboarding'), { stages: newStages });
+      await setDoc(tDoc('settings', 'offboarding'), { stages: newStages });
       toast({
         title: 'Амжилттай хадгалагдлаа',
         description: 'Ажлаас чөлөөлөх хөтөлбөрийн тохиргоог шинэчиллээ.'

@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { Employee } from '@/types';
 import {
   createOffboardingProjects,
@@ -89,21 +89,21 @@ export function StartOffboardingWizardDialog({ open, onOpenChange }: StartOffboa
   const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
   const [taskPlanByStage, setTaskPlanByStage] = React.useState<TaskPlanByStage>({});
 
-  const employeesQuery = useMemoFirebase(() => {
+  const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']));
+    return query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']));
   }, [firestore]);
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery as any);
 
-  const offboardingProjectsQuery = useMemoFirebase(() => {
+  const offboardingProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return query(collection(firestore, 'projects'), where('type', '==', 'offboarding'));
+    return query(tenantCollection(firestore, companyPath, 'projects'), where('type', '==', 'offboarding'));
   }, [firestore]);
   const { data: offboardingProjects, isLoading: projectsLoading } = useCollection<any>(offboardingProjectsQuery as any);
 
-  const offboardingConfigRef = useMemoFirebase(() => {
+  const offboardingConfigRef = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return doc(firestore, 'settings', 'offboarding');
+    return tenantDoc(firestore, companyPath, 'settings', 'offboarding');
   }, [firestore]);
   const { data: offboardingConfig, isLoading: configLoading } = useDoc<any>(offboardingConfigRef as any);
 

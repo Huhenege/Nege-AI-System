@@ -45,8 +45,8 @@ import { cn } from '@/lib/utils';
 import { format, isPast, parseISO } from 'date-fns';
 import { mn } from 'date-fns/locale';
 
-import { useCollection, useDoc, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, orderBy, Timestamp, getDocs, deleteDoc } from 'firebase/firestore';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { collection, query, orderBy, Timestamp, getDocs, deleteDoc } from 'firebase/firestore';
 import { AssignProjectGroupsDialog } from '../components/assign-project-groups-dialog';
 import {
     Project,
@@ -99,6 +99,7 @@ function ProjectStatusSelect({
     onPointsDistributed?: (message: string) => void;
 }) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const [isUpdating, setIsUpdating] = useState(false);
     const selectValue = normalizeStatusForSelect(project.status);
 
@@ -119,7 +120,7 @@ function ProjectStatusSelect({
                 updateData.completedAt = completionDate;
             }
 
-            await updateDocumentNonBlocking(doc(firestore, 'projects', project.id), updateData);
+            await updateDocumentNonBlocking(tDoc('projects', project.id), updateData);
 
             // If completing and project has point budget, distribute points
             if (
@@ -183,6 +184,7 @@ export default function ProjectDetailPage() {
     const router = useRouter();
     const projectId = params.id as string;
     const { firestore, user: currentUser } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
@@ -197,7 +199,7 @@ export default function ProjectDetailPage() {
 
     // Fetch project
     const projectRef = useMemoFirebase(
-        () => firestore && projectId ? doc(firestore, 'projects', projectId) : null,
+        ({ firestore, companyPath }) => firestore && projectId ? tenantDoc(firestore, companyPath, 'projects', projectId) : null,
         [firestore, projectId]
     );
     const { data: project, isLoading: isLoadingProject } = useDoc<Project>(projectRef);
@@ -205,9 +207,9 @@ export default function ProjectDetailPage() {
 
     // Fetch tasks
     const tasksQuery = useMemoFirebase(
-        () => firestore && projectId
+        ({ firestore, companyPath }) => firestore && projectId
             ? query(
-                collection(firestore, 'projects', projectId, 'tasks'),
+                collection(firestore, companyPath ? `${companyPath}/projects` : 'projects', projectId, 'tasks'),
                 orderBy('createdAt', 'desc')
             )
             : null,
@@ -217,7 +219,7 @@ export default function ProjectDetailPage() {
 
     // Fetch employees
     const employeesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'employees') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
@@ -228,7 +230,7 @@ export default function ProjectDetailPage() {
 
     // Fetch project groups
     const groupsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'project_groups'), orderBy('name', 'asc')) : null,
+        ({ firestore, companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'project_groups'), orderBy('name', 'asc')) : null,
         [firestore]
     );
     const { data: groups } = useCollection<ProjectGroup>(groupsQuery as any);
@@ -299,10 +301,10 @@ export default function ProjectDetailPage() {
         if (!firestore || !projectId) return;
 
         try {
-            const tasksRef = collection(firestore, 'projects', projectId, 'tasks');
+            const tasksRef = tCollection('projects', projectId, 'tasks');
             const tasksSnap = await getDocs(tasksRef);
             await Promise.all(tasksSnap.docs.map((d) => deleteDoc(d.ref)));
-            await deleteDocumentNonBlocking(doc(firestore, 'projects', projectId));
+            await deleteDocumentNonBlocking(tDoc('projects', projectId));
             toast({
                 title: 'Амжилттай',
                 description: 'Төсөл устгагдлаа.',
@@ -331,7 +333,7 @@ export default function ProjectDetailPage() {
             }
 
             await updateDocumentNonBlocking(
-                doc(firestore, 'projects', projectId, 'tasks', taskId),
+                tDoc('projects', projectId, 'tasks', taskId),
                 updateData
             );
         } catch (error) {

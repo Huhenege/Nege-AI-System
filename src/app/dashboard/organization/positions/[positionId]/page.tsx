@@ -8,7 +8,10 @@ import {
     useMemoFirebase,
     useCollection,
     updateDocumentNonBlocking,
-    deleteDocumentNonBlocking
+    deleteDocumentNonBlocking,
+    tenantCollection,
+    tenantDoc,
+    useTenantWrite
 } from '@/firebase';
 import { doc, collection, arrayUnion, query, where } from 'firebase/firestore';
 import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department, ApprovalLog } from '../../types';
@@ -86,6 +89,7 @@ export default function PositionDetailPage() {
     const params = useParams<{ positionId?: string | string[] }>();
     const positionId = Array.isArray(params?.positionId) ? params.positionId[0] : params?.positionId;
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const router = useRouter();
     const { toast } = useToast();
 
@@ -107,19 +111,19 @@ export default function PositionDetailPage() {
     const [isPrepWizardOpen, setIsPrepWizardOpen] = useState(false);
 
     // Data Fetching
-    const positionRef = useMemoFirebase(() => (firestore && positionId ? doc(firestore, 'positions', positionId) : null), [firestore, positionId]);
+    const positionRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && positionId ? tenantDoc(firestore, companyPath, 'positions', positionId) : null), [firestore, positionId]);
     const { data: position, isLoading: isPositionLoading } = useDoc<Position>(positionRef as any);
 
-    const deptRef = useMemoFirebase(() => (firestore && position?.departmentId ? doc(firestore, 'departments', position.departmentId) : null), [firestore, position?.departmentId]);
+    const deptRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && position?.departmentId ? tenantDoc(firestore, companyPath, 'departments', position.departmentId) : null), [firestore, position?.departmentId]);
     const { data: department } = useDoc<Department>(deptRef as any);
 
     // Lookups
-    const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
-    const categoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-    const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
-    const schedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
-    const allDeptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const allPositionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+    const levelsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null), [firestore]);
+    const categoriesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'jobCategories') : null), [firestore]);
+    const empTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employmentTypes') : null), [firestore]);
+    const schedulesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'workSchedules') : null), [firestore]);
+    const allDeptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
+    const allPositionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), [firestore]);
 
     const { data: levels } = useCollection<PositionLevel>(levelsQuery);
     const { data: categories } = useCollection<JobCategory>(categoriesQuery);
@@ -130,9 +134,9 @@ export default function PositionDetailPage() {
 
     // Fetch assigned employee
     const employeeQuery = useMemoFirebase(
-        () => (firestore
+        ({ firestore, companyPath }) => (firestore
             ? query(
-                collection(firestore, 'employees'),
+                tenantCollection(firestore, companyPath, 'employees'),
                 where('positionId', '==', positionId),
                 where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing'])
             )
@@ -143,10 +147,10 @@ export default function PositionDetailPage() {
     const assignedEmployee = employees?.[0];
 
     // Fetch Appointment Document if "Appointing"
-    const docQuery = useMemoFirebase(() => {
+    const docQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !assignedEmployee || assignedEmployee.status !== 'appointing') return null;
         return query(
-            collection(firestore, 'er_documents'),
+            tenantCollection(firestore, companyPath, 'er_documents'),
             where('employeeId', '==', assignedEmployee.id),
             where('positionId', '==', positionId)
         );
@@ -155,10 +159,10 @@ export default function PositionDetailPage() {
     const appointmentDoc = appointmentDocs?.[0];
 
     // Position preparation projects (before appointment)
-    const prepProjectsQuery = useMemoFirebase(() => {
+    const prepProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !positionId) return null;
         return query(
-            collection(firestore, 'projects'),
+            tenantCollection(firestore, companyPath, 'projects'),
             where('type', '==', 'position_preparation'),
             where('positionPreparationPositionId', '==', positionId)
         );
@@ -178,7 +182,7 @@ export default function PositionDetailPage() {
             let total = 0;
             let done = 0;
             const p = sorted[0];
-            const tasksSnap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
+            const tasksSnap = await getDocs(tCollection('projects', p.id, 'tasks'));
             tasksSnap.forEach((d) => {
                 const t = d.data() as Task;
                 total += 1;
@@ -225,7 +229,7 @@ export default function PositionDetailPage() {
                     aId === 'appointment_permanent' ? 'active_permanent' :
                     'active_permanent';
                 await writeBatch(firestore)
-                    .update(doc(firestore, 'employees', assignedEmployee.id), { 
+                    .update(tDoc('employees', assignedEmployee.id), { 
                         status: autoStatus,
                         lifecycleStage: 'active'
                     })
@@ -326,7 +330,7 @@ export default function PositionDetailPage() {
             note: disapproveNote || 'Батламжийг цуцаллаа'
         };
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), {
+            await updateDocumentNonBlocking(tDoc('positions', positionId), {
                 isApproved: false,
                 isActive: false, // Цуцлах үед идэвхгүй болгоно
                 disapprovedAt: disapproveDate.toISOString(),
@@ -343,7 +347,7 @@ export default function PositionDetailPage() {
     const handleDelete = async () => {
         if (!firestore) return;
         try {
-            await deleteDocumentNonBlocking(doc(firestore, 'positions', positionId));
+            await deleteDocumentNonBlocking(tDoc('positions', positionId));
             toast({ title: "Устгагдлаа" });
             router.push(`/dashboard/organization/${position.departmentId}`);
         } catch { toast({ variant: 'destructive', title: 'Алдаа' }) }
@@ -360,7 +364,7 @@ export default function PositionDetailPage() {
             note: approvalNote || 'Ажлын байрыг баталлаа'
         };
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), {
+            await updateDocumentNonBlocking(tDoc('positions', positionId), {
                 isApproved: true,
                 isActive: true, // Батлах үед идэвхтэй болгоно
                 approvedAt: approvalDate.toISOString(),
@@ -387,7 +391,7 @@ export default function PositionDetailPage() {
             
             // 1. Delete ER documents (drafts only) - query by employeeId AND positionId
             const docsQuery = query(
-                collection(firestore, 'er_documents'), 
+                tCollection('er_documents'), 
                 where('employeeId', '==', assignedEmployee.id), 
                 where('positionId', '==', positionId)
             );
@@ -403,7 +407,7 @@ export default function PositionDetailPage() {
             
             // 2. Also try to delete by metadata.actionId (appointment documents)
             const appointmentDocsQuery = query(
-                collection(firestore, 'er_documents'),
+                tCollection('er_documents'),
                 where('employeeId', '==', assignedEmployee.id),
                 where('metadata.actionId', 'in', ['appointment_permanent', 'appointment_probation', 'appointment_reappoint'])
             );
@@ -421,12 +425,12 @@ export default function PositionDetailPage() {
             }
             
             // 3. Delete onboarding process (if exists)
-            const onboardingRef = doc(firestore, 'onboarding_processes', assignedEmployee.id);
+            const onboardingRef = tDoc('onboarding_processes', assignedEmployee.id);
             batch.delete(onboardingRef);
             
             // 4. Delete onboarding projects (if any)
             const onboardingProjectsQuery = query(
-                collection(firestore, 'projects'),
+                tCollection('projects'),
                 where('type', '==', 'onboarding'),
                 where('onboardingEmployeeId', '==', assignedEmployee.id)
             );
@@ -440,16 +444,16 @@ export default function PositionDetailPage() {
             }
             
             // 5. Update employee - clear position data and reset to recruitment status
-            batch.update(doc(firestore, 'employees', assignedEmployee.id), { 
+            batch.update(tDoc('employees', assignedEmployee.id), { 
                 positionId: null, 
                 jobTitle: null, 
                 departmentId: null, 
-                status: 'active_recruitment', // Back to recruitment pool
-                lifecycleStage: 'recruitment' // Reset lifecycle stage to recruitment
+                status: 'active_recruitment',
+                lifecycleStage: 'recruitment'
             });
             
             // 6. Update position filled count
-            batch.update(doc(firestore, 'positions', positionId), { filled: firestoreIncrement(-1) });
+            batch.update(tDoc('positions', positionId), { filled: firestoreIncrement(-1) });
             
             await batch.commit();
             toast({ 
@@ -479,7 +483,7 @@ export default function PositionDetailPage() {
                 confirmActionId === 'appointment_probation' ? 'active_probation' :
                 confirmActionId === 'appointment_permanent' ? 'active_permanent' :
                 'active_permanent';
-            await writeBatch(firestore).update(doc(firestore, 'employees', assignedEmployee.id), { status: confirmStatus }).commit();
+            await writeBatch(firestore).update(tDoc('employees', assignedEmployee.id), { status: confirmStatus }).commit();
             toast({ title: "Томилгоо баталгаажлаа" });
             setIsConfirmAppointmentConfirmOpen(false);
         } catch { toast({ variant: 'destructive', title: 'Алдаа' }) }

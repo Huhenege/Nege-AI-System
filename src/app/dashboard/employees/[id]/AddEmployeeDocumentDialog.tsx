@@ -40,8 +40,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, Loader2, Upload, File as FileIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useFirebase, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, useMemoFirebase, useCollection, tenantCollection } from '@/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -69,12 +68,12 @@ export function AddEmployeeDocumentDialog({
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    const docTypesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'er_document_types') : null), []);
+    const docTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'er_document_types') : null), []);
     const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<any>(docTypesQuery);
 
     // Backward-compat: some admins used `/dashboard/settings/documents` which historically wrote to `documentTypes`.
     // Merge both lists by name so the dropdown always shows what was configured.
-    const legacyDocTypesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'documentTypes') : null), []);
+    const legacyDocTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'documentTypes') : null), []);
     const { data: legacyDocumentTypes, isLoading: isLoadingLegacyDocTypes } = useCollection<any>(legacyDocTypesQuery);
 
     const mergedDocumentTypes = React.useMemo(() => {
@@ -95,8 +94,8 @@ export function AddEmployeeDocumentDialog({
     const isLoadingData = isLoadingDocTypes || isLoadingLegacyDocTypes;
 
     const documentsCollectionRef = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'documents') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'documents') : null),
+        []
     );
 
     const form = useForm<DocumentFormValues>({

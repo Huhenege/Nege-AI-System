@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, tenantDoc, useTenantWrite } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { generateNextPositionCode } from '@/lib/code-generator';
 import { useToast } from '@/hooks/use-toast';
@@ -79,6 +79,7 @@ export const PositionsTab = ({
     onClearFilters
 }: PositionsTabProps) => {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [activePositionsCount, setActivePositionsCount] = useState(0);
     const [inactivePositionsCount, setInactivePositionsCount] = useState(0);
@@ -158,7 +159,7 @@ export const PositionsTab = ({
 
     const handleToggleActive = (pos: Position) => {
         if (!firestore) return;
-        const docRef = doc(firestore, 'positions', pos.id);
+        const docRef = tDoc('positions', pos.id);
         updateDocumentNonBlocking(docRef, { isActive: false });
         toast({
             title: 'Амжилттай идэвхгүй боллоо.',
@@ -168,7 +169,7 @@ export const PositionsTab = ({
 
     const handleReactivate = (pos: Position) => {
         if (!firestore) return;
-        const docRef = doc(firestore, 'positions', pos.id);
+        const docRef = tDoc('positions', pos.id);
         updateDocumentNonBlocking(docRef, { isActive: true });
         toast({
             title: 'Амжилттай идэвхжүүллээ.',
@@ -177,7 +178,7 @@ export const PositionsTab = ({
     }
 
     const posCodeConfigRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
         []
     );
 
@@ -199,7 +200,7 @@ export const PositionsTab = ({
                 filled: 0,
                 isActive: true,
             };
-            addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            addDocumentNonBlocking(tCollection('positions'), newPositionData);
             toast({
                 title: "Амжилттай хувиллаа",
                 description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`,

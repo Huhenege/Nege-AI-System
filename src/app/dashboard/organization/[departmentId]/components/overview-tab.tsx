@@ -20,7 +20,7 @@ import {
     ArrowUpRight,
     Loader2
 } from 'lucide-react';
-import { useCollection, useMemoFirebase, useFirebase, useDoc } from '@/firebase';
+import { useCollection, useMemoFirebase, useFirebase, useDoc, tenantCollection, tenantDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Employee } from '@/app/dashboard/employees/data';
@@ -37,20 +37,20 @@ export const OverviewTab = ({ department }: OverviewTabProps) => {
     const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
 
     // Queries for display names
-    const typesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
-    const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const typesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
+    const deptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
 
     // Fetch the lead position details
-    const leadPositionRef = useMemoFirebase(() =>
-        (firestore && department.managerPositionId ? doc(firestore, 'positions', department.managerPositionId) : null),
+    const leadPositionRef = useMemoFirebase(({ firestore, companyPath }) =>
+        (firestore && department.managerPositionId ? tenantDoc(firestore, companyPath, 'positions', department.managerPositionId) : null),
         [firestore, department.managerPositionId]
     );
 
     // Fetch employees holding this lead position
-    const leadEmployeesQuery = useMemoFirebase(() => {
+    const leadEmployeesQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !department.managerPositionId) return null;
         return query(
-            collection(firestore, 'employees'),
+            tenantCollection(firestore, companyPath, 'employees'),
             where('positionId', '==', department.managerPositionId),
             where('departmentId', '==', department.id)
         );

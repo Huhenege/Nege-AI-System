@@ -3,8 +3,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useMemoFirebase, useFirebase, addDocumentNonBlocking } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { useCollection, useMemoFirebase, useFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from "@/firebase";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -390,6 +389,7 @@ function CategoryCard({ category, data, isLoading }: { category: CategoryConfig;
     const itemCount = data?.length || 0;
     const [showAIDialog, setShowAIDialog] = React.useState(false);
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
 
     const existingItems = React.useMemo(() => {
@@ -401,7 +401,7 @@ function CategoryCard({ category, data, isLoading }: { category: CategoryConfig;
         if (!firestore) return;
 
         try {
-            const collectionRef = collection(firestore, category.collectionName);
+            const collectionRef = tCollection(category.collectionName);
             
             // Add items one by one
             for (const item of items) {
@@ -540,28 +540,28 @@ export default function QuestionnaireSettingsPage() {
 
     // Data fetching
     const { data: countries, isLoading: loadingCountries } = useCollection<SimpleReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireCountries') : null, [])
+        useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireCountries') : null, [])
     );
     const { data: schools, isLoading: loadingSchools } = useCollection<SimpleReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireSchools') : null, [])
+        useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireSchools') : null, [])
     );
     const { data: degrees, isLoading: loadingDegrees } = useCollection<SimpleReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireDegrees') : null, [])
+        useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireDegrees') : null, [])
     );
     const { data: academicRanks, isLoading: loadingRanks } = useCollection<SimpleReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireAcademicRanks') : null, [])
+        useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireAcademicRanks') : null, [])
     );
     const { data: languages, isLoading: loadingLanguages } = useCollection<SimpleReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireLanguages') : null, [])
+        useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireLanguages') : null, [])
     );
     const { data: familyRelationships, isLoading: loadingFamilyR } = useCollection<SimpleReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireFamilyRelationships') : null, [])
+        useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireFamilyRelationships') : null, [])
     );
     const { data: emergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'questionnaireEmergencyRelationships') : null, [])
+        useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireEmergencyRelationships') : null, [])
     );
     const { data: jobCategories, isLoading: loadingJobCat } = useCollection<JobCategoryReferenceItem>(
-        useMemoFirebase(({ firestore }) => firestore ? collection(firestore, 'jobCategories') : null, [])
+        useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'jobCategories') : null, [])
     );
 
     const dataMap: Record<string, SimpleReferenceItem[] | null> = {

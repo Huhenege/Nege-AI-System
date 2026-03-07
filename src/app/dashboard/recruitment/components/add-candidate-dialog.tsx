@@ -25,8 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Plus, Loader2 } from 'lucide-react';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Candidate, JobApplication, Vacancy } from '@/types/recruitment';
 
@@ -59,6 +58,7 @@ export function AddCandidateDialog({
     const open = controlledOpen ?? internalOpen;
     const setOpen = controlledOnOpenChange ?? setInternalOpen;
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -98,7 +98,7 @@ export function AddCandidateDialog({
                 updatedAt: now,
             };
 
-            const candidateRef = await addDocumentNonBlocking(collection(firestore, 'candidates'), newCandidate);
+            const candidateRef = await addDocumentNonBlocking(tCollection('candidates'), newCandidate);
 
             // 2. Application бичлэг үүсгэх (employee үүсгэхгүй — зөвхөн ажилд авах үед үүснэ)
             if (vacancy && candidateRef) {
@@ -112,7 +112,7 @@ export function AddCandidateDialog({
                     candidate: { ...newCandidate, id: candidateRef.id },
                 };
 
-                await addDocumentNonBlocking(collection(firestore, 'applications'), newApplication);
+                await addDocumentNonBlocking(tCollection('applications'), newApplication);
             }
 
             toast({

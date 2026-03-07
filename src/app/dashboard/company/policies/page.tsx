@@ -37,8 +37,8 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Pencil, Trash2, FileText, ExternalLink, Search, ArrowUpDown, Filter, Video, Calendar, Users, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { useCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { AddPolicyDialog, POLICY_TYPES } from './add-policy-dialog';
@@ -64,11 +64,12 @@ export default function CompanyPoliciesPage() {
     const [sortBy, setSortBy] = React.useState('newest');
 
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
 
-    const policiesQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'companyPolicies'), orderBy('uploadDate', 'desc')) : null), [firestore]);
-    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+    const policiesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'companyPolicies'), orderBy('uploadDate', 'desc')) : null), []);
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), []);
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), []);
 
     const { data: policies, isLoading: isLoadingPolicies } = useCollection<CompanyPolicy>(policiesQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useCollection<DepartmentOption>(departmentsQuery);
@@ -96,7 +97,7 @@ export default function CompanyPoliciesPage() {
 
     const handleDelete = (policy: CompanyPolicy) => {
         if (!firestore) return;
-        deleteDocumentNonBlocking(doc(firestore, 'companyPolicies', policy.id));
+        deleteDocumentNonBlocking(tDoc('companyPolicies', policy.id));
         toast({
             title: 'Амжилттай устгагдлаа',
             description: `"${policy.title}" дүрэм устгагдлаа.`,

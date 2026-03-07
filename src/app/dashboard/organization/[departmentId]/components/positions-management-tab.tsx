@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, LayoutList, Network, CheckCircle, CheckCircle2, XCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Trash2, AlertTriangle, Save } from 'lucide-react';
-import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useCollection, useMemoFirebase, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { collection, doc, query, where, getDocs, orderBy, limit, writeBatch, getDoc, arrayUnion } from 'firebase/firestore';
 import { addDepartmentHistoryEvent } from '../../department-history-log';
 import {
@@ -66,6 +66,7 @@ interface PositionsManagementTabProps {
 
 export const PositionsManagementTab = ({ department, hideChart, hideAddButton, hideControls, listVariant = 'table' }: PositionsManagementTabProps) => {
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const [isAddPositionOpen, setIsAddPositionOpen] = useState(false);
@@ -82,24 +83,24 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
 
     // -- Queries --
     // 1. Positions for THIS department only
-    const positionsQuery = useMemoFirebase(() => {
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !department?.id) return null;
-        return query(collection(firestore, 'positions'), where('departmentId', '==', department.id));
+        return query(tenantCollection(firestore, companyPath, 'positions'), where('departmentId', '==', department.id));
     }, [firestore, department?.id]);
 
     // 2. Lookups (Cached by `useCollection` usually if keys match, but fetching fresh is safer for now)
-    const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
-    const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
-    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]); // Needed mainly for dropdowns in dialog
-    const jobCategoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-    const workSchedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
-    const deptTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
+    const levelsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null), [firestore]);
+    const empTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employmentTypes') : null), [firestore]);
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]); // Needed mainly for dropdowns in dialog
+    const jobCategoriesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'jobCategories') : null), [firestore]);
+    const workSchedulesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'workSchedules') : null), [firestore]);
+    const deptTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
 
 
 
-    const employeesQuery = useMemoFirebase(() => {
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !department?.id) return null;
-        return query(collection(firestore, 'employees'), where('departmentId', '==', department.id));
+        return query(tenantCollection(firestore, companyPath, 'employees'), where('departmentId', '==', department.id));
     }, [firestore, department?.id]);
 
     const { data: positions, isLoading: isPositionsLoading } = useCollection<Position>(positionsQuery);
@@ -205,7 +206,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
         }
 
         try {
-            await deleteDocumentNonBlocking(doc(firestore, 'positions', pos.id));
+            await deleteDocumentNonBlocking(tDoc('positions', pos.id));
             toast({ title: "Амжилттай устгалаа" });
         } catch (error) {
             toast({ title: "Алдаа гарлаа", variant: "destructive" });
@@ -213,7 +214,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
     };
 
     const posCodeConfigRef = useMemoFirebase(
-        () => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
         [firestore]
     );
 
@@ -251,10 +252,11 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                 isApproved: false,
                 createdAt: new Date().toISOString(),
             };
-            const ref = await addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            const ref = await addDocumentNonBlocking(tCollection('positions'), newPositionData);
             if (ref && department?.id && user) {
                 addDepartmentHistoryEvent({
                     firestore,
+                    companyPath,
                     departmentId: department.id,
                     eventType: 'position_added',
                     positionId: ref.id,
@@ -321,7 +323,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
             const targets = positions.filter(p => selectedPositionIds.includes(p.id));
 
             targets.forEach(pos => {
-                const posRef = doc(firestore, 'positions', pos.id);
+                const posRef = tDoc('positions', pos.id);
                 batch.update(posRef, {
                     isApproved: true,
                     isActive: true, // Батлах үед идэвхтэй болгоно
@@ -363,7 +365,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
 
             const batch = writeBatch(firestore);
             targets.forEach(pos => {
-                const posRef = doc(firestore, 'positions', pos.id);
+                const posRef = tDoc('positions', pos.id);
                 batch.update(posRef, {
                     isApproved: false,
                     isActive: false, // Цуцлах үед идэвхгүй болгоно
@@ -394,12 +396,13 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
         try {
             const batch = writeBatch(firestore);
             selectedPositionIds.forEach(id => {
-                batch.delete(doc(firestore, 'positions', id));
+                batch.delete(tDoc('positions', id));
             });
             await batch.commit();
             for (const pos of toDelete) {
                 addDepartmentHistoryEvent({
                     firestore,
+                    companyPath,
                     departmentId: department.id,
                     eventType: 'position_deleted',
                     positionId: pos.id,
@@ -423,12 +426,12 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
         setIsDeptDeleting(true);
 
         try {
-            const historyRef = collection(firestore, 'departmentHistory');
+            const historyRef = tCollection('departmentHistory');
             const hq = query(historyRef, where('departmentId', '==', department.id));
             const historySnapshot = await getDocs(hq);
             const hasHistory = !historySnapshot.empty;
 
-            const positionsRef = collection(firestore, 'positions');
+            const positionsRef = tCollection('positions');
             const q = query(positionsRef, where('departmentId', '==', department.id));
             const snapshot = await getDocs(q);
             const hasPositions = !snapshot.empty;
@@ -461,7 +464,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
         setIsDeptDeleting(true);
         try {
             const batch = writeBatch(firestore);
-            batch.delete(doc(firestore, 'departments', department.id));
+            batch.delete(tDoc('departments', department.id));
             await batch.commit();
 
             toast({ title: "Нэгж амжилттай устгагдлаа" });
@@ -480,7 +483,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
             const timestamp = new Date().toISOString();
 
             // 1. Fetch all employees in this department to include in snapshot
-            const employeesRef = collection(firestore, 'employees');
+            const employeesRef = tCollection('employees');
             const eq = query(employeesRef, where('departmentId', '==', department.id));
             const employeeSnapshot = await getDocs(eq);
             const deptEmployees = employeeSnapshot.docs.map(doc => ({
@@ -491,7 +494,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
             const batch = writeBatch(firestore);
 
             // 2. Prepare the final "Dissolution" history entry
-            const historyRef = collection(firestore, 'departmentHistory');
+            const historyRef = tCollection('departmentHistory');
             const newHistoryDoc = doc(historyRef);
 
             const snapshot = {
@@ -531,11 +534,11 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
             });
 
             // 4. Delete the department and its positions
-            batch.delete(doc(firestore, 'departments', department.id));
+            batch.delete(tDoc('departments', department.id));
 
             if (positions) {
                 positions.forEach(pos => {
-                    batch.delete(doc(firestore, 'positions', pos.id));
+                    batch.delete(tDoc('positions', pos.id));
                 });
             }
 
@@ -562,7 +565,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                 note: disbandReason || 'Албан тушаалыг татан буулгав'
             };
 
-            await updateDocumentNonBlocking(doc(firestore, 'positions', disbandPosition.id), {
+            await updateDocumentNonBlocking(tDoc('positions', disbandPosition.id), {
                 isActive: false,
                 isApproved: false,
                 disbandedAt: timestamp,

@@ -81,3 +81,5 @@ export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
 export * from './secondary-auth';
+export { tenantCollection, tenantDoc, tenantQuery, isTenantScoped } from './tenant-helpers';
+export { useTenantWrite } from '@/hooks/use-tenant-write';
