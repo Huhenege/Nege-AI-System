@@ -30,6 +30,7 @@ import {
   FileText,
   Settings,
   CreditCard,
+  ShieldCheck,
   PanelLeftClose,
   PanelLeft,
   type LucideIcon,
@@ -71,6 +72,7 @@ const EXTRA_NAV: NavItem[] = [
   { href: '/dashboard/posts', label: 'Мэдээлэл', icon: Newspaper, alwaysShow: true },
   { href: '/dashboard/employee-documents', label: 'Баримт бичиг', icon: FileText, module: 'employees', alwaysShow: true },
   { href: '/dashboard/billing', label: 'Багц & Төлбөр', icon: CreditCard, alwaysShow: true },
+  { href: '/dashboard/settings/audit', label: 'Аудит лог', icon: ShieldCheck, alwaysShow: true },
   { href: '/dashboard/settings/employee-code', label: 'Тохиргоо', icon: Settings, alwaysShow: true },
 ];
 

@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/api/auth-middleware';
 export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth(request, { rateLimit: 'ai' });
   if (authResult.response) return authResult.response;
 
   const startTime = Date.now();

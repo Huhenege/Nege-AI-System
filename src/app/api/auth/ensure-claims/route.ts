@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import type { TenantClaims } from '@/types/company';
+import { checkRateLimit } from '@/lib/api/rate-limiter';
 
 function getBearerToken(req: Request): string | null {
   const header = req.headers.get('authorization') || req.headers.get('Authorization') || '';
@@ -34,6 +35,9 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
+
+    const rateLimited = checkRateLimit(decoded.uid, '/api/auth/ensure-claims', 'auth');
+    if (rateLimited) return rateLimited;
 
     const existingUser = await adminAuth.getUser(decoded.uid);
     const existingClaims = existingUser.customClaims as TenantClaims | undefined;

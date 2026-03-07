@@ -56,7 +56,7 @@ Return JSON array with objects: { "name": "нэр" }
 };
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth(request, { rateLimit: 'ai' });
   if (authResult.response) return authResult.response;
 
   try {

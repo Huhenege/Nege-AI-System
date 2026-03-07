@@ -42,7 +42,7 @@ async function getSmsConfig(): Promise<SmsConfig | null> {
 }
 
 export async function POST(request: NextRequest) {
-    const authResult = await requireAuth(request);
+    const authResult = await requireAuth(request, { rateLimit: 'sms' });
     if (authResult.response) return authResult.response;
 
     try {

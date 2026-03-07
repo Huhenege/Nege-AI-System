@@ -20,7 +20,7 @@ JSON форматаар хариулна уу:
 Зөвхөн JSON хариулна уу, өөр тайлбар бичих шаардлагагүй.`;
 
 export async function POST(request: NextRequest) {
-    const authResult = await requireAuth(request);
+    const authResult = await requireAuth(request, { rateLimit: 'ai' });
     if (authResult.response) return authResult.response;
 
     try {

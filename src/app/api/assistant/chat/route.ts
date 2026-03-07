@@ -4,7 +4,7 @@ import { buildSystemPrompt, createProjectToolForTenant } from '@/ai/assistant';
 import { requireTenantAuth } from '@/lib/api/auth-middleware';
 
 export async function POST(req: NextRequest) {
-  const authResult = await requireTenantAuth(req);
+  const authResult = await requireTenantAuth(req, { rateLimit: 'ai' });
   if (authResult.response) return authResult.response;
   const { companyId } = authResult.auth;
 

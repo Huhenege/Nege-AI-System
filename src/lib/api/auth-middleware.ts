@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminAuth } from '@/lib/firebase-admin';
+import { checkRateLimit, getCallerIdentifier, type RateLimitPreset, type RateLimitConfig } from './rate-limiter';
 
 export interface AuthContext {
   uid: string;
@@ -25,12 +26,17 @@ function extractToken(request: NextRequest | Request): string | null {
   return match?.[1] || null;
 }
 
+export interface AuthOptions {
+  rateLimit?: RateLimitPreset | RateLimitConfig;
+}
+
 /**
  * Requires authentication AND a valid companyId in custom claims.
  * Use for all tenant-scoped API routes.
  */
 export async function requireTenantAuth(
-  request: NextRequest | Request
+  request: NextRequest | Request,
+  options?: AuthOptions
 ): Promise<AuthResult | AuthError> {
   const token = extractToken(request);
   if (!token) {
@@ -59,6 +65,12 @@ export async function requireTenantAuth(
       };
     }
 
+    if (options?.rateLimit) {
+      const route = request instanceof NextRequest ? request.nextUrl.pathname : new URL(request.url).pathname;
+      const rateLimited = checkRateLimit(decoded.uid, route, options.rateLimit);
+      if (rateLimited) return { error: 'Rate limited', response: rateLimited };
+    }
+
     return { auth: { uid: decoded.uid, companyId, role } };
   } catch (err) {
     console.error('[auth-middleware]', err);
@@ -77,7 +89,8 @@ export async function requireTenantAuth(
  * Use for routes that don't need tenant scoping (e.g., super admin, or pre-tenant setup).
  */
 export async function requireAuth(
-  request: NextRequest | Request
+  request: NextRequest | Request,
+  options?: AuthOptions
 ): Promise<AuthResult | AuthError> {
   const token = extractToken(request);
   if (!token) {
@@ -95,6 +108,12 @@ export async function requireAuth(
     const decoded = await adminAuth.verifyIdToken(token);
     const companyId = (decoded.companyId as string) || '';
     const role = (decoded.role as string) || 'employee';
+
+    if (options?.rateLimit) {
+      const route = request instanceof NextRequest ? request.nextUrl.pathname : new URL(request.url).pathname;
+      const rateLimited = checkRateLimit(decoded.uid, route, options.rateLimit);
+      if (rateLimited) return { error: 'Rate limited', response: rateLimited };
+    }
 
     return { auth: { uid: decoded.uid, companyId, role } };
   } catch (err) {

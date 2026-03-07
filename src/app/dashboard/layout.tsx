@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserNav } from '@/components/user-nav';
+import { NotificationCenter } from '@/components/notification-center';
 import { ImplementationGuideWidget } from './components/implementation-guide-widget';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { FloatingAssistant } from '@/components/assistant/floating-assistant';
@@ -105,6 +106,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-1">
+            <NotificationCenter />
             <ImplementationGuideWidget />
             <ActionIconButton
               label="Тохиргоо"

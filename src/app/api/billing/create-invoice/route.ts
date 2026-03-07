@@ -3,6 +3,8 @@ import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-
 import { createInvoice } from '@/lib/billing/qpay-client';
 import { PLAN_DEFINITIONS } from '@/types/company';
 import type { TenantClaims, CompanyPlan } from '@/types/company';
+import { checkRateLimit, getCallerIdentifier } from '@/lib/api/rate-limiter';
+import { audit } from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +15,9 @@ export async function POST(request: NextRequest) {
 
     const adminAuth = getFirebaseAdminAuth();
     const decoded = await adminAuth.verifyIdToken(token);
+
+    const rateLimited = checkRateLimit(decoded.uid, '/api/billing/create-invoice', 'billing');
+    if (rateLimited) return rateLimited;
     const user = await adminAuth.getUser(decoded.uid);
     const claims = user.customClaims as TenantClaims | undefined;
 
@@ -57,6 +62,14 @@ export async function POST(request: NextRequest) {
       status: 'pending',
       createdAt: new Date(),
       createdBy: decoded.uid,
+    });
+
+    audit(claims.companyId, { uid: decoded.uid, role: claims.role }, {
+      action: 'create',
+      resource: 'billing',
+      resourceId: invoiceNo,
+      description: `${planDef.nameMN} багц нэхэмжлэл үүсгэсэн (${amount.toLocaleString()}₮)`,
+      metadata: { plan, billingCycle: cycle, amount },
     });
 
     return NextResponse.json({

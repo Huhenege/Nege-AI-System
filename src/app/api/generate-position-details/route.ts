@@ -4,7 +4,7 @@ import { googleAI } from '@genkit-ai/google-genai';
 import { requireAuth } from '@/lib/api/auth-middleware';
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireAuth(request, { rateLimit: 'ai' });
   if (authResult.response) return authResult.response;
 
   try {
