@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
+import { clearSessionCookie } from '@/lib/session';
 
 const NAV_ITEMS = [
   { href: '/super-admin', label: 'Хяналтын самбар', icon: LayoutDashboard, exact: true },
@@ -110,7 +111,7 @@ function SuperAdminShell({ children }: { children: React.ReactNode }) {
             Dashboard руу буцах
           </Link>
           <button
-            onClick={() => auth && signOut(auth).then(() => router.replace('/login'))}
+            onClick={() => { clearSessionCookie(); auth && signOut(auth).then(() => router.replace('/login')); }}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-500 hover:bg-red-900/20 hover:text-red-400 transition-colors"
           >
             <LogOut className="h-3 w-3" />

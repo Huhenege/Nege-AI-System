@@ -3,10 +3,11 @@
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, onIdTokenChanged } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { TenantContext } from '@/contexts/tenant-types';
+import { setSessionCookie, clearSessionCookie } from '@/lib/session';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -107,6 +108,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       unsubscribe();
     };
   }, [auth]); // Depends on the auth instance
+
+  // Keep __session cookie in sync with Firebase ID token
+  useEffect(() => {
+    if (!auth) return;
+    const unsubToken = onIdTokenChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const token = await firebaseUser.getIdToken();
+        setSessionCookie(token);
+      } else {
+        clearSessionCookie();
+      }
+    });
+    return () => unsubToken();
+  }, [auth]);
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {

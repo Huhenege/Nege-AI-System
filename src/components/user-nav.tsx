@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { signOut } from 'firebase/auth';
+import { clearSessionCookie } from '@/lib/session';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +34,7 @@ export function UserNav() {
 
     const handleLogout = async () => {
         if (!auth) return;
+        clearSessionCookie();
         await signOut(auth);
         router.push('/login');
     };

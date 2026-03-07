@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint & Type Check & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: nege-ai-system
+          GOOGLE_API_KEY: dummy-for-build
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: dummy-for-build
+          RESEND_API_KEY: re_dummy
+          RESEND_FROM_EMAIL: noreply@example.com
+          MOCEAN_API_TOKEN: dummy
+          QPAY_USERNAME: dummy
+          QPAY_PASSWORD: dummy
+          QPAY_INVOICE_CODE: dummy
+          QPAY_CALLBACK_URL: https://example.com/api/billing/callback

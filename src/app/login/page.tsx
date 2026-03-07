@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, useUser, useFirebase, useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
+import { setSessionCookie } from '@/lib/session';
 import {
   Card,
   CardContent,
@@ -27,7 +28,16 @@ function isEmail(input: string): boolean {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuth();
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -84,8 +94,12 @@ export default function LoginPage() {
         }
       }
 
+      const finalToken = await uc.user.getIdToken();
+      setSessionCookie(finalToken);
+
       toast({ title: 'Амжилттай нэвтэрлээ', description: 'Хуудас руу шилжиж байна.' });
-      router.replace('/dashboard');
+      const redirectTo = searchParams.get('redirect') || '/dashboard';
+      router.replace(redirectTo);
 
     } catch (err: any) {
       setIsLoading(false);
