@@ -17,7 +17,7 @@ import {
   type CompanyPlan,
   type PlanDefinition,
 } from '@/types/company';
-import { Check, Loader2, Sparkles, QrCode, Receipt } from 'lucide-react';
+import { Check, Loader2, Sparkles, QrCode, Receipt, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface InvoiceRecord {
@@ -32,11 +32,19 @@ interface InvoiceRecord {
   paidAt?: { toDate?: () => Date } | string;
 }
 
+interface BankAppLink {
+  name: string;
+  description: string;
+  logo: string;
+  link: string;
+}
+
 interface InvoiceResult {
   invoiceNo: string;
   qrImage: string;
   shortUrl: string;
   amount: number;
+  urls: BankAppLink[];
 }
 
 function formatDate(val: { toDate?: () => Date } | string | undefined): string {
@@ -163,7 +171,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* QR payment modal */}
+      {/* QR payment + bank apps */}
       {invoice && (
         <Card className="border-primary">
           <CardHeader className="text-center">
@@ -173,7 +181,7 @@ export default function BillingPage() {
               {COMPANY_PLAN_LABELS[selectedPlan!]} багц · ₮{invoice.amount.toLocaleString()}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
+          <CardContent className="flex flex-col items-center gap-6">
             {invoice.qrImage && (
               <img
                 src={`data:image/png;base64,${invoice.qrImage}`}
@@ -181,8 +189,40 @@ export default function BillingPage() {
                 className="w-64 h-64 rounded-lg border"
               />
             )}
+
+            {invoice.urls && invoice.urls.length > 0 && (
+              <div className="w-full max-w-md">
+                <div className="flex items-center gap-2 mb-3">
+                  <Smartphone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Банкны аппаар төлөх</span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                  {invoice.urls.map((bank) => (
+                    <a
+                      key={bank.name}
+                      href={bank.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center gap-1.5 p-2 rounded-lg border hover:bg-accent transition-colors"
+                      title={bank.description}
+                    >
+                      <img
+                        src={bank.logo}
+                        alt={bank.description}
+                        className="w-10 h-10 rounded-lg object-contain"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                      <span className="text-[10px] text-muted-foreground text-center leading-tight line-clamp-2">
+                        {bank.description}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <p className="text-xs text-muted-foreground text-center max-w-sm">
-              QR кодыг банкны аппаар уншуулна уу. Төлбөр хийсний дараа "Төлбөр шалгах" товч дарна уу.
+              QR кодыг уншуулах эсвэл дээрх банкны аппыг сонгоно уу. Төлбөр хийсний дараа "Төлбөр шалгах" товч дарна уу.
             </p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => { setInvoice(null); setSelectedPlan(null); }}>
