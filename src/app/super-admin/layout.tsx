@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Building2,
   CreditCard,
+  Package,
   LogOut,
   ChevronRight,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ import { clearSessionCookie } from '@/lib/session';
 const NAV_ITEMS = [
   { href: '/super-admin', label: 'Хяналтын самбар', icon: LayoutDashboard, exact: true },
   { href: '/super-admin/companies', label: 'Байгууллагууд', icon: Building2 },
+  { href: '/super-admin/pricing', label: 'Багцын тохиргоо', icon: Package },
   { href: '/super-admin/billing', label: 'Төлбөр', icon: CreditCard },
 ];
 

@@ -228,3 +228,24 @@ export const COMPANY_PLAN_LABELS: Record<CompanyPlan, string> = {
   pro: 'Мэргэжлийн',
   enterprise: 'Аж ахуйн нэгж',
 };
+
+export const MODULE_LABELS: Record<SaaSModule, string> = {
+  company: 'Компани',
+  organization: 'Бүтэц',
+  employees: 'Ажилчид',
+  projects: 'Төслүүд',
+  attendance: 'Ирц',
+  vacation: 'Чөлөө',
+  recruitment: 'Сонгон шалгаруулалт',
+  onboarding: 'Онбоардинг',
+  offboarding: 'Оффбоардинг',
+  training: 'Сургалт',
+  survey: 'Судалгаа',
+  points: 'Оноо',
+  employment_relations: 'Хөдөлмөрийн харилцаа',
+  skills: 'Ур чадвар',
+  business_plan: 'Бизнес төлөвлөгөө',
+  calendar: 'Календарь',
+  meetings: 'Уулзалт',
+  ai_assistant: 'AI Туслах',
+};

@@ -19,16 +19,29 @@ export async function requireSuperAdmin(
   try {
     const adminAuth = getFirebaseAdminAuth();
     const decoded = await adminAuth.verifyIdToken(token);
-    const user = await adminAuth.getUser(decoded.uid);
-    const claims = user.customClaims as { role?: string } | undefined;
 
-    if (claims?.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Forbidden: super_admin role required' }, { status: 403 });
+    // Custom claims are embedded in the ID token — check there first
+    // to avoid an extra getUser() round-trip that can fail if the Admin SDK
+    // credentials don't have full IAM permissions.
+    if (decoded.role === 'super_admin') {
+      return { uid: decoded.uid };
     }
 
-    return { uid: decoded.uid };
+    // Fallback: fetch fresh claims via getUser() in case the token
+    // was issued before the latest setCustomUserClaims call.
+    try {
+      const user = await adminAuth.getUser(decoded.uid);
+      const claims = user.customClaims as { role?: string } | undefined;
+      if (claims?.role === 'super_admin') {
+        return { uid: decoded.uid };
+      }
+    } catch (getUserErr) {
+      console.warn('[super-admin auth] getUser fallback failed:', getUserErr);
+    }
+
+    return NextResponse.json({ error: 'Forbidden: super_admin role required' }, { status: 403 });
   } catch (err) {
-    console.error('[super-admin auth]', err);
+    console.error('[super-admin auth] verifyIdToken failed:', err);
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
   }
 }
