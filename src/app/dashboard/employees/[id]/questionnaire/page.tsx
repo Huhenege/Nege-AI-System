@@ -169,7 +169,7 @@ function normalizeRegistrationNumber(value: string): string {
 }
 
 /** РД шалгалт индекс шаардлагатай үед indexUrl-тэй алдаа */
-export class RegNoIndexError extends Error {
+class RegNoIndexError extends Error {
     constructor(message: string, public indexUrl: string) {
         super(message);
         this.name = 'RegNoIndexError';

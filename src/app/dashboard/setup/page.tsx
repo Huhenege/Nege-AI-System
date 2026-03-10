@@ -129,7 +129,7 @@ export default function SetupWizardPage() {
   };
 
   const handleSavePosition = async () => {
-    if (!firestore || !positionTitle.trim()) return;
+    if (!firestore || !companyId || !positionTitle.trim()) return;
     setIsSaving(true);
     try {
       await ensureFreshToken();
