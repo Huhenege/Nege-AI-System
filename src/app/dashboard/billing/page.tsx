@@ -108,11 +108,13 @@ export default function BillingPage() {
       const res = await fetch(`/api/billing/callback?invoice=${invoice.invoiceNo}`);
       const data = await res.json();
 
-      if (data.status === 'paid') {
+      if (data.status === 'paid' || data.status === 'already_paid') {
         toast({ title: 'Төлбөр амжилттай!', description: `${COMPANY_PLAN_LABELS[selectedPlan!]} багц идэвхжлээ.` });
         setInvoice(null);
         setSelectedPlan(null);
         window.location.reload();
+      } else if (!res.ok) {
+        toast({ title: 'Алдаа', description: data.error || 'Төлбөр шалгахад алдаа гарлаа', variant: 'destructive' });
       } else {
         toast({ title: 'Хүлээгдэж байна', description: 'Төлбөр хийгдээгүй байна. Дахин шалгана уу.' });
       }
