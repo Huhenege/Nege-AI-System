@@ -4,6 +4,9 @@ import * as admin from 'firebase-admin';
 import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { writeFileSync, existsSync } from 'fs';
+
+const ADC_TMP_PATH = '/tmp/gcloud-adc.json';
 
 export function getFirebaseAdminApp() {
   if (getApps().length > 0) return getApp();
@@ -26,7 +29,17 @@ export function getFirebaseAdminApp() {
     }
   }
 
-  // Fallback: ADC (works locally with gcloud CLI, and on Google Cloud)
+  // Support ADC JSON via env var (for Vercel/serverless where gcloud CLI is unavailable)
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    try {
+      writeFileSync(ADC_TMP_PATH, process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = ADC_TMP_PATH;
+    } catch (e) {
+      console.warn('[firebase-admin] Failed to write ADC temp file:', e);
+    }
+  }
+
+  // Fallback: ADC (works locally with gcloud CLI, on Google Cloud, or via temp file above)
   return initializeApp({
     credential: admin.credential.applicationDefault(),
     projectId,
