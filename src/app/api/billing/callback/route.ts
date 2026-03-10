@@ -2,21 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { checkPayment } from '@/lib/billing/qpay-client';
 
+function extractCompanyId(invoiceNo: string): string | null {
+  // Format: NEGE-{companyId}-{timestamp}
+  const match = invoiceNo.match(/^NEGE-(.+)-(\d+)$/);
+  return match ? match[1] : null;
+}
+
 async function processPaymentCallback(invoiceNo: string): Promise<{ status: string; plan?: string } | { error: string; status: number }> {
   const db = getFirebaseAdminFirestore();
 
-  const invoicesQuery = await db
-    .collectionGroup('invoices')
-    .where('invoiceNo', '==', invoiceNo)
-    .limit(1)
-    .get();
+  const companyId = extractCompanyId(invoiceNo);
+  let invoiceDoc;
 
-  if (invoicesQuery.empty) {
+  if (companyId) {
+    const docRef = db.doc(`companies/${companyId}/invoices/${invoiceNo}`);
+    const snap = await docRef.get();
+    if (snap.exists) {
+      invoiceDoc = snap;
+    }
+  }
+
+  if (!invoiceDoc) {
+    // Fallback: iterate companies to find the invoice
+    const companies = await db.collection('companies').listDocuments();
+    for (const companyRef of companies) {
+      const snap = await db.doc(`${companyRef.path}/invoices/${invoiceNo}`).get();
+      if (snap.exists) {
+        invoiceDoc = snap;
+        break;
+      }
+    }
+  }
+
+  if (!invoiceDoc || !invoiceDoc.exists) {
     return { error: 'Invoice not found', status: 404 };
   }
 
-  const invoiceDoc = invoicesQuery.docs[0];
-  const invoiceData = invoiceDoc.data();
+  const invoiceData = invoiceDoc.data()!;
 
   if (invoiceData.status === 'paid') {
     return { status: 'already_paid' };
@@ -24,7 +46,7 @@ async function processPaymentCallback(invoiceNo: string): Promise<{ status: stri
 
   const paymentResult = await checkPayment(invoiceData.qpayInvoiceId);
 
-  if (paymentResult.count > 0 && paymentResult.paid_amount >= invoiceData.amount) {
+  if (paymentResult.count > 0 && Number(paymentResult.paid_amount) >= invoiceData.amount) {
     const payment = paymentResult.rows[0];
 
     await invoiceDoc.ref.update({
