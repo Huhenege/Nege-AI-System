@@ -13,6 +13,7 @@ import {
   Sparkles,
   Smartphone,
 } from 'lucide-react';
+import { NegeLogo } from '@/components/icons/nege-logo';
 
 const FEATURES = [
   { icon: Users, title: 'Ажилтны удирдлага', desc: 'Ажилтны бүртгэл, анкет, хувийн мэдээллийг нэг дороос удирдана' },
@@ -39,10 +40,7 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-lg">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-600">
-              <span className="text-sm font-black text-white tracking-tight">N</span>
-            </div>
-            <span className="text-lg font-bold tracking-tight text-gray-900">Nege Systems</span>
+            <NegeLogo className="h-8 w-auto" />
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-600">
             <a href="#features" className="hover:text-gray-900 transition-colors">Боломжууд</a>
@@ -215,10 +213,7 @@ export default function LandingPage() {
       <footer className="border-t bg-white py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 sm:flex-row">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-600">
-              <span className="text-xs font-black text-white">N</span>
-            </div>
-            <span className="text-sm font-semibold text-gray-900">Nege Systems</span>
+            <NegeLogo className="h-6 w-auto" />
           </div>
           <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} Nege Systems. Бүх эрх хуулиар хамгаалагдсан.</p>
         </div>

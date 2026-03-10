@@ -75,6 +75,7 @@ export interface Company {
   subscription: CompanySubscription;
   ownerId: string;
   employeeCount: number;
+  setupComplete?: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

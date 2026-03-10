@@ -3,8 +3,9 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, useUser, useFirebase, useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
+import { useAuth, useUser, useFirebase } from '@/firebase';
 import { setSessionCookie } from '@/lib/session';
+import { NegeLogo } from '@/components/icons/nege-logo';
 import {
   Card,
   CardContent,
@@ -15,11 +16,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, Building, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getDoc, doc } from 'firebase/firestore';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 
 function isEmail(input: string): boolean {
@@ -46,12 +45,6 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-
-  const companyProfileRef = useMemoFirebase(
-    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
-    []
-  );
-  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc(companyProfileRef);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,21 +73,40 @@ function LoginForm() {
         return;
       }
 
-      // Custom Claims шалгах — байхгүй бол автоматаар тохируулна
-      const tokenResult = await uc.user.getIdTokenResult();
+      // Force-refresh token to always get latest custom claims
+      let tokenResult = await uc.user.getIdTokenResult(true);
+
+      // Super admin doesn't need companyId — skip ensure-claims
+      if (tokenResult.claims.role === 'super_admin') {
+        const finalToken = await uc.user.getIdToken(true);
+        setSessionCookie(finalToken);
+        toast({ title: 'Амжилттай нэвтэрлээ', description: 'Админ хуудас руу шилжиж байна.' });
+        router.replace('/super-admin');
+        return;
+      }
+
       if (!tokenResult.claims.companyId) {
+        // Claims not set yet — call ensure-claims to set them
         const idToken = await uc.user.getIdToken();
         const res = await fetch('/api/auth/ensure-claims', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${idToken}` },
         });
         if (res.ok) {
-          // Claims тохируулагдсан — token refresh хийж шинэ claims авна
-          await uc.user.getIdToken(true);
+          tokenResult = await uc.user.getIdTokenResult(true);
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (res.status === 404) {
+            await signOut(auth);
+            setIsLoading(false);
+            setError('Энэ хэрэглэгч ямар нэг байгууллагад бүртгэгдээгүй байна. Бүртгүүлэх хэсгээс шинэ байгууллага үүсгэнэ үү.');
+            return;
+          }
+          console.warn('[ensure-claims] Non-fatal error:', errData);
         }
       }
 
-      const finalToken = await uc.user.getIdToken();
+      const finalToken = await uc.user.getIdToken(true);
       setSessionCookie(finalToken);
 
       toast({ title: 'Амжилттай нэвтэрлээ', description: 'Хуудас руу шилжиж байна.' });
@@ -119,28 +131,14 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-8">
       <Card className="w-full max-w-sm rounded-2xl border-0 shadow-xl">
         <CardHeader className="text-center space-y-2 pb-2">
           <div className="mb-2 flex flex-col items-center gap-4">
-            {isLoadingProfile ? (
-              <>
-                <Skeleton className="h-16 w-16 rounded-2xl" />
-                <Skeleton className="h-7 w-40" />
-              </>
-            ) : (
-              <>
-                <Avatar className="h-16 w-16 rounded-2xl ring-4 ring-primary/5">
-                  <AvatarImage src={companyProfile?.logoUrl} alt={companyProfile?.name} />
-                  <AvatarFallback className="rounded-2xl bg-primary/10">
-                    <Building className="h-8 w-8 text-primary" />
-                  </AvatarFallback>
-                </Avatar>
-                <CardTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
-                  {companyProfile?.name || 'Nege Systems'}-т нэвтрэх
-                </CardTitle>
-              </>
-            )}
+            <NegeLogo className="h-12 w-auto" />
+            <CardTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
+              Нэвтрэх
+            </CardTitle>
           </div>
           <CardDescription className="text-sm leading-relaxed">
             Өөрийн нэвтрэх нэр эсвэл имэйл хаягаар нэвтэрнэ үү.
@@ -198,11 +196,18 @@ function LoginForm() {
           </form>
         </CardContent>
       </Card>
-      <div className="mt-6 text-center text-sm text-muted-foreground">
-        Анхны админ уу?{' '}
-        <Link href="/signup" className="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors">
-          Бүртгүүлэх
-        </Link>
+      <div className="mt-6 text-center text-sm text-muted-foreground space-y-2">
+        <div>
+          Анхны админ уу?{' '}
+          <Link href="/signup" className="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors">
+            Бүртгүүлэх
+          </Link>
+        </div>
+        <div>
+          <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
+            ← Нүүр хуудас руу буцах
+          </Link>
+        </div>
       </div>
     </div>
   );

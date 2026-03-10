@@ -228,6 +228,11 @@ export const useMemoFirebase = <T,>(
     if (!firestore || !auth) {
       return null;
     }
+    // Block all queries until tenant context is resolved to prevent
+    // cross-tenant data leaks through top-level collection fallback
+    if (user && !companyPath) {
+      return null;
+    }
     return factory({ firestore, auth, user, companyId, companyPath });
   }, [firestore, auth, user, companyId, ...deps]);
 };

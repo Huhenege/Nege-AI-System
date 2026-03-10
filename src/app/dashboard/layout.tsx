@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useUser, useMemoFirebase, useDoc, useFirebase, tenantDoc } from '@/firebase';
+import { useUser, useMemoFirebase, useDoc, tenantDoc } from '@/firebase';
 import { usePathname } from 'next/navigation';
 import { useTenant } from '@/contexts/tenant-context';
 import { useRouter } from 'next/navigation';
@@ -22,22 +22,14 @@ interface CompanyProfile {
   logoUrl?: string;
 }
 
-interface CompanySettings {
-  setupComplete?: boolean;
-}
-
 function AdminDashboard({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
-  const { companyId, isLoading: isTenantLoading, role } = useTenant();
+  const { companyId, company, isLoading: isTenantLoading, role } = useTenant();
   const router = useRouter();
   const pathname = usePathname();
-  const { firestore } = useFirebase();
 
   const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), []);
   const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
-
-  const companySettingsRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'settings') : null), []);
-  const { data: companySettings } = useDoc<CompanySettings>(companySettingsRef);
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
@@ -50,14 +42,14 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
     if (
       !isTenantLoading &&
       companyId &&
+      company &&
       role !== 'super_admin' &&
-      companySettings !== undefined &&
-      !companySettings?.setupComplete &&
+      !company.setupComplete &&
       !pathname.startsWith('/dashboard/setup')
     ) {
       router.replace('/dashboard/setup');
     }
-  }, [isTenantLoading, companyId, role, companySettings, pathname, router]);
+  }, [isTenantLoading, companyId, company, role, pathname, router]);
 
   const isFullyLoading = isUserLoading || isTenantLoading;
 

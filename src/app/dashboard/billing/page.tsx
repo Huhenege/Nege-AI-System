@@ -128,13 +128,13 @@ export default function BillingPage() {
       {/* Current plan info */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Багц & Төлбөр</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+        <div className="text-muted-foreground text-sm mt-1">
           Одоогийн багц: <span className="font-medium text-foreground">{COMPANY_PLAN_LABELS[currentPlan]}</span>
           {' · '}
           <Badge className={cn('text-xs', COMPANY_STATUS_COLORS[company.status])}>
             {COMPANY_STATUS_LABELS[company.status]}
           </Badge>
-        </p>
+        </div>
       </div>
 
       {/* QR payment modal */}

@@ -3,16 +3,16 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, initiateEmailSignUp, useFirebase } from '@/firebase';
+import { useAuth, useFirebase } from '@/firebase';
+import { setSessionCookie } from '@/lib/session';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/icons';
 import { Loader2, Building } from 'lucide-react';
+import { NegeLogo } from '@/components/icons/nege-logo';
 import { useToast } from '@/hooks/use-toast';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -44,98 +44,62 @@ export default function SignupPage() {
         return;
       }
 
-      // Signup нээлттэй эсэхийг шалгах
-      const signupConfigRef = doc(firestore, 'system', 'signup_config');
-      let configSnap = await getDoc(signupConfigRef);
-      if (!configSnap.exists()) {
-        await setDoc(signupConfigRef, { open: true });
-        configSnap = await getDoc(signupConfigRef);
-      }
-      if (!configSnap.exists() || !configSnap.data()?.open) {
-        setError('Одоогоор бүртгэл хаалттай байна.');
-        toast({
-          variant: 'destructive',
-          title: 'Бүртгэл хаалттай',
-          description: 'Бүртгэл нээгдээгүй байна.',
-        });
-        setIsLoading(false);
-        return;
-      }
+      const uc = await createUserWithEmailAndPassword(auth, email, password);
+      const idToken = await uc.user.getIdToken();
 
-      initiateEmailSignUp(auth, email, password);
-
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          try {
-            const idToken = await user.getIdToken();
-
-            const res = await fetch('/api/companies/register', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`,
-              },
-              body: JSON.stringify({
-                companyName: companyName.trim(),
-                plan: 'free',
-              }),
-            });
-
-            const result = await res.json();
-
-            if (!res.ok) {
-              throw new Error(result.error || 'Компани үүсгэхэд алдаа гарлаа');
-            }
-
-            // Close signup after first company is registered
-            try {
-              await setDoc(doc(firestore, 'system', 'signup_config'), { open: false }, { merge: true });
-            } catch {
-              // Admin can fix this from Firebase Console
-            }
-
-            toast({
-              title: 'Амжилттай бүртгүүллээ!',
-              description: `"${companyName}" компани үүсгэгдлээ. Нэвтрэх хэсэг рүү шилжинэ.`,
-            });
-            router.push('/login');
-          } catch (regError: unknown) {
-            const msg = regError instanceof Error ? regError.message : 'Компани үүсгэхэд алдаа гарлаа';
-            setError(msg);
-            toast({ variant: 'destructive', title: 'Алдаа', description: msg });
-            setIsLoading(false);
-          }
-          unsubscribe();
-        } else {
-          setTimeout(() => {
-            if (!auth.currentUser) {
-              setError('Бүртгэл үүсгэхэд алдаа гарлаа.');
-              toast({ variant: 'destructive', title: 'Алдаа', description: 'Бүртгэл үүсгэхэд алдаа гарлаа.' });
-              setIsLoading(false);
-            }
-          }, 2000);
-        }
-      }, (authError) => {
-        setError(authError.message || 'Бүртгэл үүсгэхэд алдаа гарлаа.');
-        toast({ variant: 'destructive', title: 'Алдаа', description: authError.message });
-        console.error(authError);
-        setIsLoading(false);
-        unsubscribe();
+      const res = await fetch('/api/companies/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          companyName: companyName.trim(),
+          plan: 'free',
+        }),
       });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Компани үүсгэхэд алдаа гарлаа');
+      }
+
+      // Force token refresh to pick up the custom claims set by the register API
+      const freshToken = await uc.user.getIdToken(true);
+      setSessionCookie(freshToken);
+
+      toast({
+        title: 'Амжилттай бүртгүүллээ!',
+        description: `"${companyName}" компани үүсгэгдлээ.`,
+      });
+
+      router.replace('/dashboard');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Системийн дотоод алдаа гарлаа.';
       console.error('Signup error:', err);
+      const code = (err as { code?: string })?.code;
+      let msg = 'Системийн дотоод алдаа гарлаа.';
+      if (code === 'auth/email-already-in-use') {
+        msg = 'Энэ имэйл хаяг аль хэдийн бүртгэгдсэн байна. Нэвтрэх хэсгээс ороорой.';
+      } else if (code === 'auth/weak-password') {
+        msg = 'Нууц үг хэт богино байна. Хамгийн багадаа 6 тэмдэгт оруулна уу.';
+      } else if (code === 'auth/invalid-email') {
+        msg = 'Имэйл хаяг буруу байна.';
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
       setError(msg);
+      toast({ variant: 'destructive', title: 'Бүртгэлийн алдаа', description: msg });
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-screen items-center justify-center bg-white px-4">
+      <Card className="w-full max-w-sm border-0 shadow-none">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
-            <Logo className="h-10 w-10 text-primary" />
+            <NegeLogo className="h-12 w-auto" />
           </div>
           <CardTitle className="text-2xl">Байгууллага бүртгүүлэх</CardTitle>
           <CardDescription>
@@ -189,11 +153,18 @@ export default function SignupPage() {
               Бүртгүүлэх
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            Бүртгэлтэй юу?{' '}
-            <Link href="/login" className="underline">
-              Нэвтрэх
-            </Link>
+          <div className="mt-4 text-center text-sm space-y-2">
+            <div>
+              Бүртгэлтэй юу?{' '}
+              <Link href="/login" className="underline">
+                Нэвтрэх
+              </Link>
+            </div>
+            <div>
+              <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
+                ← Нүүр хуудас руу буцах
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>

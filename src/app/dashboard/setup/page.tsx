@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/tenant-context';
-import { useTenantWrite } from '@/firebase';
-import { setDoc, addDoc, collection, doc, serverTimestamp } from 'firebase/firestore';
+import { useTenantWrite, useAuth } from '@/firebase';
+import { setDoc, addDoc, updateDoc, doc as firestoreDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,10 +34,40 @@ const STEPS = [
 export default function SetupWizardPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const auth = useAuth();
   const { company, companyId } = useTenant();
   const { firestore, tDoc, tCollection } = useTenantWrite();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Force-refresh auth token before Firestore writes to ensure claims are current
+  const ensureFreshToken = async () => {
+    if (auth.currentUser) {
+      await auth.currentUser.getIdToken(true);
+    }
+  };
+
+  const markSetupComplete = async () => {
+    if (!firestore || !companyId) return;
+    try {
+      await ensureFreshToken();
+      await updateDoc(firestoreDoc(firestore, 'companies', companyId), {
+        setupComplete: true,
+      });
+    } catch (err) {
+      console.error('Failed to mark setup complete:', err);
+    }
+  };
+
+  const handleSkipToFinish = async () => {
+    await markSetupComplete();
+    setCurrentStep(3);
+  };
+
+  const handleGoToDashboard = async () => {
+    await markSetupComplete();
+    router.push('/dashboard');
+  };
 
   // Step data
   const [companyData, setCompanyData] = useState({
@@ -54,6 +84,7 @@ export default function SetupWizardPage() {
     if (!firestore || !companyId) return;
     setIsSaving(true);
     try {
+      await ensureFreshToken();
       await setDoc(
         tDoc('company', 'profile'),
         {
@@ -78,6 +109,7 @@ export default function SetupWizardPage() {
     if (!firestore || !deptName.trim()) return;
     setIsSaving(true);
     try {
+      await ensureFreshToken();
       const docRef = await addDoc(tCollection('departments'), {
         name: deptName.trim(),
         color: deptColor,
@@ -100,6 +132,7 @@ export default function SetupWizardPage() {
     if (!firestore || !positionTitle.trim()) return;
     setIsSaving(true);
     try {
+      await ensureFreshToken();
       await addDoc(tCollection('positions'), {
         title: positionTitle.trim(),
         departmentId: createdDeptId || '',
@@ -110,8 +143,10 @@ export default function SetupWizardPage() {
         updatedAt: serverTimestamp(),
       });
 
-      // Mark setup as complete
-      await setDoc(tDoc('company', 'settings'), { setupComplete: true }, { merge: true });
+      // Mark setup as complete on the main company document
+      await updateDoc(firestoreDoc(firestore, 'companies', companyId), {
+        setupComplete: true,
+      });
 
       toast({ title: `"${positionTitle}" ажлын байр үүсгэгдлээ` });
       setCurrentStep(3);
@@ -270,7 +305,7 @@ export default function SetupWizardPage() {
                   <ChevronLeft className="h-4 w-4 mr-1" /> Буцах
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="ghost" onClick={() => { setCurrentStep(3); }}>
+                  <Button variant="ghost" onClick={handleSkipToFinish}>
                     Алгасах <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                   <Button onClick={handleSavePosition} disabled={isSaving || !positionTitle.trim()}>
@@ -295,7 +330,7 @@ export default function SetupWizardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center pt-2">
-              <Button size="lg" onClick={() => router.push('/dashboard')}>
+              <Button size="lg" onClick={handleGoToDashboard}>
                 Dashboard руу очих <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </CardContent>

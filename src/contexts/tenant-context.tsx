@@ -2,7 +2,7 @@
 
 import React, { useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { useUser, useFirebase } from '@/firebase';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import type { Company, TenantClaims, TenantRole, SaaSModule } from '@/types/company';
 import { TenantContext } from './tenant-types';
 import type { TenantState, TenantContextValue } from './tenant-types';
@@ -48,34 +48,56 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
     async function loadClaims() {
       try {
-        const tokenResult = await user!.getIdTokenResult();
-        const claims = tokenResult.claims as unknown as TenantClaims;
+        // Force-refresh to always get latest server-side claims
+        let tokenResult = await user!.getIdTokenResult(true);
+        let claims = tokenResult.claims as unknown as TenantClaims;
 
         if (cancelled) return;
 
-        // Backward compatibility: if no custom claims yet, check employees doc
-        if (!claims.role) {
-          const empDoc = await getDoc(doc(firestore, 'employees', user!.uid));
-          if (empDoc.exists()) {
-            const empData = empDoc.data() as { role?: string; companyId?: string };
-            setState({
-              companyId: empData.companyId || null,
-              company: null,
-              role: (empData.role as TenantRole) || 'employee',
-              isLoading: false,
+        if (claims.companyId && claims.role) {
+          setState(prev => ({
+            ...prev,
+            companyId: claims.companyId!,
+            role: claims.role!,
+            isLoading: true,
+            error: null,
+          }));
+          return;
+        }
+
+        // Token doesn't have claims — call ensure-claims API to set them
+        // This is critical: Firestore rules check TOKEN claims, not employee docs
+        const idToken = await user!.getIdToken();
+        const res = await fetch('/api/auth/ensure-claims', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${idToken}` },
+        });
+
+        if (cancelled) return;
+
+        if (res.ok) {
+          // Refresh token to pick up newly set claims
+          tokenResult = await user!.getIdTokenResult(true);
+          claims = tokenResult.claims as unknown as TenantClaims;
+
+          if (claims.companyId && claims.role) {
+            setState(prev => ({
+              ...prev,
+              companyId: claims.companyId!,
+              role: claims.role!,
+              isLoading: true,
               error: null,
-            });
+            }));
             return;
           }
         }
 
+        // No company found — user needs to register
         setState(prev => ({
           ...prev,
-          companyId: claims.companyId || null,
+          companyId: null,
           role: claims.role || null,
-          // Keep loading only if companyId exists (need to fetch company doc next)
-          // If no companyId, stop loading — login page will handle ensure-claims
-          isLoading: !!claims.companyId,
+          isLoading: false,
           error: null,
         }));
       } catch (e) {
@@ -94,46 +116,73 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
   // Subscribe to company document once companyId is known
   useEffect(() => {
-    if (!state.companyId || !firestore) {
+    if (!state.companyId || !firestore || !user) {
       if (!state.isLoading && state.companyId === null && state.role) {
         setState(prev => ({ ...prev, isLoading: false }));
       }
       return;
     }
 
-    const companyDocRef = doc(firestore, 'companies', state.companyId);
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    let retries = 0;
 
-    const unsubscribe = onSnapshot(
-      companyDocRef,
-      (snap) => {
-        if (snap.exists()) {
-          setState(prev => ({
-            ...prev,
-            company: { id: snap.id, ...snap.data() } as Company,
-            isLoading: false,
-            error: null,
-          }));
-        } else {
-          setState(prev => ({
-            ...prev,
-            company: null,
-            isLoading: false,
-            error: null,
-          }));
+    function subscribe() {
+      const companyDocRef = doc(firestore, 'companies', state.companyId!);
+
+      unsubscribe = onSnapshot(
+        companyDocRef,
+        (snap) => {
+          retries = 0;
+          if (snap.exists()) {
+            setState(prev => ({
+              ...prev,
+              company: { id: snap.id, ...snap.data() } as Company,
+              isLoading: false,
+              error: null,
+            }));
+          } else {
+            setState(prev => ({
+              ...prev,
+              company: null,
+              isLoading: false,
+              error: null,
+            }));
+          }
+        },
+        async (err) => {
+          console.error('[TenantContext] Company snapshot error:', err.message);
+
+          // Retry with a fresh token — the listener may have started
+          // before the Firestore SDK picked up the refreshed auth token
+          if (retries < 3 && !cancelled) {
+            retries++;
+            try {
+              await user!.getIdToken(true);
+            } catch { /* ignore */ }
+            retryTimeout = setTimeout(() => {
+              if (!cancelled) subscribe();
+            }, 500 * retries);
+          } else {
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              error: err.message,
+            }));
+          }
         }
-      },
-      (err) => {
-        console.error('[TenantContext] Company snapshot error:', err);
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: err.message,
-        }));
-      }
-    );
+      );
+    }
 
-    return () => unsubscribe();
-  }, [state.companyId, firestore]);
+    subscribe();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
+  }, [state.companyId, firestore, user]);
 
   const contextValue = useMemo((): TenantContextValue => {
     return {

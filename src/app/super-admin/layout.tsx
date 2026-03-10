@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   LayoutDashboard,
   Building2,
+  CreditCard,
   LogOut,
   ChevronRight,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ import { clearSessionCookie } from '@/lib/session';
 const NAV_ITEMS = [
   { href: '/super-admin', label: 'Хяналтын самбар', icon: LayoutDashboard, exact: true },
   { href: '/super-admin/companies', label: 'Байгууллагууд', icon: Building2 },
+  { href: '/super-admin/billing', label: 'Төлбөр', icon: CreditCard },
 ];
 
 function SuperAdminShell({ children }: { children: React.ReactNode }) {
@@ -103,13 +105,6 @@ function SuperAdminShell({ children }: { children: React.ReactNode }) {
 
         {/* Bottom */}
         <div className="border-t border-slate-800 p-3 space-y-2">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-500 hover:bg-slate-800/50 hover:text-slate-300 transition-colors"
-          >
-            <ChevronRight className="h-3 w-3 rotate-180" />
-            Dashboard руу буцах
-          </Link>
           <button
             onClick={() => { clearSessionCookie(); auth && signOut(auth).then(() => router.replace('/login')); }}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-500 hover:bg-red-900/20 hover:text-red-400 transition-colors"

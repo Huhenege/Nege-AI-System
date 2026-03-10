@@ -47,6 +47,12 @@ import {
   Loader2,
   RefreshCw,
   Save,
+  CreditCard,
+  Calendar,
+  Receipt,
+  Clock,
+  Sparkles,
+  CheckCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSuperAdminApi } from '../../components/use-super-admin-api';
@@ -112,7 +118,7 @@ export default function CompanyDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'users' | 'limits'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'users' | 'limits' | 'billing'>('overview');
 
   const loadCompany = useCallback(async () => {
     setIsLoading(true);
@@ -210,6 +216,7 @@ export default function CompanyDetailPage() {
 
   const tabs = [
     { id: 'overview' as const, label: 'Ерөнхий', icon: Building2 },
+    { id: 'billing' as const, label: 'Төлбөр', icon: CreditCard },
     { id: 'modules' as const, label: 'Модулууд', icon: Package },
     { id: 'users' as const, label: 'Хэрэглэгчид', icon: Users },
     { id: 'limits' as const, label: 'Хязгаарлалт', icon: Settings },
@@ -321,6 +328,9 @@ export default function CompanyDetailPage() {
           onChangeRole={updateUserRole}
           onToggleDisabled={toggleUserDisabled}
         />
+      )}
+      {activeTab === 'billing' && (
+        <BillingTab companyId={companyId} company={company} onRefresh={loadCompany} />
       )}
       {activeTab === 'limits' && (
         <LimitsTab company={company} onSave={updateCompany} isSaving={isSaving} />
@@ -683,6 +693,361 @@ function LimitField({
         onChange={(e) => onChange(e.target.value)}
         className="h-9"
       />
+    </div>
+  );
+}
+
+/* ───────────────── Billing Tab ───────────────── */
+
+interface BillingInvoice {
+  id: string;
+  invoiceNo: string;
+  plan: CompanyPlan;
+  billingCycle: string;
+  amount: number;
+  currency: string;
+  status: string;
+  manuallyPaid?: boolean;
+  createdAt: string;
+  paidAt: string | null;
+}
+
+interface BillingData {
+  subscription: {
+    plan: CompanyPlan;
+    startDate?: string;
+    endDate?: string;
+    billingCycle?: string;
+    amount?: number;
+    paymentStatus?: string;
+    trialEndsAt?: string;
+    lastPaymentDate?: string;
+    nextPaymentDate?: string;
+  } | null;
+  plan: CompanyPlan;
+  status: CompanyStatus;
+  invoices: BillingInvoice[];
+}
+
+function BillingTab({
+  companyId,
+  company,
+  onRefresh,
+}: {
+  companyId: string;
+  company: Company;
+  onRefresh: () => void;
+}) {
+  const { fetchApi } = useSuperAdminApi();
+  const { toast } = useToast();
+  const [billing, setBilling] = useState<BillingData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActing, setIsActing] = useState(false);
+
+  // Change plan form state
+  const [newPlan, setNewPlan] = useState<CompanyPlan>(company.plan);
+  const [months, setMonths] = useState('1');
+  const [extendMonths, setExtendMonths] = useState('1');
+  const [trialDays, setTrialDays] = useState('14');
+
+  const loadBilling = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchApi<BillingData>(`/company/${companyId}/billing`);
+      setBilling(data);
+    } catch (err: unknown) {
+      console.error('Failed to load billing:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchApi, companyId]);
+
+  useEffect(() => {
+    loadBilling();
+  }, [loadBilling]);
+
+  const billingAction = async (body: Record<string, unknown>) => {
+    setIsActing(true);
+    try {
+      const result = await fetchApi<{ message: string }>(`/company/${companyId}/billing`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      toast({ title: 'Амжилттай', description: result.message });
+      loadBilling();
+      onRefresh();
+    } catch (err: unknown) {
+      toast({
+        title: 'Алдаа',
+        description: err instanceof Error ? err.message : 'Failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const sub = billing?.subscription;
+
+  const formatDate = (val: string | undefined | null) => {
+    if (!val) return '-';
+    return new Date(val).toLocaleDateString('mn-MN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const isExpired = sub?.endDate ? new Date(sub.endDate) < new Date() : false;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Subscription status card */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-base">Захиалгын мэдээлэл</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Багц</p>
+                <p className="font-semibold">{COMPANY_PLAN_LABELS[billing?.plan || 'free']}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Төлөв</p>
+                <Badge className={COMPANY_STATUS_COLORS[billing?.status || 'trial']}>
+                  {COMPANY_STATUS_LABELS[billing?.status || 'trial']}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Эхлэх огноо</p>
+                <p className="font-medium">{formatDate(sub?.startDate)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Дуусах огноо</p>
+                <div className="flex items-center gap-1.5">
+                  <p className={`font-medium ${isExpired ? 'text-red-500' : ''}`}>
+                    {formatDate(sub?.endDate)}
+                  </p>
+                  {isExpired && <Badge variant="destructive" className="text-[10px]">Дууссан</Badge>}
+                </div>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Төлбөрийн хугацаа</p>
+                <p className="font-medium">{sub?.billingCycle === 'yearly' ? 'Жилийн' : 'Сарын'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Дүн</p>
+                <p className="font-medium">₮{(sub?.amount || 0).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Төлбөрийн төлөв</p>
+                <Badge variant={sub?.paymentStatus === 'paid' ? 'default' : 'secondary'}>
+                  {sub?.paymentStatus === 'paid' ? 'Төлсөн' : sub?.paymentStatus === 'pending' ? 'Хүлээгдэж буй' : sub?.paymentStatus || 'Тодорхойгүй'}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Сүүлийн төлбөр</p>
+                <p className="font-medium">{formatDate(sub?.lastPaymentDate)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick actions */}
+        <div className="space-y-4">
+          {/* Change plan */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm">Багц солих</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <Select value={newPlan} onValueChange={(v) => setNewPlan(v as CompanyPlan)}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLAN_DEFINITIONS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.nameMN} {p.price > 0 ? `(₮${p.price.toLocaleString()}/сар)` : '(Үнэгүй)'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  min="1"
+                  max="24"
+                  value={months}
+                  onChange={(e) => setMonths(e.target.value)}
+                  className="w-20"
+                  placeholder="Сар"
+                />
+              </div>
+              <Button
+                className="w-full"
+                size="sm"
+                disabled={isActing || newPlan === company.plan}
+                onClick={() => billingAction({ action: 'change_plan', plan: newPlan, months: Number(months) })}
+              >
+                {isActing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+                {COMPANY_PLAN_LABELS[company.plan]} → {COMPANY_PLAN_LABELS[newPlan]} ({months} сар)
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Extend + Trial */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm">Сунгах</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="24"
+                    value={extendMonths}
+                    onChange={(e) => setExtendMonths(e.target.value)}
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground self-center">сар</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isActing}
+                  onClick={() => billingAction({ action: 'extend', months: Number(extendMonths) })}
+                >
+                  Хугацаа сунгах
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm">Туршилт</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="90"
+                    value={trialDays}
+                    onChange={(e) => setTrialDays(e.target.value)}
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground self-center">хоног</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isActing}
+                  onClick={() => billingAction({ action: 'set_trial', days: Number(trialDays) })}
+                >
+                  Trial тохируулах
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* Invoice history */}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div className="flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="text-base">Нэхэмжлэлийн түүх</CardTitle>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadBilling} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            Шинэчлэх
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {!billing?.invoices?.length ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Нэхэмжлэл байхгүй</p>
+          ) : (
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Нэхэмжлэл</TableHead>
+                    <TableHead>Багц</TableHead>
+                    <TableHead>Хугацаа</TableHead>
+                    <TableHead className="text-right">Дүн</TableHead>
+                    <TableHead className="text-center">Төлөв</TableHead>
+                    <TableHead>Огноо</TableHead>
+                    <TableHead className="text-right">Үйлдэл</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {billing.invoices.map((inv) => (
+                    <TableRow key={inv.id}>
+                      <TableCell className="font-mono text-xs">{inv.invoiceNo}</TableCell>
+                      <TableCell className="text-sm">{COMPANY_PLAN_LABELS[inv.plan] || inv.plan}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {inv.billingCycle === 'yearly' ? 'Жилийн' : 'Сарын'}
+                      </TableCell>
+                      <TableCell className="text-right text-sm">₮{inv.amount?.toLocaleString()}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={inv.status === 'paid' ? 'default' : 'secondary'}
+                          className={inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : ''}
+                        >
+                          {inv.status === 'paid' ? (inv.manuallyPaid ? 'Гараар төлсөн' : 'Төлсөн') : 'Хүлээгдэж буй'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{formatDate(inv.createdAt)}</TableCell>
+                      <TableCell className="text-right">
+                        {inv.status !== 'paid' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={isActing}
+                            onClick={() => billingAction({ action: 'mark_paid', invoiceNo: inv.invoiceNo })}
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Төлсөн болгох
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

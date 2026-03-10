@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         plan,
         startDate: new Date().toISOString(),
         endDate: trialEnd.toISOString(),
-        trialEndsAt: plan !== 'free' ? trialEnd.toISOString() : undefined,
+        ...(plan !== 'free' ? { trialEndsAt: trialEnd.toISOString() } : {}),
         billingCycle: 'monthly',
         amount: def.price,
         currency: def.currency,

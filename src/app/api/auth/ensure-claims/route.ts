@@ -61,64 +61,61 @@ export async function POST(request: NextRequest) {
     const empSnap = await db.doc(`employees/${decoded.uid}`).get();
     const empData = empSnap.exists ? (empSnap.data() as { role?: string; companyId?: string }) : null;
 
-    let companyId = empData?.companyId || null;
-    const role = empData?.role === 'admin' ? 'admin' : 'employee';
+    const companyId = empData?.companyId || null;
+    let role: 'admin' | 'employee' = empData?.role === 'admin' ? 'admin' : 'employee';
 
-    // If no companyId on employee, look for existing companies or create from legacy profile
+    // If employee doc doesn't say admin, check if the user owns the company
+    if (companyId && role !== 'admin') {
+      const companyDoc = await db.doc(`companies/${companyId}`).get();
+      if (companyDoc.exists && companyDoc.data()?.ownerId === decoded.uid) {
+        role = 'admin';
+      }
+    }
+
+    // If no companyId found, the user has no company association.
+    // They need to register a new company via /signup first.
     if (!companyId) {
-      // Check if any company already exists
-      const companiesSnap = await db.collection('companies').limit(1).get();
+      // Check if the user owns a company (by ownerId)
+      const ownedSnap = await db.collection('companies')
+        .where('ownerId', '==', decoded.uid)
+        .limit(1)
+        .get();
 
-      if (!companiesSnap.empty) {
-        companyId = companiesSnap.docs[0].id;
-      } else {
-        // Create a default company from legacy company/profile
-        const profileSnap = await db.doc('company/profile').get();
-        const profileData = profileSnap.exists
-          ? (profileSnap.data() as { name?: string })
-          : null;
+      if (!ownedSnap.empty) {
+        const ownedCompanyId = ownedSnap.docs[0].id;
+        const claims: TenantClaims = { role: 'admin', companyId: ownedCompanyId };
+        await adminAuth.setCustomUserClaims(decoded.uid, claims);
 
-        const companyRef = db.collection('companies').doc();
-        companyId = companyRef.id;
+        // Also update the employee doc
+        if (empSnap.exists) {
+          await db.doc(`employees/${decoded.uid}`).update({ companyId: ownedCompanyId });
+        }
 
-        await companyRef.set({
-          name: profileData?.name || 'My Company',
-          email: decoded.email || '',
-          status: 'active',
-          plan: 'free',
-          modules: {
-            company: { enabled: true },
-            organization: { enabled: true },
-            employees: { enabled: true },
-            projects: { enabled: true },
-          },
-          limits: {
-            maxEmployees: 9999,
-            maxProjects: 9999,
-            maxDepartments: 999,
-            maxStorageMB: 51200,
-            aiQueriesPerMonth: 9999,
-          },
-          subscription: {
-            plan: 'free',
-            startDate: new Date().toISOString(),
-            endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            billingCycle: 'monthly',
-            amount: 0,
-            currency: 'MNT',
-            paymentStatus: 'none',
-          },
-          ownerId: decoded.uid,
-          employeeCount: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+        return NextResponse.json({ status: 'claims_set', claims, companyId: ownedCompanyId });
       }
 
-      // Update employee doc with companyId
-      if (empSnap.exists) {
-        await db.doc(`employees/${decoded.uid}`).update({ companyId });
+      // Also check if the user exists in any company's employees subcollection
+      const companyEmployeeSnap = await db.collectionGroup('employees')
+        .where('id', '==', decoded.uid)
+        .limit(1)
+        .get();
+
+      if (!companyEmployeeSnap.empty) {
+        const empPath = companyEmployeeSnap.docs[0].ref.path;
+        // Path: companies/{companyId}/employees/{uid}
+        const parts = empPath.split('/');
+        const foundCompanyId = parts[1];
+        const foundRole = (companyEmployeeSnap.docs[0].data().role as string) === 'admin' ? 'admin' : 'employee';
+
+        const claims: TenantClaims = { role: foundRole as 'admin' | 'employee', companyId: foundCompanyId };
+        await adminAuth.setCustomUserClaims(decoded.uid, claims);
+
+        return NextResponse.json({ status: 'claims_set', claims, companyId: foundCompanyId });
       }
+
+      return NextResponse.json({
+        error: 'No company association found. Please register a company first.',
+      }, { status: 404 });
     }
 
     const claims: TenantClaims = {
