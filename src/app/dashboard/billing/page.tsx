@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '@/contexts/tenant-context';
 import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
   PLAN_DEFINITIONS,
@@ -14,6 +15,7 @@ import {
   COMPANY_STATUS_LABELS,
   COMPANY_STATUS_COLORS,
   type CompanyPlan,
+  type PlanDefinition,
 } from '@/types/company';
 import { Check, Loader2, Sparkles, QrCode, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -51,6 +53,28 @@ export default function BillingPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [invoice, setInvoice] = useState<InvoiceResult | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [plans, setPlans] = useState<PlanDefinition[]>(PLAN_DEFINITIONS);
+  const [plansLoading, setPlansLoading] = useState(true);
+
+  const loadPlans = useCallback(async () => {
+    try {
+      const res = await fetch('/api/pricing');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.plans) && data.plans.length > 0) {
+          setPlans(data.plans);
+        }
+      }
+    } catch {
+      // fallback to hardcoded PLAN_DEFINITIONS already set
+    } finally {
+      setPlansLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPlans();
+  }, [loadPlans]);
 
   const invoicesQuery = useMemoFirebase(
     ({ firestore, companyPath }) =>
@@ -174,74 +198,84 @@ export default function BillingPage() {
       )}
 
       {/* Plans grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {PLAN_DEFINITIONS.map((plan) => {
-          const isCurrent = plan.id === currentPlan;
-          const isUpgrade = PLAN_DEFINITIONS.indexOf(plan) > PLAN_DEFINITIONS.findIndex((p) => p.id === currentPlan);
+      {plansLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-72 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {plans.map((plan) => {
+            const isCurrent = plan.id === currentPlan;
+            const isUpgrade = plans.indexOf(plan) > plans.findIndex((p) => p.id === currentPlan);
 
-          return (
-            <Card
-              key={plan.id}
-              className={cn(
-                'relative transition-all',
-                isCurrent && 'border-primary ring-1 ring-primary',
-                plan.id === 'pro' && !isCurrent && 'border-purple-300 dark:border-purple-800'
-              )}
-            >
-              {plan.id === 'pro' && !isCurrent && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-purple-600 text-white">Санал болгох</Badge>
-                </div>
-              )}
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{plan.nameMN}</CardTitle>
-                <CardDescription className="text-xs">{plan.description}</CardDescription>
-                <div className="pt-2">
-                  {plan.price === 0 ? (
-                    <span className="text-2xl font-bold">Үнэгүй</span>
-                  ) : (
-                    <>
-                      <span className="text-2xl font-bold">₮{plan.price.toLocaleString()}</span>
-                      <span className="text-sm text-muted-foreground"> /сар</span>
-                    </>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <ul className="space-y-1.5 text-xs">
-                  <PlanFeature label={`${plan.limits.maxEmployees} ажилтан`} />
-                  <PlanFeature label={`${plan.limits.maxProjects} төсөл`} />
-                  <PlanFeature label={`${plan.limits.maxStorageMB >= 1024 ? `${plan.limits.maxStorageMB / 1024} GB` : `${plan.limits.maxStorageMB} MB`} хадгалалт`} />
-                  <PlanFeature label={`${plan.modules.length} модуль`} />
-                  <PlanFeature label={`${plan.limits.aiQueriesPerMonth} AI хүсэлт/сар`} />
-                </ul>
-                {isCurrent ? (
-                  <Button variant="outline" className="w-full" disabled>
-                    Одоогийн багц
-                  </Button>
-                ) : isUpgrade ? (
-                  <Button
-                    className="w-full"
-                    onClick={() => handleUpgrade(plan.id)}
-                    disabled={isCreating || plan.id === 'free'}
-                  >
-                    {isCreating && selectedPlan === plan.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    ) : (
-                      <Sparkles className="h-4 w-4 mr-1" />
-                    )}
-                    Сунгах
-                  </Button>
-                ) : (
-                  <Button variant="ghost" className="w-full" disabled>
-                    Бага багц
-                  </Button>
+            return (
+              <Card
+                key={plan.id}
+                className={cn(
+                  'relative transition-all',
+                  isCurrent && 'border-primary ring-1 ring-primary',
+                  plan.id === 'pro' && !isCurrent && 'border-purple-300 dark:border-purple-800'
                 )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              >
+                {plan.id === 'pro' && !isCurrent && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-purple-600 text-white">Санал болгох</Badge>
+                  </div>
+                )}
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{plan.nameMN}</CardTitle>
+                  <CardDescription className="text-xs">{plan.description}</CardDescription>
+                  <div className="pt-2">
+                    {plan.price === 0 ? (
+                      <span className="text-2xl font-bold">Үнэгүй</span>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-bold">₮{plan.price.toLocaleString()}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {' '}/{plan.billingCycle === 'yearly' ? 'жил' : 'сар'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <ul className="space-y-1.5 text-xs">
+                    <PlanFeature label={`${plan.limits.maxEmployees} ажилтан`} />
+                    <PlanFeature label={`${plan.limits.maxProjects} төсөл`} />
+                    <PlanFeature label={`${plan.limits.maxStorageMB >= 1024 ? `${plan.limits.maxStorageMB / 1024} GB` : `${plan.limits.maxStorageMB} MB`} хадгалалт`} />
+                    <PlanFeature label={`${plan.modules.length} модуль`} />
+                    <PlanFeature label={`${plan.limits.aiQueriesPerMonth} AI хүсэлт/сар`} />
+                  </ul>
+                  {isCurrent ? (
+                    <Button variant="outline" className="w-full" disabled>
+                      Одоогийн багц
+                    </Button>
+                  ) : isUpgrade ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => handleUpgrade(plan.id)}
+                      disabled={isCreating || plan.id === 'free'}
+                    >
+                      {isCreating && selectedPlan === plan.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-1" />
+                      )}
+                      Сунгах
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" className="w-full" disabled>
+                      Бага багц
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Invoice history */}
       {invoiceHistory && invoiceHistory.length > 0 && (

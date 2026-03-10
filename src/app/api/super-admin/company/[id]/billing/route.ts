@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { requireSuperAdmin } from '../../../lib/auth-guard';
-import { getPlanDefinition } from '@/types/company';
+import { getDynamicPlanDefinition } from '@/lib/pricing/get-pricing-plans';
 import type { CompanyPlan, SaaSModule, ModuleConfig } from '@/types/company';
 
 type Params = { params: Promise<{ id: string }> };
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     // Manually change plan with full subscription reset
     case 'change_plan': {
       const { plan, months } = body as { plan: CompanyPlan; months: number };
-      const planDef = getPlanDefinition(plan);
+      const planDef = await getDynamicPlanDefinition(plan);
       const now = new Date();
       const endDate = new Date(now);
       endDate.setMonth(endDate.getMonth() + (months || 1));
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         endDate.setMonth(endDate.getMonth() + 1);
       }
 
-      const planDef = getPlanDefinition(invoiceData.plan);
+      const planDef = await getDynamicPlanDefinition(invoiceData.plan);
       const modules: Partial<Record<SaaSModule, ModuleConfig>> = {};
       for (const m of planDef.modules) {
         modules[m] = { enabled: true, enabledAt: now.toISOString() };

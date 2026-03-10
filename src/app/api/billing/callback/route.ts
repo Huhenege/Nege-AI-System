@@ -49,12 +49,17 @@ async function processPaymentCallback(invoiceNo: string): Promise<{ status: stri
   if (paymentResult.count > 0 && Number(paymentResult.paid_amount) >= invoiceData.amount) {
     const payment = paymentResult.rows[0];
 
+    const transactionId =
+      payment.p2p_transactions?.[0]?.id ??
+      payment.card_transactions?.[0]?.id ??
+      payment.payment_id;
+
     await invoiceDoc.ref.update({
       status: 'paid',
       paidAt: new Date(),
       paymentId: payment.payment_id,
-      transactionId: payment.transaction_id,
-      paidAmount: paymentResult.paid_amount,
+      transactionId,
+      paidAmount: Number(paymentResult.paid_amount),
     });
 
     const companyPath = invoiceDoc.ref.parent.parent!.path;

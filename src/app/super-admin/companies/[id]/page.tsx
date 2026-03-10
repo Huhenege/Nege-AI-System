@@ -72,6 +72,7 @@ import {
   type CompanyPlan,
   type SaaSModule,
   type TenantRole,
+  type PlanDefinition,
 } from '@/types/company';
 
 const MODULE_LABELS: Record<SaaSModule, string> = {
@@ -115,10 +116,18 @@ export default function CompanyDetailPage() {
 
   const [company, setCompany] = useState<Company | null>(null);
   const [users, setUsers] = useState<CompanyUser[]>([]);
+  const [plans, setPlans] = useState<PlanDefinition[]>(PLAN_DEFINITIONS);
   const [isLoading, setIsLoading] = useState(true);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'users' | 'limits' | 'billing'>('overview');
+
+  useEffect(() => {
+    fetch('/api/pricing')
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d.plans) && d.plans.length > 0) setPlans(d.plans); })
+      .catch(() => {});
+  }, []);
 
   const loadCompany = useCallback(async () => {
     setIsLoading(true);
@@ -401,7 +410,7 @@ function OverviewTab({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {PLAN_DEFINITIONS.map((p) => (
+              {plans.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   <span className="font-medium">{p.nameMN}</span>
                   <span className="text-muted-foreground ml-2 text-xs">
@@ -883,7 +892,7 @@ function BillingTab({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PLAN_DEFINITIONS.map((p) => (
+                    {plans.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.nameMN} {p.price > 0 ? `(₮${p.price.toLocaleString()}/сар)` : '(Үнэгүй)'}
                       </SelectItem>

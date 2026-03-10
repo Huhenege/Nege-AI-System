@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { requireSuperAdmin } from '../../lib/auth-guard';
 import type { CompanyStatus, CompanyPlan, SaaSModule, ModuleConfig } from '@/types/company';
-import { getPlanDefinition } from '@/types/company';
+import { getDynamicPlanDefinition } from '@/lib/pricing/get-pricing-plans';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
     updates.plan = body.plan;
-    const def = getPlanDefinition(body.plan);
+    const def = await getDynamicPlanDefinition(body.plan);
     updates.limits = { ...def.limits };
 
     const modules: Partial<Record<SaaSModule, ModuleConfig>> = {};

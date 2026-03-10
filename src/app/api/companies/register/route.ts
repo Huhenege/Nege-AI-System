@@ -4,9 +4,9 @@ import {
   CompanyPlan,
   SaaSModule,
   ModuleConfig,
-  getPlanDefinition,
   TenantClaims,
 } from '@/types/company';
+import { getDynamicPlanDefinition } from '@/lib/pricing/get-pricing-plans';
 import { FieldValue } from 'firebase-admin/firestore';
 
 type Body = {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const plan: CompanyPlan = body?.plan ?? 'free';
-    const def = getPlanDefinition(plan);
+    const def = await getDynamicPlanDefinition(plan);
 
     const modules: Record<string, ModuleConfig> = {};
     for (const m of def.modules) {

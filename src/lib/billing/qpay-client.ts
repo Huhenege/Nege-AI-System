@@ -43,10 +43,28 @@ export interface QPayPaymentCheckResponse {
   rows: Array<{
     payment_id: string;
     payment_status: string;
-    payment_amount: number;
+    payment_amount: string;
+    trx_fee: string;
     payment_currency: string;
     payment_wallet: string;
-    transaction_id: string;
+    payment_type: string;
+    card_transactions: Array<{
+      id: string;
+      transaction_bank_code: string;
+      status: string;
+      amount: string;
+    }>;
+    p2p_transactions: Array<{
+      id: string;
+      transaction_bank_code: string;
+      account_bank_code: string;
+      account_bank_name: string;
+      account_number: string;
+      status: string;
+      amount: string;
+      currency: string;
+      settlement_status: string;
+    }>;
   }>;
 }
 
@@ -136,6 +154,7 @@ export async function checkPayment(invoiceId: string): Promise<QPayPaymentCheckR
     body: JSON.stringify({
       object_type: 'INVOICE',
       object_id: invoiceId,
+      offset: { page_number: 1, page_limit: 100 },
     }),
   });
 

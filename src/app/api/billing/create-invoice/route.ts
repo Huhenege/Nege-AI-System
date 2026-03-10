@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { createInvoice } from '@/lib/billing/qpay-client';
-import { PLAN_DEFINITIONS } from '@/types/company';
+import { getDynamicPlanDefinitions } from '@/lib/pricing/get-pricing-plans';
 import type { TenantClaims, CompanyPlan } from '@/types/company';
 import { checkRateLimit, getCallerIdentifier } from '@/lib/api/rate-limiter';
 import { audit } from '@/lib/audit';
@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
       billingCycle?: 'monthly' | 'yearly';
     };
 
-    const planDef = PLAN_DEFINITIONS.find((p) => p.id === plan);
+    const dynamicPlans = await getDynamicPlanDefinitions();
+    const planDef = dynamicPlans.find((p) => p.id === plan);
     if (!planDef || plan === 'free') {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }

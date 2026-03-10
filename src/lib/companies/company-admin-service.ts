@@ -6,7 +6,6 @@ import {
   SaaSModule,
   TenantClaims,
   TenantRole,
-  getPlanDefinition,
   ModuleConfig,
 } from '@/types/company';
 
