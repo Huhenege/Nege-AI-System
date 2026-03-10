@@ -324,7 +324,7 @@ export default function CompanyDetailPage() {
 
       {/* Tab content */}
       {activeTab === 'overview' && (
-        <OverviewTab company={company} onSave={updateCompany} isSaving={isSaving} />
+        <OverviewTab company={company} onSave={updateCompany} isSaving={isSaving} plans={plans} />
       )}
       {activeTab === 'modules' && (
         <ModulesTab company={company} onToggle={updateCompany} isSaving={isSaving} />
@@ -339,7 +339,7 @@ export default function CompanyDetailPage() {
         />
       )}
       {activeTab === 'billing' && (
-        <BillingTab companyId={companyId} company={company} onRefresh={loadCompany} />
+        <BillingTab companyId={companyId} company={company} onRefresh={loadCompany} plans={plans} />
       )}
       {activeTab === 'limits' && (
         <LimitsTab company={company} onSave={updateCompany} isSaving={isSaving} />
@@ -354,10 +354,12 @@ function OverviewTab({
   company,
   onSave,
   isSaving,
+  plans,
 }: {
   company: Company;
   onSave: (body: Record<string, unknown>) => Promise<void>;
   isSaving: boolean;
+  plans: PlanDefinition[];
 }) {
   const [name, setName] = useState(company.name || '');
   const [email, setEmail] = useState(company.email || '');
@@ -742,10 +744,12 @@ function BillingTab({
   companyId,
   company,
   onRefresh,
+  plans,
 }: {
   companyId: string;
   company: Company;
   onRefresh: () => void;
+  plans: PlanDefinition[];
 }) {
   const { fetchApi } = useSuperAdminApi();
   const { toast } = useToast();
