@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useUser, useFirestore, useCollection } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useUser, useFetchCollection, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, where } from 'firebase/firestore';
 import { Reward } from '@/types/points';
 import { PointsService } from '@/lib/points/points-service';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +20,7 @@ import { ShoppingBag, Sparkles, AlertCircle } from 'lucide-react';
 
 export function RewardsList() {
     const { user } = useUser();
-    const firestore = useFirestore();
+    const { firestore, companyPath } = useTenantWrite();
     const { toast } = useToast();
 
     const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
@@ -28,17 +28,17 @@ export function RewardsList() {
 
     // Fetch active rewards
     const rewardsQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'rewards'), where('isActive', '==', true)) : null
-        , [firestore]);
+        (firestore && companyPath) ? query(tenantCollection(firestore, companyPath, 'rewards'), where('isActive', '==', true)) : null
+        , [firestore, companyPath]);
 
-    const { data: rewards, isLoading } = useCollection<Reward>(rewardsQuery);
+    const { data: rewards, isLoading } = useFetchCollection<Reward>(rewardsQuery);
 
     const handleRedeem = async () => {
-        if (!user || !firestore || !selectedReward) return;
+        if (!user || !firestore || !companyPath || !selectedReward) return;
 
         setIsSubmitting(true);
         try {
-            await PointsService.redeemReward(firestore, user.uid, selectedReward);
+            await PointsService.redeemReward(firestore, companyPath!, user.uid, selectedReward);
             toast({
                 title: 'Амжилттай!',
                 description: `${selectedReward.title} авах хүсэлт илгээгдлээ. Түүх хэсгээс шалгана уу.`,

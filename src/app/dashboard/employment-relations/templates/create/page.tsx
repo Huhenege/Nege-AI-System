@@ -1,16 +1,16 @@
 'use client';
 
 import React from 'react';
-import { useFirebase, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirebase, useFetchCollection, useTenantWrite } from '@/firebase';
 import { ERDocumentType } from '../../types';
 import { TemplateForm } from '../../components/template-form';
 import { Loader2 } from 'lucide-react';
 
 export default function CreateTemplatePage() {
     const { firestore } = useFirebase();
-    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
-    const { data: docTypes, isLoading } = useCollection<ERDocumentType>(docTypesQuery);
+    const { tCollection } = useTenantWrite();
+    const docTypesQuery = React.useMemo(() => firestore ? tCollection('er_process_document_types') : null, [firestore, tCollection]);
+    const { data: docTypes, isLoading } = useFetchCollection<ERDocumentType>(docTypesQuery);
 
     if (isLoading) {
         return (

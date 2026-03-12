@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { query, orderBy, deleteDoc } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchCollection, useMemoFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -27,13 +27,13 @@ export default function SurveyPage() {
         ({ firestore, companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'surveys'), orderBy('createdAt', 'desc')) : null,
         [firestore]
     );
-    const { data: surveys, isLoading } = useCollection<Survey>(surveysQuery);
+    const { data: surveys, isLoading } = useFetchCollection<Survey>(surveysQuery);
 
     const templatesQuery = useMemoFirebase(
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'survey_templates') : null,
         [firestore]
     );
-    const { data: firestoreTemplates, isLoading: templatesLoading } = useCollection<SurveyTemplate>(templatesQuery);
+    const { data: firestoreTemplates, isLoading: templatesLoading } = useFetchCollection<SurveyTemplate>(templatesQuery);
 
     const allTemplates = useMemo(() => {
         const system = SYSTEM_TEMPLATES.map((t, idx) => ({

@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchCollection, useMemoFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,7 +70,7 @@ export default function CreateSurveyPage() {
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'survey_templates') : null,
         [firestore]
     );
-    const { data: templates, isLoading: templatesLoading } = useCollection<SurveyTemplate>(templatesQuery);
+    const { data: templates, isLoading: templatesLoading } = useFetchCollection<SurveyTemplate>(templatesQuery);
 
     const filteredTemplates = useMemo(() => {
         if (!templates || !selectedType) return templates;

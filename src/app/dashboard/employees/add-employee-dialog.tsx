@@ -27,7 +27,7 @@ import {
     useFirebase,
     useMemoFirebase,
     useAuth,
-    useDoc,
+    useFetchDoc,
     useUser,
     createUserWithSecondaryAuth,
     tenantDoc,
@@ -139,9 +139,9 @@ export function AddEmployeeDialog({
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const codeConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null), []) as any;
-    const { data: codeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
+    const { data: codeConfig } = useFetchDoc<EmployeeCodeConfig>(codeConfigRef);
     const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), []);
-    const { data: companyProfile } = useDoc<any>(companyProfileRef);
+    const { data: companyProfile } = useFetchDoc<any>(companyProfileRef);
 
     const form = useForm<EmployeeFormValues>({
         resolver: zodResolver(employeeSchema),

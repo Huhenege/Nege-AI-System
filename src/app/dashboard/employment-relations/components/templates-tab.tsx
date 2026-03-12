@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useCollection, useFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { useFetchCollection, useFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { ERTemplate, ERDocumentType } from '../types';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,7 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
         firestore ? query(collection(firestore, 'er_templates'), orderBy('updatedAt', 'desc')) : null
         , [firestore]);
 
-    const { data: templates, isLoading } = useCollection<ERTemplate>(templatesQuery);
+    const { data: templates, isLoading } = useFetchCollection<ERTemplate>(templatesQuery);
 
     const docTypeMap = React.useMemo(() => {
         return docTypes.reduce((acc, type) => ({ ...acc, [type.id]: type.name }), {} as Record<string, string>);

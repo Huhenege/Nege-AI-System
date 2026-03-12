@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirestore, useCollection, useFetchCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
 import { getDoc, setDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,7 @@ export function PointConfigManager() {
     const positionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? query(tenantCollection(firestore, companyPath, 'positions'), where('hasPointBudget', '==', true)) : null
         , [firestore]);
-    const { data: budgetPositions } = useCollection<{ id: string; yearlyPointBudget?: number }>(positionsQuery);
+    const { data: budgetPositions } = useFetchCollection<{ id: string; yearlyPointBudget?: number }>(positionsQuery);
 
     const totalPositionBudget = useMemo(() =>
         (budgetPositions || []).reduce((sum, p) => sum + (p.yearlyPointBudget || 0), 0)

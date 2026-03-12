@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useFirebase, useDoc, useCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useFetchCollection, useTenantWrite } from '@/firebase';
 import { doc, Timestamp, updateDoc, collection, query, where, getDoc, deleteDoc, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ERDocument, DOCUMENT_STATUSES, DocumentStatus, ProcessActivity } from '../types';
@@ -64,18 +64,18 @@ export default function DocumentDetailPage() {
     const [customInputValues, setCustomInputValues] = useState<Record<string, any>>({});
 
     const departmentsQuery = useMemo(() => firestore ? collection(firestore, 'departments') : null, [firestore]);
-    const { data: departments } = useCollection<any>(departmentsQuery);
+    const { data: departments } = useFetchCollection<any>(departmentsQuery);
 
     const positionsQuery = useMemo(() =>
         firestore && selectedDept ? query(collection(firestore, 'positions'), where('departmentId', '==', selectedDept)) : null
         , [firestore, selectedDept]);
-    const { data: positions } = useCollection<any>(positionsQuery);
+    const { data: positions } = useFetchCollection<any>(positionsQuery);
 
     const employeesQuery = useMemo(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
     const { data: employeesList } = useCollection<any>(employeesQuery);
 
     const allPositionsListQuery = useMemo(() => firestore ? collection(firestore, 'positions') : null, [firestore]);
-    const { data: allPositions } = useCollection<any>(allPositionsListQuery);
+    const { data: allPositions } = useFetchCollection<any>(allPositionsListQuery);
 
     const occupiedPositions = useMemo(() => {
         if (!allPositions || !employeesList) return [];

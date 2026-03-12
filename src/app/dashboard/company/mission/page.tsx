@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchDoc, useMemoFirebase, useCollection, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
 import { collection, addDoc, deleteDoc, serverTimestamp, query, orderBy, setDoc } from 'firebase/firestore';
 import { Loader2, Save, PlusCircle, Trash2, Rocket, Eye, ChevronLeft, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -494,7 +494,7 @@ export default function EditMissionPage() {
     []
   );
 
-  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<any>(companyProfileRef);
+  const { data: companyProfile, isLoading: isLoadingProfile } = useFetchDoc<any>(companyProfileRef);
   const { data: coreValues, isLoading: isLoadingValues } = useCollection<CoreValue>(valuesQuery);
 
   const isLoading = isLoadingProfile || isLoadingValues;

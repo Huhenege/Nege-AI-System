@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { collection, query, where } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useFirebase, useFetchCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +20,7 @@ export default function MobileSurveyListPage() {
         ({ companyPath }) => firestore ? query(tenantCollection(firestore, companyPath, 'surveys'), where('status', '==', 'active')) : null,
         [firestore]
     );
-    const { data: allSurveys, isLoading } = useCollection<Survey>(surveysQuery);
+    const { data: allSurveys, isLoading } = useFetchCollection<Survey>(surveysQuery);
 
     const surveys = useMemo(() => {
         if (!allSurveys || !employeeProfile) return [];

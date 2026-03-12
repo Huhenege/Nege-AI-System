@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useUser, useFirestore, useDoc, useTenantWrite } from '@/firebase';
+import { useUser, useFirestore, useFetchDoc, useTenantWrite } from '@/firebase';
 import { DocumentReference } from 'firebase/firestore';
 import { UserPointProfile } from '@/types/points';
 import { useMemo, useEffect } from 'react';
@@ -94,7 +94,7 @@ function PointCard({ balance, allowance, baseAllowance }: { balance: number, all
 export default function MobilePointsPage() {
     const { user } = useUser();
     const firestore = useFirestore();
-    const { tDoc } = useTenantWrite();
+    const { tDoc, companyPath } = useTenantWrite();
     const [activeTab, setActiveTab] = useState('feed');
 
     const profileRef = useMemo(() =>
@@ -103,13 +103,13 @@ export default function MobilePointsPage() {
             : null,
         [user?.uid, firestore, tDoc]);
 
-    const { data: profile } = useDoc<UserPointProfile>(profileRef);
+    const { data: profile } = useFetchDoc<UserPointProfile>(profileRef);
 
     // Fetch system points config
     const configRef = useMemo(() =>
         firestore ? tDoc('points_config', 'main') as DocumentReference<PointsConfig> : null
         , [firestore, tDoc]);
-    const { data: config } = useDoc<PointsConfig>(configRef);
+    const { data: config } = useFetchDoc<PointsConfig>(configRef);
 
     const balance = profile?.balance || 0;
     const allowance = profile?.monthlyAllowance || 0;
@@ -117,10 +117,10 @@ export default function MobilePointsPage() {
 
     // Trigger Monthly Reset Check
     useEffect(() => {
-        if (user?.uid && firestore) {
-            PointsService.checkAndResetAllowance(firestore, user.uid);
+        if (user?.uid && firestore && companyPath) {
+            PointsService.checkAndResetAllowance(firestore, companyPath, user.uid);
         }
-    }, [user?.uid, firestore]);
+    }, [user?.uid, firestore, companyPath]);
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/50 pb-20">

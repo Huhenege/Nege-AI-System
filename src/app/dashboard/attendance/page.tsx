@@ -34,6 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Calendar as CalendarIcon, Download, MoreHorizontal, Check, X, Search, Filter } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirebase, useMemoFirebase, updateDocumentNonBlocking, tenantCollection } from '@/firebase';
+import { useTenantWrite } from '@/hooks/use-tenant-write';
 import { query, orderBy, doc, collectionGroup, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -356,6 +357,7 @@ function RequestRowSkeleton() {
 
 function TimeOffRequestsTable() {
     const { firestore } = useFirebase();
+    const { companyPath } = useTenantWrite();
     const { toast } = useToast();
     const [statusFilter, setStatusFilter] = React.useState<string>('all');
     const [searchQuery, setSearchQuery] = React.useState('');
@@ -394,8 +396,8 @@ function TimeOffRequestsTable() {
     }, [requestsWithEmployeeData, statusFilter, searchQuery]);
 
     const handleUpdateStatus = (request: TimeOffRequest, status: 'Зөвшөөрсөн' | 'Татгалзсан') => {
-        if (!firestore || !request.employeeId) return;
-        const docRef = doc(firestore, `employees/${request.employeeId}/timeOffRequests`, request.id);
+        if (!firestore || !request.employeeId || !companyPath) return;
+        const docRef = doc(firestore, `${companyPath}/employees/${request.employeeId}/timeOffRequests`, request.id);
         updateDocumentNonBlocking(docRef, { status });
         toast({ title: status === 'Зөвшөөрсөн' ? 'Хүсэлт зөвшөөрөгдлөө' : 'Хүсэлт татгалзагдлаа' });
     };

@@ -52,7 +52,9 @@ import {
   deleteDocumentNonBlocking,
   useMemoFirebase,
   tenantCollection,
+  tenantDoc,
 } from '@/firebase';
+import { useTenantWrite } from '@/hooks/use-tenant-write';
 import { collection, doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -104,6 +106,7 @@ export function ReferenceTable({
   const [showAllModal, setShowAllModal] = React.useState(false);
 
   const { firestore } = useFirebase();
+  const { companyPath } = useTenantWrite();
   const collectionRef = useMemoFirebase(
     ({ companyPath }) => (firestore && collectionName ? tenantCollection(firestore, companyPath, collectionName) : null),
     [firestore, collectionName]
@@ -125,7 +128,7 @@ export function ReferenceTable({
 
   const handleDelete = (item: ReferenceItem) => {
     if (!firestore || !item.id) return;
-    const docRef = doc(firestore, collectionName, item.id);
+    const docRef = tenantDoc(firestore, companyPath, collectionName, item.id);
     deleteDocumentNonBlocking(docRef);
   };
 

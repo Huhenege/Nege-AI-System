@@ -27,10 +27,10 @@ import 'reactflow/dist/style.css';
 import Link from 'next/link';
 
 import {
-    useCollection,
+    useFetchCollection,
     useMemoFirebase,
     updateDocumentNonBlocking,
-    useDoc,
+    useFetchDoc,
     addDocumentNonBlocking,
     tenantCollection,
     tenantDoc,
@@ -54,6 +54,8 @@ import { AddEmployeeDialog } from './employees/add-employee-dialog';
 import { isWithinInterval, format, startOfToday, endOfToday, isToday, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useTenant } from '@/contexts/tenant-context';
+import { COMPANY_PLAN_LABELS, COMPANY_STATUS_LABELS } from '@/types/company';
 import { UserNav } from '@/components/user-nav';
 import { VacationRequest } from '@/types/vacation';
 import { Task } from '@/types/project';
@@ -372,6 +374,7 @@ const OrganizationChart = () => {
     const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
 
     const { toast } = useToast();
+    const { company } = useTenant();
     const { firestore, tDoc, tCollection } = useTenantWrite();
 
     // Data fetching
@@ -390,81 +393,81 @@ const OrganizationChart = () => {
     const postsQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'posts') : null, [firestore]);
 
 
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
-    const { data: positions, isLoading: isLoadingPos } = useCollection<JobPosition>(positionsQuery);
-    const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
-    const { data: workSchedules, isLoading: isLoadingSchedules } = useCollection<any>(workSchedulesQuery);
-    const { data: positionLevels, isLoading: isLoadingLevels } = useCollection<any>(positionLevelsQuery);
-    const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useCollection<any>(employmentTypesQuery);
-    const { data: jobCategories, isLoading: isLoadingJobCategories } = useCollection<any>(jobCategoriesQuery);
-    const { data: attendanceData, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+    const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(deptsQuery);
+    const { data: positions, isLoading: isLoadingPos } = useFetchCollection<JobPosition>(positionsQuery);
+    const { data: employees, isLoading: isLoadingEmp } = useFetchCollection<Employee>(employeesQuery);
+    const { data: workSchedules, isLoading: isLoadingSchedules } = useFetchCollection<any>(workSchedulesQuery);
+    const { data: positionLevels, isLoading: isLoadingLevels } = useFetchCollection<any>(positionLevelsQuery);
+    const { data: employmentTypes, isLoading: isLoadingEmpTypes } = useFetchCollection<any>(employmentTypesQuery);
+    const { data: jobCategories, isLoading: isLoadingJobCategories } = useFetchCollection<any>(jobCategoriesQuery);
+    const { data: attendanceData, isLoading: isLoadingAttendance } = useFetchCollection<AttendanceRecord>(attendanceQuery);
     // Vacation Statistics for Dashboard
     const vacationRequestsQuery = useMemoFirebase(() =>
         firestore ? query(collectionGroup(firestore, 'vacationRequests'), where('status', '==', 'APPROVED')) : null
         , [firestore]);
-    const { data: vacationRequests } = useCollection<VacationRequest>(vacationRequestsQuery);
+    const { data: vacationRequests } = useFetchCollection<VacationRequest>(vacationRequestsQuery);
 
     // Projects query (for projects widget)
     const projectsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? query(tenantCollection(firestore, companyPath, 'projects'), where('status', 'in', ['DRAFT', 'ACTIVE', 'ON_HOLD', 'PLANNING', 'IN_PROGRESS'])) : null
         , [firestore]);
-    const { data: activeProjects } = useCollection<any>(projectsQuery);
+    const { data: activeProjects } = useFetchCollection<any>(projectsQuery);
 
     // Recruitment queries (for Recruitment widget)
     const vacanciesQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'vacancies') : null
         , [firestore]);
-    const { data: allVacancies } = useCollection<any>(vacanciesQuery);
+    const { data: allVacancies } = useFetchCollection<any>(vacanciesQuery);
 
     const applicationsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'applications') : null
         , [firestore]);
-    const { data: allApplications } = useCollection<any>(applicationsQuery);
+    const { data: allApplications } = useFetchCollection<any>(applicationsQuery);
 
     // Employment Relations queries (for ER widget)
     const erDocumentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'er_documents') : null
         , [firestore]);
-    const { data: erDocuments } = useCollection<any>(erDocumentsQuery);
+    const { data: erDocuments } = useFetchCollection<any>(erDocumentsQuery);
 
     const erTemplatesQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'er_templates') : null
         , [firestore]);
-    const { data: erTemplates } = useCollection<any>(erTemplatesQuery);
+    const { data: erTemplates } = useFetchCollection<any>(erTemplatesQuery);
 
     // Training queries (for Training widget)
     const trainingCoursesQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'training_courses') : null
         , [firestore]);
-    const { data: trainingCourses } = useCollection<any>(trainingCoursesQuery);
+    const { data: trainingCourses } = useFetchCollection<any>(trainingCoursesQuery);
 
     const trainingPlansQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'training_plans') : null
         , [firestore]);
-    const { data: trainingPlans } = useCollection<any>(trainingPlansQuery);
+    const { data: trainingPlans } = useFetchCollection<any>(trainingPlansQuery);
 
     // Skills queries (for Skills widget)
     const skillsInventoryQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'skills_inventory') : null
         , [firestore]);
-    const { data: skillsInventory } = useCollection<any>(skillsInventoryQuery);
+    const { data: skillsInventory } = useFetchCollection<any>(skillsInventoryQuery);
 
     const skillAssessmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'skill_assessments') : null
         , [firestore]);
-    const { data: skillAssessments } = useCollection<any>(skillAssessmentsQuery);
+    const { data: skillAssessments } = useFetchCollection<any>(skillAssessmentsQuery);
 
     // All tasks query for overdue count (using collectionGroup)
     const allTasksQuery = useMemoFirebase(() =>
         firestore ? collectionGroup(firestore, 'tasks') : null
         , [firestore]);
-    const { data: allTasks } = useCollection<any>(allTasksQuery);
+    const { data: allTasks } = useFetchCollection<any>(allTasksQuery);
 
     // Meeting rooms and today's bookings (for Meetings widget)
     const meetingRoomsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'meeting_rooms') : null
         , [firestore]);
-    const { data: meetingRooms } = useCollection<any>(meetingRoomsQuery);
+    const { data: meetingRooms } = useFetchCollection<any>(meetingRoomsQuery);
 
     const todayBookingsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore) return null;
@@ -475,29 +478,29 @@ const OrganizationChart = () => {
             where('status', '==', 'active')
         );
     }, [firestore]);
-    const { data: todayBookings } = useCollection<any>(todayBookingsQuery);
+    const { data: todayBookings } = useFetchCollection<any>(todayBookingsQuery);
 
     // Business Plan queries (for Business Plan widget)
     const bpPlansQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? query(tenantCollection(firestore, companyPath, 'bp_plans'), where('status', '==', 'active')) : null
         , [firestore]);
-    const { data: bpPlans } = useCollection<any>(bpPlansQuery);
+    const { data: bpPlans } = useFetchCollection<any>(bpPlansQuery);
 
     const bpObjectivesQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'bp_objectives') : null
         , [firestore]);
-    const { data: bpObjectives } = useCollection<any>(bpObjectivesQuery);
+    const { data: bpObjectives } = useFetchCollection<any>(bpObjectivesQuery);
 
     const bpKpisQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'bp_kpis') : null
         , [firestore]);
-    const { data: bpKpis } = useCollection<any>(bpKpisQuery);
+    const { data: bpKpis } = useFetchCollection<any>(bpKpisQuery);
 
     // Survey queries (for Survey widget)
     const surveysQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantCollection(firestore, companyPath, 'surveys') : null
         , [firestore]);
-    const { data: allSurveys } = useCollection<any>(surveysQuery);
+    const { data: allSurveys } = useFetchCollection<any>(surveysQuery);
 
     // Calculate overdue tasks
     const overdueTasksCount = useMemo(() => {
@@ -537,9 +540,9 @@ const OrganizationChart = () => {
             }
         }).length;
     }, [vacationRequests]);
-    const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
-    const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
-    const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
+    const { data: timeOffData, isLoading: isLoadingTimeOff } = useFetchCollection<TimeOffRequest>(timeOffQuery);
+    const { data: posts, isLoading: isLoadingPosts } = useFetchCollection(postsQuery);
+    const { data: companyProfile, isLoading: isLoadingProfile } = useFetchDoc<CompanyProfile>(companyProfileRef);
 
 
     const { nodePositions, saveLayout, resetLayout } = useLayout(positions);
@@ -750,6 +753,17 @@ const OrganizationChart = () => {
             surveyActiveCount: allSurveys?.filter((s: any) => s.status === 'active').length || 0,
             surveyDraftCount: allSurveys?.filter((s: any) => s.status === 'draft').length || 0,
             surveyTotalResponses: allSurveys?.reduce((sum: number, s: any) => sum + (s.responsesCount || 0), 0) || 0,
+
+            // Billing widget
+            billingPlan: company?.plan,
+            billingPlanLabel: company?.plan ? COMPANY_PLAN_LABELS[company.plan] : undefined,
+            billingStatus: company?.status,
+            billingStatusLabel: company?.status ? COMPANY_STATUS_LABELS[company.status] : undefined,
+            billingEmployeeCount: company?.employeeCount ?? (employees || []).length,
+            billingMaxEmployees: company?.limits?.maxEmployees,
+            billingAmount: company?.subscription?.amount,
+            billingCurrency: company?.subscription?.currency,
+            billingNextPayment: company?.subscription?.nextPaymentDate,
         };
     }, [
         activeProjects,
@@ -775,6 +789,7 @@ const OrganizationChart = () => {
         bpObjectives,
         bpKpis,
         allSurveys,
+        company,
     ]);
 
 

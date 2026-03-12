@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { AddActionButton } from '@/components/ui/add-action-button';
-import { useFirebase, useCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchCollection, useTenantWrite } from '@/firebase';
 import { collection, query, orderBy, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -63,7 +63,7 @@ export default function MeetingRoomsPage() {
         firestore ? query(collection(firestore, 'meeting_rooms'), orderBy('name', 'asc')) : null,
         [firestore]
     );
-    const { data: rooms, isLoading } = useCollection<MeetingRoom>(roomsQuery);
+    const { data: rooms, isLoading } = useFetchCollection<MeetingRoom>(roomsQuery);
 
     const resetForm = () => {
         setName('');

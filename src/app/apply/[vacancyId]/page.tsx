@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useFirebase, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import {
     Card,
@@ -29,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, CheckCircle, Briefcase, Building2, MapPin, Upload, Calendar as CalendarIcon } from 'lucide-react';
-import { Vacancy, Candidate, JobApplication, RecruitmentStage } from '@/types/recruitment';
+import { Vacancy, RecruitmentStage } from '@/types/recruitment';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
@@ -59,31 +57,25 @@ type ApplicationFormValues = z.infer<typeof applicationSchema>;
 export default function PublicApplicationPage() {
     const params = useParams();
     const vacancyId = params?.vacancyId as string;
-    const { firestore } = useFirebase();
-    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [vacancy, setVacancy] = useState<Vacancy | null>(null);
+    const [companyId, setCompanyId] = useState<string | null>(null);
     const [globalStages, setGlobalStages] = useState<RecruitmentStage[]>(DEFAULT_STAGES);
 
-    // Fetch data on mount
     useEffect(() => {
         const fetchData = async () => {
-            if (!firestore || !vacancyId) return;
+            if (!vacancyId) return;
             setIsLoadingData(true);
             try {
-                // Fetch Vacancy
-                const vacancySnap = await getDoc(doc(firestore, 'vacancies', vacancyId));
-                if (vacancySnap.exists()) {
-                    setVacancy({ id: vacancySnap.id, ...vacancySnap.data() } as Vacancy);
-                }
-
-                // Fetch Global Stages
-                const settingsSnap = await getDoc(doc(firestore, 'recruitment_settings', 'default'));
-                if (settingsSnap.exists() && settingsSnap.data().defaultStages) {
-                    setGlobalStages(settingsSnap.data().defaultStages);
+                const res = await fetch(`/api/vacancies/${vacancyId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.vacancy) setVacancy(data.vacancy as Vacancy);
+                    if (data.stages) setGlobalStages(data.stages);
+                    if (data.companyId) setCompanyId(data.companyId);
                 }
             } catch (error) {
                 console.error("Error fetching application data:", error);
@@ -92,7 +84,7 @@ export default function PublicApplicationPage() {
             }
         };
         fetchData();
-    }, [firestore, vacancyId]);
+    }, [vacancyId]);
 
     const form = useForm<ApplicationFormValues>({
         resolver: zodResolver(applicationSchema),
@@ -107,43 +99,27 @@ export default function PublicApplicationPage() {
     });
 
     const onSubmit = async (data: ApplicationFormValues) => {
-        if (!firestore || !vacancy) return;
+        if (!vacancy) return;
         setIsSubmitting(true);
 
         try {
-            // 1. Create Candidate
-            // Check if email exists? (Skip for MVP, just create new doc)
-            const newCandidate: Omit<Candidate, 'id'> = {
-                firstName: data.firstName,
-                lastName: data.lastName,
-                email: data.email,
-                phone: data.phone,
-                resumeUrl: data.resumeUrl, // Would be from upload result
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                source: 'WEBSITE',
-                notes: data.coverLetter,
-            };
+            const res = await fetch(`/api/vacancies/${vacancyId}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    email: data.email,
+                    phone: data.phone,
+                    resumeUrl: data.resumeUrl,
+                    coverLetter: data.coverLetter,
+                    companyId,
+                }),
+            });
 
-            const candidateRef = await addDocumentNonBlocking(tCollection('candidates'), newCandidate);
-
-            if (candidateRef) {
-                // 2. Create Application
-                const firstStageId = globalStages[0]?.id || 'screening';
-
-                const newApplication: Omit<JobApplication, 'id'> = {
-                    vacancyId: vacancy.id,
-                    candidateId: candidateRef.id,
-                    currentStageId: firstStageId,
-                    status: 'ACTIVE',
-                    appliedAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    // Denormalize for UI
-                    candidate: { ...newCandidate, id: candidateRef.id },
-                    vacancy: vacancy
-                };
-
-                await addDocumentNonBlocking(tCollection('applications'), newApplication);
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Application failed');
             }
 
             setIsSubmitted(true);

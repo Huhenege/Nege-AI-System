@@ -204,6 +204,7 @@ export const TENANT_ROLE_LABELS: Record<TenantRole, string> = {
 export interface TenantClaims {
   role: TenantRole;
   companyId?: string;
+  positionId?: string;
 }
 
 // ─── Status labels ─────────────────────────────────────────────────

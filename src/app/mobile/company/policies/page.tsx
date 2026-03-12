@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useFetchCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ export default function MobilePoliciesPage() {
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const router = useRouter(); // Forgot to import useRouter in previous thought block, fixing here.
     const policiesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'companyPolicies') : null, []);
-    const { data: policies, isLoading: isLoadingPolicies } = useCollection<CompanyPolicy>(policiesQuery);
+    const { data: policies, isLoading: isLoadingPolicies } = useFetchCollection<CompanyPolicy>(policiesQuery);
 
     const applicablePolicies = React.useMemo(() => {
         if (!policies || !employeeProfile) return [];

@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
-import { useCollection, useDoc, useFirebase, setDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
+import { useFetchCollection, useDoc, useFirebase, setDocumentNonBlocking, useTenantWrite, tenantCollection, tenantDoc } from '@/firebase';
 import { ERWorkflow } from '../../../employment-relations/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,19 +13,19 @@ import { Button } from '@/components/ui/button';
 
 export function ProcessWorkflowSettings() {
     const { firestore } = useFirebase();
-    const { tDoc } = useTenantWrite();
+    const { tDoc, companyPath } = useTenantWrite();
     const { toast } = useToast();
 
     // Fetch available workflows
     const workflowsQuery = React.useMemo(() =>
-        firestore ? query(collection(firestore, 'er_workflows'), orderBy('name')) : null
-        , [firestore]);
-    const { data: workflows, isLoading: workflowsLoading } = useCollection<ERWorkflow>(workflowsQuery);
+        firestore && companyPath ? query(tenantCollection(firestore, companyPath, 'er_workflows'), orderBy('name')) : null
+        , [firestore, companyPath]);
+    const { data: workflows, isLoading: workflowsLoading } = useFetchCollection<ERWorkflow>(workflowsQuery);
 
     // Fetch current settings
     const settingsRef = React.useMemo(() =>
-        firestore ? doc(firestore, 'organization_settings', 'workflows') : null
-        , [firestore]);
+        firestore && companyPath ? tenantDoc(firestore, companyPath, 'organization_settings', 'workflows') : null
+        , [firestore, companyPath]);
     const { data: settings, isLoading: settingsLoading } = useDoc<any>(settingsRef);
 
     const handleUpdateWorkflow = async (processKey: string, workflowId: string) => {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { checkPayment } from '@/lib/billing/qpay-client';
+import { getPlanDefinition, type SaaSModule, type ModuleConfig } from '@/types/company';
 
 function extractCompanyId(invoiceNo: string): string | null {
   // Format: NEGE-{companyId}-{timestamp}
@@ -73,9 +74,17 @@ async function processPaymentCallback(invoiceNo: string): Promise<{ status: stri
       endDate.setMonth(endDate.getMonth() + 1);
     }
 
+    const planDef = getPlanDefinition(invoiceData.plan);
+    const modules: Partial<Record<SaaSModule, ModuleConfig>> = {};
+    for (const m of planDef.modules) {
+      modules[m] = { enabled: true, enabledAt: now.toISOString() };
+    }
+
     await companyRef.update({
       status: 'active',
       plan: invoiceData.plan,
+      modules,
+      limits: { ...planDef.limits },
       'subscription.plan': invoiceData.plan,
       'subscription.startDate': now.toISOString(),
       'subscription.endDate': endDate.toISOString(),

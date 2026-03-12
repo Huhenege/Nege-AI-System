@@ -15,6 +15,11 @@ import {
     Award,
     BarChart3,
     ClipboardList,
+    CreditCard,
+    Building,
+    Calendar,
+    FileText,
+    Settings,
     LucideIcon
 } from 'lucide-react';
 
@@ -32,7 +37,12 @@ export type WidgetId =
     | 'meetings'
     | 'skills'
     | 'business-plan'
-    | 'survey';
+    | 'survey'
+    | 'billing'
+    | 'company'
+    | 'calendar'
+    | 'documents'
+    | 'settings';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -49,25 +59,39 @@ export interface WidgetConfig {
 
 // Default order for widgets (initial 9 cards)
 export const DEFAULT_ORDER: WidgetId[] = [
-    'projects',
+    'billing',
+    'company',
     'employees',
     'structure',
     'attendance',
     'vacation',
-    'posts',
+    'projects',
     'recruitment',
-    'points',
     'er',
     'training',
+    'points',
+    'posts',
     'meetings',
+    'calendar',
     'skills',
+    'survey',
     'business-plan',
-    'survey'
+    'documents',
+    'settings',
 ];
 
 // Widget catalog with all available widgets
 export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
-    // Core widgets (default 9)
+    billing: {
+        id: 'billing',
+        label: 'Багц & Төлбөр',
+        description: 'Идэвхтэй багц, хязгаарлалт, төлбөрийн мэдээлэл',
+        href: '/dashboard/billing',
+        size: 'normal',
+        icon: CreditCard,
+        requiredData: [],
+        category: 'core'
+    },
     projects: {
         id: 'projects',
         label: 'Төслүүд',
@@ -207,7 +231,47 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         icon: ClipboardList,
         requiredData: [],
         category: 'core'
-    }
+    },
+    company: {
+        id: 'company',
+        label: 'Компани',
+        description: 'Байгууллагын мэдээлэл, бодлого',
+        href: '/dashboard/company',
+        size: 'compact',
+        icon: Building,
+        requiredData: [],
+        category: 'core'
+    },
+    calendar: {
+        id: 'calendar',
+        label: 'Календар',
+        description: 'Үйл явдлын хуанли',
+        href: '/dashboard/calendar',
+        size: 'compact',
+        icon: Calendar,
+        requiredData: [],
+        category: 'core'
+    },
+    documents: {
+        id: 'documents',
+        label: 'Баримт бичиг',
+        description: 'Баримт бичгийн удирдлага',
+        href: '/dashboard/employee-documents',
+        size: 'compact',
+        icon: FileText,
+        requiredData: [],
+        category: 'core'
+    },
+    settings: {
+        id: 'settings',
+        label: 'Тохиргоо',
+        description: 'Системийн тохиргоо',
+        href: '/dashboard/settings/employee-code',
+        size: 'compact',
+        icon: Settings,
+        requiredData: [],
+        category: 'core'
+    },
 };
 
 // Get widget config by ID

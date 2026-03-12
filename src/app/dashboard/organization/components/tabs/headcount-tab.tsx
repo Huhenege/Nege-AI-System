@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useCollection, useFetchCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 import { Department, Position } from '../../types';
@@ -57,9 +57,9 @@ export const HeadcountTab = () => {
     const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null), [firestore]);
     const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
 
-    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
+    const { data: positions, isLoading: isLoadingPos } = useFetchCollection<Position>(positionsQuery);
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
+    const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(departmentsQuery);
 
     const { departmentsWithHeadcount, totalFilled } = useMemo(() => {
         if (!positions || !employees || !departments) {

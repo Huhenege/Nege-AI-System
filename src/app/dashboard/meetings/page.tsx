@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddActionButton } from '@/components/ui/add-action-button';
-import { useFirebase, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
-import { collection, query, orderBy, where, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useFetchCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, orderBy, where, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
     format,
@@ -60,11 +60,11 @@ export default function MeetingsPage() {
     const [defaultRoomId, setDefaultRoomId] = useState('');
 
     // Fetch rooms
-    const roomsQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'meeting_rooms'), orderBy('name', 'asc')) : null,
+    const roomsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'meeting_rooms'), orderBy('name', 'asc')) : null,
         [firestore]
     );
-    const { data: rooms, isLoading: roomsLoading } = useCollection<MeetingRoom>(roomsQuery);
+    const { data: rooms, isLoading: roomsLoading } = useFetchCollection<MeetingRoom>(roomsQuery);
 
     // Initialize visible rooms once rooms are loaded
     React.useEffect(() => {
@@ -104,11 +104,11 @@ export default function MeetingsPage() {
     const { data: bookings, isLoading: bookingsLoading } = useCollection<RoomBooking>(bookingsQuery);
 
     // Fetch employees for booking dialog
-    const employeesQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'employees'), orderBy('firstName', 'asc')) : null,
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'employees'), orderBy('firstName', 'asc')) : null,
         [firestore]
     );
-    const { data: allEmployees } = useCollection<Employee>(employeesQuery);
+    const { data: allEmployees } = useFetchCollection<Employee>(employeesQuery);
     const employees = useMemo(() =>
         (allEmployees || []).filter(e => isActiveStatus(e.status)),
         [allEmployees]

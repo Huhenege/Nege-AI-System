@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser, useDoc, useFirebase, useMemoFirebase, tenantDoc } from '@/firebase';
+import { useUser, useFetchDoc, useFirebase, useMemoFirebase, tenantDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
 import { Employee } from '@/types';
@@ -21,7 +21,7 @@ export const useEmployeeProfile = () => {
     data: employeeProfile,
     isLoading: isProfileLoading,
     error: profileError,
-  } = useDoc<EmployeeProfile>(employeeDocRef);
+  } = useFetchDoc<EmployeeProfile>(employeeDocRef);
 
   return {
     user,

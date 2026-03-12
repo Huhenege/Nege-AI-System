@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, where, doc, getDoc } from 'firebase/firestore';
+import { useFetchCollection, useFirestore, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { query, orderBy, where, getDoc } from 'firebase/firestore';
 import { BudgetPointRequest, CoreValue } from '@/types/points';
 import { Position } from '@/app/dashboard/organization/types';
 import { PointsService } from '@/lib/points/points-service';
@@ -26,15 +26,15 @@ import {
 } from '@/components/ui/dialog';
 
 export function BudgetRequestManager() {
-    const firestore = useFirestore();
+    const { firestore, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const [processingId, setProcessingId] = useState<string | null>(null);
 
     const requestsQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'budget_point_requests'), orderBy('createdAt', 'desc')) : null
-        , [firestore]);
+        (firestore && companyPath) ? query(tenantCollection(firestore, companyPath, 'budget_point_requests'), orderBy('createdAt', 'desc')) : null
+        , [firestore, companyPath]);
 
-    const { data: requests, isLoading } = useCollection<BudgetPointRequest>(requestsQuery);
+    const { data: requests, isLoading } = useFetchCollection<BudgetPointRequest>(requestsQuery);
 
     if (isLoading) return <div className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>;
 
@@ -61,7 +61,7 @@ export function BudgetRequestManager() {
 }
 
 function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange: () => void }) {
-    const firestore = useFirestore();
+    const { firestore, companyPath, tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [isApproveOpen, setIsApproveOpen] = useState(false);
     const [isRejectOpen, setIsRejectOpen] = useState(false);
@@ -77,28 +77,28 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
     const [coreValue, setCoreValue] = useState<CoreValue | null>(null);
 
     useMemo(() => {
-        if (!firestore) return;
+        if (!firestore || !companyPath) return;
 
         // Fetch Sender
-        getDoc(doc(firestore, 'employees', request.fromUserId)).then(s => setSender(s.data()));
+        getDoc(tDoc('employees', request.fromUserId)).then(s => setSender(s.data()));
 
         // Fetch Position
-        getDoc(doc(firestore, 'positions', request.positionId)).then(p => setPosition({ id: p.id, ...p.data() } as Position));
+        getDoc(tDoc('positions', request.positionId)).then(p => setPosition({ id: p.id, ...p.data() } as Position));
 
         // Fetch Receivers
-        Promise.all(request.toUserIds.map(id => getDoc(doc(firestore, 'employees', id)))).then(snaps => {
+        Promise.all(request.toUserIds.map(id => getDoc(tDoc('employees', id)))).then(snaps => {
             setReceivers(snaps.map(s => s.data()));
         });
 
         // Fetch Value
-        getDoc(doc(firestore, 'company', 'branding', 'values', request.valueId)).then(v => setCoreValue(v.data() as CoreValue));
-    }, [firestore, request]);
+        getDoc(tDoc('company', 'branding', 'values', request.valueId)).then(v => setCoreValue(v.data() as CoreValue));
+    }, [firestore, companyPath, tDoc, request]);
 
     const handleApprove = async () => {
-        if (!firestore) return;
+        if (!firestore || !companyPath) return;
         setLoading(true);
         try {
-            await PointsService.approveBudgetRequest(firestore, request.id, adjAmount, adminNote);
+            await PointsService.approveBudgetRequest(firestore, companyPath, request.id, adjAmount, adminNote);
             toast({ title: 'Хүсэлт батлагдлаа', description: 'Оноо амжилттай шилжиж, сошил дээр нийтлэгдлээ.' });
             setIsApproveOpen(false);
         } catch (e: any) {
@@ -109,10 +109,10 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
     };
 
     const handleReject = async () => {
-        if (!firestore) return;
+        if (!firestore || !companyPath) return;
         setLoading(true);
         try {
-            await PointsService.rejectBudgetRequest(firestore, request.id, adminNote);
+            await PointsService.rejectBudgetRequest(firestore, companyPath, request.id, adminNote);
             toast({ title: 'Хүсэлт цуцлагдлаа' });
             setIsRejectOpen(false);
         } catch (e: any) {

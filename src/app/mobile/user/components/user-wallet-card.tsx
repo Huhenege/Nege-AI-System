@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser, useFirestore, useDoc, useTenantWrite } from '@/firebase';
+import { useUser, useFirestore, useFetchDoc, useTenantWrite } from '@/firebase';
 import { DocumentReference } from 'firebase/firestore';
 import { UserPointProfile } from '@/types/points';
 import { useMemo } from 'react';
@@ -19,7 +19,7 @@ export function UserWalletCard() {
             : null,
         [user?.uid, firestore, tDoc]);
 
-    const { data: profile } = useDoc<UserPointProfile>(profileRef);
+    const { data: profile } = useFetchDoc<UserPointProfile>(profileRef);
 
     const balance = profile?.balance || 0;
     const allowance = profile?.monthlyAllowance || 0;

@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useUser, useTenantWrite } from '@/firebase';
+import { useFetchCollection, useFirestore, useUser, useTenantWrite } from '@/firebase';
 import { query, where, limit, orderBy, doc, getDoc } from 'firebase/firestore';
 import { PointsService } from '@/lib/points/points-service';
 import { Position } from '@/app/dashboard/organization/types';
@@ -37,17 +37,17 @@ export function GivePointsDialog({ triggerButton }: { triggerButton?: React.Reac
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
-    const { tDoc, tCollection } = useTenantWrite();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const [useBudget, setUseBudget] = useState(false);
     const [myPosition, setMyPosition] = useState<Position | null>(null);
 
     // Load Values - use useMemo to only create query when firestore is ready
     const valuesQuery = useMemo(() => firestore ? query(tCollection('company', 'branding', 'values'), where('isActive', '==', true)) : null, [firestore, tCollection]);
-    const { data: values } = useCollection<CoreValue>(valuesQuery);
+    const { data: values } = useFetchCollection<CoreValue>(valuesQuery);
 
     // Load Employees
     const employeesQuery = useMemo(() => firestore ? query(tCollection('employees'), orderBy('firstName'), limit(50)) : null, [firestore, tCollection]);
-    const { data: employees } = useCollection<any>(employeesQuery);
+    const { data: employees } = useFetchCollection<any>(employeesQuery);
 
     // Load User's Position for Budget check
     useEffect(() => {
@@ -76,7 +76,7 @@ export function GivePointsDialog({ triggerButton }: { triggerButton?: React.Reac
     });
 
     const onSubmit = async (data: z.infer<typeof recognitionSchema>) => {
-        if (!user || !firestore) return;
+        if (!user || !firestore || !companyPath) return;
         setLoading(true);
         try {
             const amount = data.points;
@@ -96,6 +96,7 @@ export function GivePointsDialog({ triggerButton }: { triggerButton?: React.Reac
 
                 await PointsService.requestBudgetPoints(
                     firestore,
+                    companyPath!,
                     user.uid,
                     myPosition.id,
                     [data.recipientId],
@@ -112,6 +113,7 @@ export function GivePointsDialog({ triggerButton }: { triggerButton?: React.Reac
                 }
                 await PointsService.sendRecognition(
                     firestore,
+                    companyPath!,
                     user.uid,
                     [data.recipientId],
                     amount,

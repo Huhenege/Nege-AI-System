@@ -1,5 +1,5 @@
-import { collection, doc, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { useCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection } from '@/firebase';
+import { query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { useFetchCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -62,6 +62,7 @@ interface LookupManagementProps {
 
 export function LookupManagement({ collectionName, title, description, columns, aiGenerationType, sortBy, referenceCheck }: LookupManagementProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,14 +80,14 @@ export function LookupManagement({ collectionName, title, description, columns, 
         [firestore, collectionName]
     );
 
-    const { data: items, isLoading } = useCollection<any>(collectionRef);
+    const { data: items, isLoading } = useFetchCollection<any>(collectionRef);
 
     // Create a stable key for items to use in dependencies
     const itemsKey = useMemo(() => items?.map(i => i.id).join(',') || '', [items]);
 
     // Fetch usage counts for all items when referenceCheck is configured
     const fetchUsageCounts = useCallback(async () => {
-        if (!firestore || !referenceCheck || !items || items.length === 0) {
+        if (!firestore || !companyPath || !referenceCheck || !items || items.length === 0) {
             setUsageCounts({});
             return;
         }
@@ -97,7 +98,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
             
             for (const item of items) {
                 const q = query(
-                    collection(firestore, referenceCheck.collection),
+                    tenantCollection(firestore, companyPath, referenceCheck.collection),
                     where(referenceCheck.field, '==', item.id)
                 );
                 const snapshot = await getDocs(q);
@@ -111,7 +112,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
             setIsLoadingUsage(false);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, referenceCheck?.collection, referenceCheck?.field, itemsKey]);
+    }, [firestore, companyPath, referenceCheck?.collection, referenceCheck?.field, itemsKey]);
 
     // Fetch usage counts when items change
     useEffect(() => {
@@ -181,7 +182,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
         try {
             // Add all generated items to Firebase
             for (const item of generatedItems) {
-                await addDocumentNonBlocking(collection(firestore, collectionName), item);
+                await addDocumentNonBlocking(tCollection(collectionName), item);
             }
             
             toast({
@@ -214,7 +215,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
 
         setIsSubmitting(true);
         try {
-            await addDocumentNonBlocking(collection(firestore, collectionName), newItemData);
+            await addDocumentNonBlocking(tCollection(collectionName), newItemData);
             setNewItemData({});
             setIsAdding(false);
             toast({ title: 'Амжилттай нэмэгдлээ' });
@@ -232,12 +233,12 @@ export function LookupManagement({ collectionName, title, description, columns, 
             const batch = writeBatch(firestore);
             
             // Update the lookup item itself
-            batch.update(doc(firestore, collectionName, id), editItemData);
+            batch.update(tDoc(collectionName, id), editItemData);
             
             // If there's a referenceCheck config and the name field changed, update all referencing documents
-            if (referenceCheck && editItemData.name) {
+            if (referenceCheck && editItemData.name && companyPath) {
                 const q = query(
-                    collection(firestore, referenceCheck.collection),
+                    tenantCollection(firestore, companyPath, referenceCheck.collection),
                     where(referenceCheck.field, '==', id)
                 );
                 const snapshot = await getDocs(q);
@@ -256,7 +257,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
                     }
                     
                     if (Object.keys(updateData).length > 0) {
-                        batch.update(doc(firestore, referenceCheck.collection, docSnap.id), updateData);
+                        batch.update(tenantDoc(firestore, companyPath!, referenceCheck.collection, docSnap.id), updateData);
                     }
                 });
                 
@@ -290,10 +291,10 @@ export function LookupManagement({ collectionName, title, description, columns, 
         if (!firestore) return;
         
         // Real-time check if item is in use (don't rely on cached state)
-        if (referenceCheck) {
+        if (referenceCheck && companyPath) {
             try {
                 const q = query(
-                    collection(firestore, referenceCheck.collection),
+                    tenantCollection(firestore, companyPath, referenceCheck.collection),
                     where(referenceCheck.field, '==', id)
                 );
                 const snapshot = await getDocs(q);
@@ -322,7 +323,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
         
         if (!confirm('Та итгэлтэй байна уу?')) return;
         try {
-            await deleteDocumentNonBlocking(doc(firestore, collectionName, id));
+            await deleteDocumentNonBlocking(tDoc(collectionName, id));
             toast({ title: 'Устгагдлаа' });
             fetchUsageCounts();
         } catch (e) {

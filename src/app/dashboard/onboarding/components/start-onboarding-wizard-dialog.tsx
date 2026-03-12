@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useDoc, useFirebase, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
+import { useFetchCollection, useFetchDoc, useFirebase, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
 import { query, where } from 'firebase/firestore';
 import { Employee } from '@/types';
 import {
@@ -110,19 +110,19 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
     if (!firestore) return null;
     return query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']));
   }, [firestore]);
-  const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery as any);
+  const { data: employees, isLoading: employeesLoading } = useFetchCollection<Employee>(employeesQuery as any);
 
   const onboardingProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
     return query(tenantCollection(firestore, companyPath, 'projects'), where('type', '==', 'onboarding'));
   }, [firestore]);
-  const { data: onboardingProjects, isLoading: projectsLoading } = useCollection<any>(onboardingProjectsQuery as any);
+  const { data: onboardingProjects, isLoading: projectsLoading } = useFetchCollection<any>(onboardingProjectsQuery as any);
 
   const onboardingConfigRef = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
     return tenantDoc(firestore, companyPath, 'settings', 'onboarding');
   }, [firestore]);
-  const { data: onboardingConfig, isLoading: configLoading } = useDoc<any>(onboardingConfigRef as any);
+  const { data: onboardingConfig, isLoading: configLoading } = useFetchDoc<any>(onboardingConfigRef as any);
 
   const onboardingStages = React.useMemo(() => {
     const stages = (onboardingConfig?.stages || []) as OnboardingStage[];

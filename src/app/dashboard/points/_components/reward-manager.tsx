@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
-import { useUser, useFirestore, useCollection, useFirebaseApp, useTenantWrite } from '@/firebase';
+import { useUser, useFirestore, useFetchCollection, useFirebaseApp, useTenantWrite } from '@/firebase';
 import { collection, query, where, orderBy, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Reward } from '@/types/points';
@@ -47,7 +47,7 @@ export function RewardManager() {
         firestore ? query(collection(firestore, 'rewards'), orderBy('isActive', 'desc')) : null
         , [firestore]);
 
-    const { data: rewards, isLoading } = useCollection<Reward>(rewardsQuery);
+    const { data: rewards, isLoading } = useFetchCollection<Reward>(rewardsQuery);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

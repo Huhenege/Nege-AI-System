@@ -75,6 +75,18 @@ export interface WidgetData {
     surveyActiveCount?: number;
     surveyDraftCount?: number;
     surveyTotalResponses?: number;
+
+    // Billing widget
+    billingPlan?: string;
+    billingPlanLabel?: string;
+    billingStatus?: string;
+    billingStatusLabel?: string;
+    billingStatusColor?: string;
+    billingEmployeeCount?: number;
+    billingMaxEmployees?: number;
+    billingNextPayment?: string;
+    billingAmount?: number;
+    billingCurrency?: string;
 }
 
 interface DashboardWidgetCardProps {
@@ -452,6 +464,90 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
+            case 'company':
+                return (
+                    <div className="relative z-10">
+                        <div className="text-2xl sm:text-3xl font-semibold text-white mb-1">Компани</div>
+                        <div className="text-xs text-slate-400 font-medium">Мэдээлэл, бодлого, түүх</div>
+                    </div>
+                );
+
+            case 'calendar':
+                return (
+                    <div className="relative z-10">
+                        <div className="text-2xl sm:text-3xl font-semibold text-white mb-1">Календар</div>
+                        <div className="text-xs text-slate-400 font-medium">Үйл явдлын хуанли</div>
+                    </div>
+                );
+
+            case 'documents':
+                return (
+                    <div className="relative z-10">
+                        <div className="text-2xl sm:text-3xl font-semibold text-white mb-1">Баримт бичиг</div>
+                        <div className="text-xs text-slate-400 font-medium">Бичиг баримтын удирдлага</div>
+                    </div>
+                );
+
+            case 'settings':
+                return (
+                    <div className="relative z-10">
+                        <div className="text-2xl sm:text-3xl font-semibold text-white mb-1">Тохиргоо</div>
+                        <div className="text-xs text-slate-400 font-medium">Системийн тохиргоо</div>
+                    </div>
+                );
+
+            case 'billing': {
+                const plan = data.billingPlanLabel ?? 'Үнэгүй';
+                const statusLabel = data.billingStatusLabel ?? '-';
+                const empCount = data.billingEmployeeCount ?? 0;
+                const maxEmp = data.billingMaxEmployees ?? 0;
+                const usagePct = maxEmp > 0 ? Math.min(Math.round((empCount / maxEmp) * 100), 100) : 0;
+                const isNearLimit = usagePct >= 80;
+                const amount = data.billingAmount ?? 0;
+                const currency = data.billingCurrency ?? 'MNT';
+                return (
+                    <div className="relative z-10 space-y-2.5">
+                        <div className="flex items-end justify-between">
+                            <div>
+                                <div className="text-xl sm:text-2xl font-bold text-white leading-none">{plan}</div>
+                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mt-0.5">Идэвхтэй багц</div>
+                            </div>
+                            <div className={cn(
+                                "px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                                data.billingStatus === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
+                                data.billingStatus === 'trial' ? 'bg-amber-500/20 text-amber-400' :
+                                'bg-slate-500/20 text-slate-400'
+                            )}>
+                                {statusLabel}
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] text-slate-400">
+                                <span>Ажилтны хязгаар</span>
+                                <span className={cn(isNearLimit && "text-amber-400 font-semibold")}>{empCount} / {maxEmp === 9999 ? '∞' : maxEmp}</span>
+                            </div>
+                            <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-700/50">
+                                <div
+                                    className={cn(
+                                        "transition-all rounded-full",
+                                        isNearLimit ? "bg-amber-400" : "bg-emerald-400"
+                                    )}
+                                    style={{ width: maxEmp === 9999 ? '10%' : `${usagePct}%` }}
+                                />
+                            </div>
+                        </div>
+                        {amount > 0 && (
+                            <div className="pt-1 border-t border-slate-700/60">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] text-slate-500">Сарын төлбөр</span>
+                                    <span className="text-sm font-semibold text-white">{amount.toLocaleString()}₮</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
             default:
                 return null;
         }
@@ -480,6 +576,16 @@ export function DashboardWidgetCard({
                 return 'bg-gradient-to-br from-emerald-500/10 to-lime-500/10';
             case 'survey':
                 return 'bg-gradient-to-br from-rose-500/10 to-pink-500/10';
+            case 'billing':
+                return 'bg-gradient-to-br from-emerald-500/10 to-cyan-500/10';
+            case 'company':
+                return 'bg-gradient-to-br from-slate-500/10 to-zinc-500/10';
+            case 'calendar':
+                return 'bg-gradient-to-br from-sky-500/10 to-blue-500/10';
+            case 'documents':
+                return 'bg-gradient-to-br from-amber-500/10 to-yellow-500/10';
+            case 'settings':
+                return 'bg-gradient-to-br from-zinc-500/10 to-slate-500/10';
             default:
                 return '';
         }
@@ -552,7 +658,12 @@ export function DashboardWidgetCard({
                                 id === 'meetings' && "text-orange-400",
                                 id === 'skills' && "text-indigo-400",
                                 id === 'business-plan' && "text-emerald-400",
-                                id === 'survey' && "text-rose-400"
+                                id === 'survey' && "text-rose-400",
+                                id === 'billing' && "text-cyan-400",
+                                id === 'company' && "text-slate-400",
+                                id === 'calendar' && "text-sky-400",
+                                id === 'documents' && "text-amber-400",
+                                id === 'settings' && "text-zinc-400"
                             )}
                         />
                     </div>

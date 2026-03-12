@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useFetchCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
 import { query, orderBy } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,9 +39,9 @@ export function VacanciesList() {
         [firestore]
     );
 
-    const { data: vacancies, isLoading: isLoadingVacancies } = useCollection<Vacancy>(vacanciesQuery as any);
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
-    const { data: employmentTypes } = useCollection<any>(empTypesQuery as any);
+    const { data: vacancies, isLoading: isLoadingVacancies } = useFetchCollection<Vacancy>(vacanciesQuery as any);
+    const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(departmentsQuery as any);
+    const { data: employmentTypes } = useFetchCollection<any>(empTypesQuery as any);
 
     const getDeptName = (id: string) => {
         return departments?.find(d => d.id === id)?.name || 'Unknown';

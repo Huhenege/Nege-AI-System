@@ -221,7 +221,9 @@ export function isModuleEnabled(
   module: SaaSModule
 ): boolean {
   if (!company) return false;
-  return company.modules[module]?.enabled === true;
+  if (company.modules?.[module]?.enabled === true) return true;
+  const def = getPlanDefinition(company.plan);
+  return def.modules.includes(module);
 }
 
 export function isWithinLimit(

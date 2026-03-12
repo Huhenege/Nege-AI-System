@@ -33,7 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     useFirebase,
     useMemoFirebase,
-    useCollection,
+    useFetchCollection,
     addDocumentNonBlocking,
     tenantCollection,
     useTenantWrite,
@@ -82,7 +82,7 @@ export function CreateProjectSheet({ open, onOpenChange }: CreateProjectSheetPro
         ({ companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
-    const { data: employees } = useCollection<Employee>(employeesQuery);
+    const { data: employees } = useFetchCollection<Employee>(employeesQuery);
 
     const activeEmployees = React.useMemo(() => {
         return (employees || []).filter(e => isActiveStatus(e.status) && e.id);

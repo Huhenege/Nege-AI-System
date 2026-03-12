@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Check top-level employees doc for legacy data
     const empSnap = await db.doc(`employees/${decoded.uid}`).get();
-    const empData = empSnap.exists ? (empSnap.data() as { role?: string; companyId?: string }) : null;
+    const empData = empSnap.exists ? (empSnap.data() as { role?: string; companyId?: string; positionId?: string }) : null;
 
     const companyId = empData?.companyId || null;
     let role: 'admin' | 'employee' = empData?.role === 'admin' ? 'admin' : 'employee';
@@ -105,9 +105,13 @@ export async function POST(request: NextRequest) {
         // Path: companies/{companyId}/employees/{uid}
         const parts = empPath.split('/');
         const foundCompanyId = parts[1];
-        const foundRole = (companyEmployeeSnap.docs[0].data().role as string) === 'admin' ? 'admin' : 'employee';
+        const foundEmpData = companyEmployeeSnap.docs[0].data();
+        const foundRole = (foundEmpData.role as string) === 'admin' ? 'admin' : 'employee';
 
         const claims: TenantClaims = { role: foundRole as 'admin' | 'employee', companyId: foundCompanyId };
+        if (foundEmpData.positionId) {
+          claims.positionId = foundEmpData.positionId as string;
+        }
         await adminAuth.setCustomUserClaims(decoded.uid, claims);
 
         return NextResponse.json({ status: 'claims_set', claims, companyId: foundCompanyId });
@@ -122,6 +126,9 @@ export async function POST(request: NextRequest) {
       role: role as 'admin' | 'employee',
       companyId,
     };
+    if (empData?.positionId) {
+      claims.positionId = empData.positionId;
+    }
 
     await adminAuth.setCustomUserClaims(decoded.uid, claims);
 

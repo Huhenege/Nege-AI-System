@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useCollection, useDoc, useFirestore, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, tenantCollection, useFetchCollection, useFetchDoc } from '@/firebase';
 import { collection, doc, query, orderBy, limit, where } from 'firebase/firestore';
 import { CoreValue, PointsConfig, RecognitionPost } from '@/types/points';
 import {
@@ -53,14 +53,14 @@ export default function PointAdminPage() {
 
     // Config
     const configRef = useMemo(() => firestore ? doc(firestore, 'points_config', 'main') : null, [firestore]);
-    const { data: pointsConfig } = useDoc<PointsConfig>(configRef);
+    const { data: pointsConfig } = useFetchDoc<PointsConfig>(configRef);
 
     // Data
-    const { data: values } = useCollection<CoreValue>(valuesQuery);
+    const { data: values } = useFetchCollection<CoreValue>(valuesQuery);
     const { data: recognitionPosts } = useCollection<RecognitionPost & { id?: string }>(recognitionQuery);
     const { data: transactions } = useCollection<PointTx>(transactionsQuery);
-    const { data: employees } = useCollection<{ id: string; firstName?: string; lastName?: string }>(employeesQuery);
-    const { data: budgetPositions } = useCollection<{ id: string; yearlyPointBudget?: number; remainingPointBudget?: number }>(positionsQuery);
+    const { data: employees } = useFetchCollection<{ id: string; firstName?: string; lastName?: string }>(employeesQuery);
+    const { data: budgetPositions } = useFetchCollection<{ id: string; yearlyPointBudget?: number; remainingPointBudget?: number }>(positionsQuery);
 
     const employeeCount = employees?.length || 0;
 

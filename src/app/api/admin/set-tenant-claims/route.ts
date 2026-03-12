@@ -6,6 +6,7 @@ type Body = {
   targetUid?: string;
   role?: TenantRole;
   companyId?: string;
+  positionId?: string;
 };
 
 function getBearerToken(req: Request): string | null {
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
     const targetUid = typeof body?.targetUid === 'string' ? body.targetUid.trim() : '';
     const role = body?.role;
     const companyId = body?.companyId;
+    const positionId = body?.positionId;
 
     if (!targetUid || !role) {
       return NextResponse.json({ error: 'Missing required fields: targetUid, role' }, { status: 400 });
@@ -67,6 +69,9 @@ export async function POST(request: Request) {
     const claims: TenantClaims = { role };
     if (companyId) {
       claims.companyId = companyId;
+    }
+    if (positionId) {
+      claims.positionId = positionId;
     }
 
     await adminAuth.setCustomUserClaims(targetUid, claims);

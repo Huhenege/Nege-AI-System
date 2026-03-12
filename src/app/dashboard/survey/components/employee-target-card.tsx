@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useFirebase, useFetchCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ export function EmployeeTargetCard({ selectedIds, onChange, disabled }: Employee
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
-    const { data: employees, isLoading } = useCollection<Employee>(employeesQuery);
+    const { data: employees, isLoading } = useFetchCollection<Employee>(employeesQuery);
 
     const filteredEmployees = useMemo(() => {
         if (!employees) return [];

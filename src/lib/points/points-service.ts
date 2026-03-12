@@ -26,6 +26,7 @@ export class PointsService {
      */
     static async requestBudgetPoints(
         db: Firestore,
+        companyPath: string,
         fromUserId: string,
         positionId: string,
         toUserIds: string[],
@@ -37,7 +38,7 @@ export class PointsService {
             throw new Error('Invalid budget request data');
         }
 
-        const requestRef = doc(collection(db, 'budget_point_requests'));
+        const requestRef = doc(collection(db, `${companyPath}/budget_point_requests`));
         const request: Partial<BudgetPointRequest> = {
             id: requestRef.id,
             fromUserId,
@@ -60,6 +61,7 @@ export class PointsService {
      */
     static async approveBudgetRequest(
         db: Firestore,
+        companyPath: string,
         requestId: string,
         adjustedAmount?: number,
         adminNote?: string
@@ -67,7 +69,7 @@ export class PointsService {
         try {
             await runTransaction(db, async (transaction) => {
                 // 1. Read Request
-                const requestRef = doc(db, 'budget_point_requests', requestId);
+                const requestRef = doc(db, `${companyPath}/budget_point_requests`, requestId);
                 const requestSnap = await transaction.get(requestRef);
                 if (!requestSnap.exists()) throw new Error('Request not found');
 
@@ -78,7 +80,7 @@ export class PointsService {
                 const totalPointsToDistribute = finalAmount * request.toUserIds.length;
 
                 // 2. Read Position
-                const positionRef = doc(db, 'positions', request.positionId);
+                const positionRef = doc(db, `${companyPath}/positions`, request.positionId);
                 const positionSnap = await transaction.get(positionRef);
                 if (!positionSnap.exists()) throw new Error('Position not found');
 
@@ -92,7 +94,7 @@ export class PointsService {
 
                 // 3. Read Receivers
                 const receiverSnaps = await Promise.all(
-                    request.toUserIds.map(id => transaction.get(doc(db, 'employees', id, 'point_profile', 'main')))
+                    request.toUserIds.map(id => transaction.get(doc(db, `${companyPath}/employees`, id, 'point_profile', 'main')))
                 );
 
                 // 4. Update Position Budget
@@ -101,7 +103,7 @@ export class PointsService {
                 });
 
                 // 5. Create Recognition Post
-                const postRef = doc(collection(db, 'recognition_posts'));
+                const postRef = doc(collection(db, `${companyPath}/recognition_posts`));
                 transaction.set(postRef, {
                     id: postRef.id,
                     fromUserId: request.fromUserId,
@@ -118,7 +120,7 @@ export class PointsService {
                 // 6. Update Receivers & Transactions
                 receiverSnaps.forEach((snap, idx) => {
                     const toId = request.toUserIds[idx];
-                    const receiverRef = doc(db, 'employees', toId, 'point_profile', 'main');
+                    const receiverRef = doc(db, `${companyPath}/employees`, toId, 'point_profile', 'main');
 
                     if (!snap.exists()) {
                         transaction.set(receiverRef, {
@@ -137,7 +139,7 @@ export class PointsService {
                         });
                     }
 
-                    const transRef = doc(collection(db, 'point_transactions'));
+                    const transRef = doc(collection(db, `${companyPath}/point_transactions`));
                     transaction.set(transRef, {
                         userId: toId,
                         amount: finalAmount,
@@ -166,8 +168,8 @@ export class PointsService {
     /**
      * Admin rejects a budget point request.
      */
-    static async rejectBudgetRequest(db: Firestore, requestId: string, adminNote?: string) {
-        const requestRef = doc(db, 'budget_point_requests', requestId);
+    static async rejectBudgetRequest(db: Firestore, companyPath: string, requestId: string, adminNote?: string) {
+        const requestRef = doc(db, `${companyPath}/budget_point_requests`, requestId);
         await updateDoc(requestRef, {
             status: 'REJECTED',
             adminNote,
@@ -182,6 +184,7 @@ export class PointsService {
      */
     static async sendRecognition(
         db: Firestore,
+        companyPath: string,
         fromUserId: string,
         toUserIds: string[],
         amountPerPerson: number,
@@ -199,19 +202,19 @@ export class PointsService {
                 // --- PHASE 1: ALL READS ---
 
                 // 1. Read Config
-                const configRef = doc(db, 'points_config', 'main');
+                const configRef = doc(db, `${companyPath}/points_config`, 'main');
                 const configSnap = await transaction.get(configRef);
                 const baseAllowance = configSnap.exists()
                     ? (configSnap.data() as PointsConfig).monthlyAllowanceBase
                     : 1000;
 
                 // 2. Read Sender
-                const senderRef = doc(db, 'employees', fromUserId, 'point_profile', 'main');
+                const senderRef = doc(db, `${companyPath}/employees`, fromUserId, 'point_profile', 'main');
                 const senderSnap = await transaction.get(senderRef);
 
                 // 3. Read Receivers
                 const receiverSnaps = await Promise.all(
-                    toUserIds.map(id => transaction.get(doc(db, 'employees', id, 'point_profile', 'main')))
+                    toUserIds.map(id => transaction.get(doc(db, `${companyPath}/employees`, id, 'point_profile', 'main')))
                 );
 
                 // --- PHASE 2: CALCULATIONS & PREPARATION ---
@@ -259,7 +262,7 @@ export class PointsService {
                 }
 
                 // 2. Create Recognition Post
-                const postRef = doc(collection(db, 'recognition_posts'));
+                const postRef = doc(collection(db, `${companyPath}/recognition_posts`));
                 transaction.set(postRef, {
                     id: postRef.id,
                     fromUserId,
@@ -276,7 +279,7 @@ export class PointsService {
                 // 3. Update/Set Receivers & Transactions
                 receiverSnaps.forEach((snap, idx) => {
                     const toId = toUserIds[idx];
-                    const receiverRef = doc(db, 'employees', toId, 'point_profile', 'main');
+                    const receiverRef = doc(db, `${companyPath}/employees`, toId, 'point_profile', 'main');
 
                     if (!snap.exists()) {
                         transaction.set(receiverRef, {
@@ -295,8 +298,7 @@ export class PointsService {
                         });
                     }
 
-                    // Log individual transaction
-                    const transRef = doc(collection(db, 'point_transactions'));
+                    const transRef = doc(collection(db, `${companyPath}/point_transactions`));
                     transaction.set(transRef, {
                         userId: toId,
                         amount: amountPerPerson,
@@ -308,7 +310,7 @@ export class PointsService {
                 });
 
                 // 4. Record Sender's Transaction
-                const senderTxRef = doc(collection(db, 'point_transactions'));
+                const senderTxRef = doc(collection(db, `${companyPath}/point_transactions`));
                 transaction.set(senderTxRef, {
                     userId: fromUserId,
                     amount: -totalPointsNeeded,
@@ -328,12 +330,12 @@ export class PointsService {
     /**
      * Redeems a reward using points.
      */
-    static async redeemReward(db: Firestore, userId: string, reward: Reward) {
+    static async redeemReward(db: Firestore, companyPath: string, userId: string, reward: Reward) {
         if (!userId || !reward || !reward.id) throw new Error('Invalid reward data');
 
         try {
             await runTransaction(db, async (transaction) => {
-                const userRef = doc(db, 'employees', userId, 'point_profile', 'main');
+                const userRef = doc(db, `${companyPath}/employees`, userId, 'point_profile', 'main');
                 const userDoc = await transaction.get(userRef);
 
                 if (!userDoc.exists()) throw new Error('Хэрэглэгчийн пойнт профайл олдсонгүй');
@@ -349,7 +351,7 @@ export class PointsService {
                 });
 
                 // 2. Create Redemption Request
-                const requestRef = doc(collection(db, 'redemption_requests'));
+                const requestRef = doc(collection(db, `${companyPath}/redemption_requests`));
                 const request: any = {
                     id: requestRef.id,
                     userId,
@@ -365,7 +367,7 @@ export class PointsService {
                 transaction.set(requestRef, request);
 
                 // 3. Create Transaction Statement
-                const txRef = doc(collection(db, 'point_transactions'));
+                const txRef = doc(collection(db, `${companyPath}/point_transactions`));
                 const tx: any = {
                     userId,
                     amount: -reward.cost,
@@ -386,15 +388,15 @@ export class PointsService {
     /**
      * Checks if the user's monthly allowance needs to be reset (e.g., at the start of a new month).
      */
-    static async checkAndResetAllowance(db: Firestore, userId: string) {
+    static async checkAndResetAllowance(db: Firestore, companyPath: string, userId: string) {
         if (!userId) return;
 
         const currentMonth = new Date().toISOString().slice(0, 7); // Format: "YYYY-MM"
-        const profileRef = doc(db, 'employees', userId, 'point_profile', 'main');
+        const profileRef = doc(db, `${companyPath}/employees`, userId, 'point_profile', 'main');
 
         try {
             const profileSnap = await getDoc(profileRef);
-            const configRef = doc(db, 'points_config', 'main');
+            const configRef = doc(db, `${companyPath}/points_config`, 'main');
             const configSnap = await getDoc(configRef);
 
             const baseAllowance = configSnap.exists()
@@ -402,7 +404,6 @@ export class PointsService {
                 : 1000; // Default fallback
 
             if (!profileSnap.exists()) {
-                // Initialize profile if it doesn't exist
                 await updateDoc(profileRef, {
                     userId,
                     balance: 0,
@@ -411,8 +412,6 @@ export class PointsService {
                     totalEarned: 0,
                     totalGiven: 0
                 }).catch(async () => {
-                    // If updateDoc fails because doc doesn't exist, use setDoc
-                    // But we actually need setDoc here anyway for initialization
                     const { setDoc } = await import('firebase/firestore');
                     await setDoc(profileRef, {
                         userId,
@@ -428,7 +427,6 @@ export class PointsService {
 
             const profile = profileSnap.data() as UserPointProfile;
 
-            // If it's a new month, reset the allowance
             if (profile.lastAllowanceResetMonth !== currentMonth) {
                 await updateDoc(profileRef, {
                     monthlyAllowance: baseAllowance,
@@ -444,13 +442,12 @@ export class PointsService {
     /**
      * Fetches the main recognition feed.
      */
-    static async getFeed(db: Firestore, limitCount = 20) {
+    static async getFeed(db: Firestore, companyPath: string, limitCount = 20) {
         const q = query(
-            collection(db, 'recognition_posts'),
+            collection(db, `${companyPath}/recognition_posts`),
             orderBy('createdAt', 'desc'),
             limit(limitCount)
         );
-        // Note: In real app, you need to map user IDs to names/avatars
         return getDocs(q);
     }
 }

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/patterns/page-layout';
-import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
+import { useFirebase, useFetchDoc, useMemoFirebase, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
 import { ChevronLeft, Building2, Plus, Loader2, Pencil, Trash2, X, Check, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,7 +39,7 @@ export default function SubsidiariesPage() {
         []
     );
     
-    const { data: companyProfile, isLoading } = useDoc<CompanyProfile>(companyProfileRef as any);
+    const { data: companyProfile, isLoading } = useFetchDoc<CompanyProfile>(companyProfileRef as any);
     
     const [newName, setNewName] = React.useState('');
     const [newRegNumber, setNewRegNumber] = React.useState('');

@@ -32,7 +32,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Loader2, CalendarIcon, Plus, DoorOpen, AlertTriangle } from 'lucide-react';
-import { useFirebase, addDocumentNonBlocking, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, useCollection, useFetchCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
 import { query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Interview, Vacancy, Candidate, JobApplication } from '@/types/recruitment';
@@ -106,28 +106,28 @@ export function ScheduleInterviewDialog({
         ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'vacancies'), where('status', '==', 'OPEN')) : null),
         [firestore]
     );
-    const { data: vacancies } = useCollection<Vacancy>(vacanciesQuery as any);
+    const { data: vacancies } = useFetchCollection<Vacancy>(vacanciesQuery as any);
 
     // Legacy: all candidates (used when candidate is preselected from application page)
     const candidatesQuery = useMemoFirebase(
         ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'candidates') : null),
         [firestore]
     );
-    const { data: candidates } = useCollection<Candidate>(candidatesQuery as any);
+    const { data: candidates } = useFetchCollection<Candidate>(candidatesQuery as any);
 
     // Fetch active employees for interviewers
     const employeesQuery = useMemoFirebase(
         ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent'])) : null),
         [firestore]
     );
-    const { data: employees } = useCollection<Employee>(employeesQuery as any);
+    const { data: employees } = useFetchCollection<Employee>(employeesQuery as any);
 
     // Fetch meeting rooms
     const roomsQuery = useMemoFirebase(
         ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'meeting_rooms') : null),
         [firestore]
     );
-    const { data: meetingRooms } = useCollection<MeetingRoom>(roomsQuery as any);
+    const { data: meetingRooms } = useFetchCollection<MeetingRoom>(roomsQuery as any);
     const activeRooms = useMemo(() => meetingRooms?.filter(r => r.isActive) || [], [meetingRooms]);
 
     const filteredEmployees = employees?.filter(emp =>
@@ -160,7 +160,7 @@ export function ScheduleInterviewDialog({
             : null),
         [firestore, watchedVacancyId]
     );
-    const { data: applicationsForVacancy } = useCollection<JobApplication>(applicationsQuery as any);
+    const { data: applicationsForVacancy } = useFetchCollection<JobApplication>(applicationsQuery as any);
 
     const candidatesForVacancy = useMemo(() => {
         if (!applicationsForVacancy) return [];

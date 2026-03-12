@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useFirebase, useMemoFirebase, tenantCollection, useTenantWrite } from "@/firebase";
+import { useFetchCollection, useFirebase, useMemoFirebase, tenantCollection, useTenantWrite } from "@/firebase";
 import { writeBatch } from "firebase/firestore";
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -39,7 +39,7 @@ export default function DocumentsSettingsPage() {
     const { toast } = useToast();
     const [isCleaning, setIsCleaning] = React.useState(false);
     const documentTypesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_document_types') : null, []);
-    const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<DocumentTypeReferenceItem>(documentTypesQuery);
+    const { data: documentTypes, isLoading: loadingDocTypes } = useFetchCollection<DocumentTypeReferenceItem>(documentTypesQuery);
 
     const cleanupSummary = React.useMemo(() => {
         const items = documentTypes || [];

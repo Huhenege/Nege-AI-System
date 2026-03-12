@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchCollection, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -188,7 +188,7 @@ export default function CompanyHistoryPage() {
         []
     );
 
-    const { data: events, isLoading } = useCollection<CompanyHistoryEvent>(historyQuery);
+    const { data: events, isLoading } = useFetchCollection<CompanyHistoryEvent>(historyQuery);
 
     const handleEdit = (event: CompanyHistoryEvent) => {
         setEditingEvent(event);

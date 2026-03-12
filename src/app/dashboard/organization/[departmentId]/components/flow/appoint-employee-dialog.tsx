@@ -21,8 +21,8 @@ import {
 } from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useCollection, useFirebase, useDoc, useTenantWrite } from '@/firebase';
-import { collection, query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment } from 'firebase/firestore';
+import { useCollection, useFirebase, useDoc, useTenantWrite, tenantDoc, tenantCollection } from '@/firebase';
+import { query, where, doc, getDoc, getDocs, Timestamp, addDoc, writeBatch, increment } from 'firebase/firestore';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { createOnboardingProjects, OnboardingStage, OnboardingStageTaskPlan } from '@/lib/onboarding-project-creator';
 import { useRouter } from 'next/navigation';
@@ -119,15 +119,15 @@ export function AppointEmployeeDialog({
     onSuccess,
 }: AppointEmployeeDialogProps) {
     const { firestore, user: firebaseUser } = useFirebase();
-    const { tDoc, tCollection } = useTenantWrite();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { employeeProfile: currentUserProfile } = useEmployeeProfile();
     const { toast } = useToast();
     const router = useRouter();
     
     // Fetch full position data from Firestore (position prop might be incomplete)
     const fullPositionRef = React.useMemo(() => 
-        firestore && position?.id && open ? doc(firestore, 'positions', position.id) : null
-    , [firestore, position?.id, open]);
+        firestore && companyPath && position?.id && open ? tenantDoc(firestore, companyPath, 'positions', position.id) : null
+    , [firestore, companyPath, position?.id, open]);
     const { data: fullPosition, isLoading: isPositionLoading } = useDoc<FullPositionData>(fullPositionRef as any);
     
     // Use full position data if available, fallback to prop
@@ -150,8 +150,8 @@ export function AppointEmployeeDialog({
     const [customInputValues, setCustomInputValues] = React.useState<Record<string, any>>({});
 
     const onboardingConfigRef = React.useMemo(() =>
-        firestore && open ? doc(firestore, 'settings', 'onboarding') : null
-        , [firestore, open]);
+        firestore && companyPath && open ? tenantDoc(firestore, companyPath, 'settings', 'onboarding') : null
+        , [firestore, companyPath, open]);
     const { data: onboardingConfig } = useDoc<any>(onboardingConfigRef as any);
     const onboardingStages = React.useMemo(() => ((onboardingConfig?.stages || []) as OnboardingStage[]), [onboardingConfig]);
 
@@ -181,25 +181,25 @@ export function AppointEmployeeDialog({
     // Fetch all active employees (filter for unassigned on client-side)
     // Note: Firestore doesn't support OR queries, so we fetch active employees and filter
     const employeesQuery = React.useMemo(() => {
-        if (!firestore) return null;
+        if (!firestore || !companyPath) return null;
         return query(
-            collection(firestore, 'employees'),
+            tenantCollection(firestore, companyPath, 'employees'),
             where('status', 'in', ['active', 'active_probation', 'active_permanent'])
         );
-    }, [firestore]);
+    }, [firestore, companyPath]);
 
     const { data: allEmployees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
 
     // Fetch System Appointment Action Config
     const actionConfigRef = React.useMemo(() =>
-        firestore && selectedActionId ? doc(firestore, 'organization_actions', selectedActionId) : null
-        , [firestore, selectedActionId]);
+        firestore && companyPath && selectedActionId ? tenantDoc(firestore, companyPath, 'organization_actions', selectedActionId) : null
+        , [firestore, companyPath, selectedActionId]);
     const { data: appointmentAction } = useDoc<any>(actionConfigRef);
 
     // Fetch Template if configured
     const templateRef = React.useMemo(() =>
-        firestore && appointmentAction?.templateId ? doc(firestore, 'er_templates', appointmentAction.templateId) : null
-        , [firestore, appointmentAction?.templateId]);
+        firestore && companyPath && appointmentAction?.templateId ? tenantDoc(firestore, companyPath, 'er_templates', appointmentAction.templateId) : null
+        , [firestore, companyPath, appointmentAction?.templateId]);
     const { data: templateData, isLoading: templateLoading } = useDoc<ERTemplate>(templateRef as any);
 
     // Stabilize customInputs dependency using JSON signature (Firestore snapshots return new array refs)

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { collection, deleteDoc, doc, getDoc, query, Timestamp, where } from 'firebase/firestore';
-import { useCollection, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { useFetchCollection, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -118,10 +118,10 @@ export default function TrainingPlanDetailPage() {
         [firestore, planId]
     );
 
-    const { data: courses } = useCollection<TrainingCourse>(coursesQuery);
-    const { data: employees } = useCollection<Employee>(employeesQuery);
-    const { data: categories } = useCollection<TrainingCategory>(categoriesQuery);
-    const { data: linkedSurveys } = useCollection<Survey>(linkedSurveysQuery);
+    const { data: courses } = useFetchCollection<TrainingCourse>(coursesQuery);
+    const { data: employees } = useFetchCollection<Employee>(employeesQuery);
+    const { data: categories } = useFetchCollection<TrainingCategory>(categoriesQuery);
+    const { data: linkedSurveys } = useFetchCollection<Survey>(linkedSurveysQuery);
 
     const quarterToDateRange = (quarter?: string): { start: string; end: string } => {
         const now = new Date();

@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, useFetchCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { query, orderBy, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { type Employee } from '../data';
@@ -242,7 +242,7 @@ const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_document_types') : null,
         []
     );
-    const { data: allDocTypes, isLoading: isLoadingDocTypes } = useCollection<any>(mandatoryQuery);
+    const { data: allDocTypes, isLoading: isLoadingDocTypes } = useFetchCollection<any>(mandatoryQuery);
 
     const legacyDocTypesQuery = useMemoFirebase(
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'documentTypes') : null,
@@ -781,7 +781,7 @@ export default function EmployeeProfilePage() {
         ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'organization_actions') : null),
         []
     );
-    const { data: orgActions, isLoading: isLoadingOrgActions } = useCollection<any>(orgActionsRef);
+    const { data: orgActions, isLoading: isLoadingOrgActions } = useFetchCollection<any>(orgActionsRef);
 
 
     const erDocumentsQuery = React.useMemo(() =>
@@ -854,7 +854,7 @@ export default function EmployeeProfilePage() {
         return total > 0 ? Math.round((done / total) * 100) : 0;
     }, [offboardingProjects, offboardingTaskCounts]);
 
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
+    const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(departmentsQuery as any);
 
     const currentUserEmployeeRef = useMemoFirebase(
         ({ firestore, companyPath, user }) => (firestore && user ? tenantDoc(firestore, companyPath, 'employees', user.uid) : null),

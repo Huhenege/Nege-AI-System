@@ -37,7 +37,7 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Pencil, Trash2, FileText, ExternalLink, Search, ArrowUpDown, Filter, Video, Calendar, Users, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { useCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFetchCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -71,9 +71,9 @@ export default function CompanyPoliciesPage() {
     const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), []);
     const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), []);
 
-    const { data: policies, isLoading: isLoadingPolicies } = useCollection<CompanyPolicy>(policiesQuery);
-    const { data: departments, isLoading: isLoadingDepartments } = useCollection<DepartmentOption>(departmentsQuery);
-    const { data: positions, isLoading: isLoadingPositions } = useCollection<PositionOption>(positionsQuery);
+    const { data: policies, isLoading: isLoadingPolicies } = useFetchCollection<CompanyPolicy>(policiesQuery);
+    const { data: departments, isLoading: isLoadingDepartments } = useFetchCollection<DepartmentOption>(departmentsQuery);
+    const { data: positions, isLoading: isLoadingPositions } = useFetchCollection<PositionOption>(positionsQuery);
 
     const departmentMap = React.useMemo(() => {
         if (!departments) return new Map<string, string>();

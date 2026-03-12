@@ -15,8 +15,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, UserPlus, Loader2, GitBranch, ChevronRight, FileText, Check, X, Wand2, ExternalLink, Calendar as CalendarIcon, Clock, UserX, AlertTriangle, UserMinus, XCircle, Info } from 'lucide-react';
 import { Employee } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useCollection, useFirebase, useDoc, useTenantWrite } from '@/firebase';
-import { collection, query, where, doc, Timestamp, writeBatch, increment, arrayUnion, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { useCollection, useFirebase, useDoc, useTenantWrite, tenantDoc, tenantCollection } from '@/firebase';
+import { query, where, doc, Timestamp, writeBatch, increment, arrayUnion, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Position } from '../../../types';
 import { ERTemplate, ERDocument } from '../../../../employment-relations/types';
@@ -66,7 +66,7 @@ export function ReleaseEmployeeDialog({
     position,
 }: ReleaseEmployeeDialogProps) {
     const { firestore, user: firebaseUser } = useFirebase();
-    const { tDoc, tCollection } = useTenantWrite();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const { employeeProfile: currentUserProfile } = useEmployeeProfile();
@@ -149,42 +149,42 @@ export function ReleaseEmployeeDialog({
 
     // Fetch System Action Config based on selection
     const actionConfigRef = React.useMemo(() =>
-        firestore && selectedActionId ? doc(firestore, 'organization_actions', selectedActionId) : null
-        , [firestore, selectedActionId]);
+        firestore && companyPath && selectedActionId ? tenantDoc(firestore, companyPath, 'organization_actions', selectedActionId) : null
+        , [firestore, companyPath, selectedActionId]);
     const { data: actionConfig } = useDoc<any>(actionConfigRef);
 
     // Fetch Template if configured
     const templateRef = React.useMemo(() =>
-        firestore && actionConfig?.templateId ? doc(firestore, 'er_templates', actionConfig.templateId) : null
-        , [firestore, actionConfig?.templateId]);
+        firestore && companyPath && actionConfig?.templateId ? tenantDoc(firestore, companyPath, 'er_templates', actionConfig.templateId) : null
+        , [firestore, companyPath, actionConfig?.templateId]);
     const { data: templateData, isLoading: templateLoading } = useDoc<ERTemplate>(templateRef as any);
 
     const employeesQuery = React.useMemo(() =>
-        firestore
-            ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']))
+        firestore && companyPath
+            ? query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']))
             : null
-        , [firestore]);
+        , [firestore, companyPath]);
     const { data: employees } = useCollection<Employee>(employeesQuery as any);
 
     const offboardingProjectsQuery = React.useMemo(() => {
-        if (!firestore || !employee?.id) return null;
+        if (!firestore || !companyPath || !employee?.id) return null;
         return query(
-            collection(firestore, 'projects'),
+            tenantCollection(firestore, companyPath, 'projects'),
             where('type', '==', 'offboarding'),
             where('offboardingEmployeeId', '==', employee.id),
         );
-    }, [firestore, employee?.id]);
+    }, [firestore, companyPath, employee?.id]);
     const { data: existingOffboardingProjects } = useCollection<any>(offboardingProjectsQuery as any);
 
     // Check if employee has pending (unapproved) appointment documents
     const pendingAppointmentDocsQuery = React.useMemo(() => {
-        if (!firestore || !employee?.id) return null;
+        if (!firestore || !companyPath || !employee?.id) return null;
         return query(
-            collection(firestore, 'er_documents'),
+            tenantCollection(firestore, companyPath, 'er_documents'),
             where('employeeId', '==', employee.id),
             where('metadata.actionId', 'in', ['appointment_permanent', 'appointment_probation', 'appointment_reappoint', 'appointment_new', 'appointment_internal', 'appointment_transfer'])
         );
-    }, [firestore, employee?.id]);
+    }, [firestore, companyPath, employee?.id]);
     const { data: pendingAppointmentDocs } = useCollection<ERDocument>(pendingAppointmentDocsQuery as any);
 
     // Check if employee is in "Томилогдож буй" status with unapproved appointment
@@ -198,9 +198,9 @@ export function ReleaseEmployeeDialog({
     }, [employee?.status, pendingAppointmentDocs]);
 
     const offboardingConfigRef = React.useMemo(() => {
-        if (!firestore) return null;
-        return doc(firestore, 'settings', 'offboarding');
-    }, [firestore]);
+        if (!firestore || !companyPath) return null;
+        return tenantDoc(firestore, companyPath, 'settings', 'offboarding');
+    }, [firestore, companyPath]);
     const { data: offboardingConfig } = useDoc<any>(offboardingConfigRef as any);
 
     const offboardingStages = React.useMemo(() => {

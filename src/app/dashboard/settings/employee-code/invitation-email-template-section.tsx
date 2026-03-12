@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Save, Mail, RotateCcw, Eye, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { useMemoFirebase, useDoc, setDocumentNonBlocking, tenantDoc } from '@/firebase';
+import { useMemoFirebase, useFetchDoc, setDocumentNonBlocking, tenantDoc } from '@/firebase';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,7 +84,7 @@ export function InvitationEmailTemplateSection() {
     []
   );
 
-  const { data: template, isLoading } = useDoc<InvitationEmailTemplate>(templateRef as any);
+  const { data: template, isLoading } = useFetchDoc<InvitationEmailTemplate>(templateRef as any);
 
   const defaultValues: FormValues = React.useMemo(
     () => ({

@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useFirebase, useCollection, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
+import { useFirebase, useFetchCollection, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite, useMemoFirebase, tenantCollection } from '@/firebase';
 import type { Department, PositionLevel, Position } from '@/app/dashboard/organization/types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -37,63 +37,63 @@ export default function TrainingPage() {
     const { toast } = useToast();
 
     // ── Queries ──────────────────────────────────────
-    const coursesQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'training_courses'), orderBy('createdAt', 'desc')) : null,
+    const coursesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'training_courses'), orderBy('createdAt', 'desc')) : null,
         [firestore]
     );
 
-    const plansQuery = useMemo(() =>
-        firestore ? collection(firestore, 'training_plans') : null,
+    const plansQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'training_plans') : null,
         [firestore]
     );
 
-    const assessmentsQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'skill_assessments'), orderBy('assessedAt', 'desc')) : null,
+    const assessmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'skill_assessments'), orderBy('assessedAt', 'desc')) : null,
         [firestore]
     );
 
-    const employeesQuery = useMemo(() =>
-        firestore ? collection(firestore, 'employees') : null,
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
 
-    const skillsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'skills_inventory') : null,
+    const skillsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'skills_inventory') : null,
         [firestore]
     );
 
-    const categoriesQuery = useMemo(() =>
-        firestore ? collection(firestore, 'training_categories') : null,
+    const categoriesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'training_categories') : null,
         [firestore]
     );
 
-    const departmentsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'departments') : null,
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'departments') : null,
         [firestore]
     );
-    const positionLevelsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'positionLevels') : null,
+    const positionLevelsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null,
         [firestore]
     );
-    const positionsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'positions') : null,
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'positions') : null,
         [firestore]
     );
 
     // ── Data ─────────────────────────────────────────
-    const { data: courses, isLoading: coursesLoading } = useCollection<TrainingCourse>(coursesQuery);
-    const { data: plansRaw, isLoading: plansLoading } = useCollection<TrainingPlan>(plansQuery);
+    const { data: courses, isLoading: coursesLoading } = useFetchCollection<TrainingCourse>(coursesQuery);
+    const { data: plansRaw, isLoading: plansLoading } = useFetchCollection<TrainingPlan>(plansQuery);
     const plans = useMemo(() => {
         const sortKey = (p: TrainingPlan) => p.scheduledQuarter ?? p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? p.createdAt ?? '';
         return [...plansRaw].sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
     }, [plansRaw]);
-    const { data: assessments, isLoading: assessmentsLoading } = useCollection<SkillAssessment>(assessmentsQuery);
-    const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
-    const { data: skills } = useCollection<SkillInventoryItem>(skillsQuery);
-    const { data: categories, isLoading: categoriesLoading } = useCollection<TrainingCategory>(categoriesQuery);
-    const { data: departments } = useCollection<Department>(departmentsQuery);
-    const { data: positionLevels } = useCollection<PositionLevel>(positionLevelsQuery);
-    const { data: positions } = useCollection<Position>(positionsQuery);
+    const { data: assessments, isLoading: assessmentsLoading } = useFetchCollection<SkillAssessment>(assessmentsQuery);
+    const { data: employees, isLoading: employeesLoading } = useFetchCollection<Employee>(employeesQuery);
+    const { data: skills } = useFetchCollection<SkillInventoryItem>(skillsQuery);
+    const { data: categories, isLoading: categoriesLoading } = useFetchCollection<TrainingCategory>(categoriesQuery);
+    const { data: departments } = useFetchCollection<Department>(departmentsQuery);
+    const { data: positionLevels } = useFetchCollection<PositionLevel>(positionLevelsQuery);
+    const { data: positions } = useFetchCollection<Position>(positionsQuery);
 
     const isLoadingDashboard = coursesLoading || plansLoading || assessmentsLoading;
 

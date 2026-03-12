@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useMemoFirebase, updateDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFetchCollection, useMemoFirebase, updateDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { getDocs, query, Timestamp, where } from 'firebase/firestore';
 import { Project, Task } from '@/types/project';
 import { FileText, LogOut, Loader2 } from 'lucide-react';
@@ -38,7 +38,7 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
     if (!firestore || !employeeId) return null;
     return query(tenantCollection(firestore, companyPath, 'er_documents'), where('employeeId', '==', employeeId));
   }, [employeeId]);
-  const { data: erDocs, isLoading: erDocsLoading } = useCollection<ERDocument>(erDocsQuery as any);
+  const { data: erDocs, isLoading: erDocsLoading } = useFetchCollection<ERDocument>(erDocsQuery as any);
 
   const releaseDocs = React.useMemo(() => {
     const list = erDocs || [];
@@ -99,7 +99,7 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
     );
   }, [employeeId]);
 
-  const { data: projects, isLoading } = useCollection<Project>(projectsQuery as any);
+  const { data: projects, isLoading } = useFetchCollection<Project>(projectsQuery as any);
   const [taskCounts, setTaskCounts] = React.useState<Record<string, { total: number; completed: number }>>({});
 
   React.useEffect(() => {

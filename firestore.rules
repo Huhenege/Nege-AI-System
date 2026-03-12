@@ -15,9 +15,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+      return isSignedIn() && request.auth.token.role in ['admin', 'super_admin'];
     }
 
     // Default deny all
@@ -211,49 +209,8 @@ service cloud.firestore {
       allow update: if isSignedIn();
     }
 
-    // --- Points & Social System Rules ---
-    match /recognition_posts/{postId} {
-      allow read, create: if isSignedIn();
-      allow update: if isSignedIn() && (
-        isAdmin() || 
-        request.auth.uid == (resource.data.fromUserId) ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
-      );
-      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == (resource.data.fromUserId));
-    }
-
-    match /posts/{postId} {
-      allow read: if isSignedIn();
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || 
-                    (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
-    }
-
-    match /points_config/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /point_transactions/{txId} {
-      allow read: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.userId);
-      allow create: if isSignedIn();
-    }
-
-    match /rewards/{rewardId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /redemption_requests/{requestId} {
-      allow read: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.userId);
-      allow create: if isSignedIn();
-      allow update: if isAdmin();
-    }
-
-    match /budget_point_requests/{requestId} {
-      allow create: if isSignedIn();
-      allow read, update, delete: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.fromUserId);
-    }
+    // Points & Social collections → now tenant-scoped under companies/{companyId}/
+    // Handled by catch-all rules in match /companies/{companyId}/{subcollection}/{...}
 
 
 
@@ -312,76 +269,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
-    // Company profile and branding settings
-    match /company/{allPaths=**} {
-      allow read: if isSignedIn() || true;
-      allow write: if isAdmin();
-    }
-
-    // Company-wide policies can be read by any signed-in user, but only managed by admins.
-    match /companyPolicies/{policyId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
-    }
-
-    // Reference data (collections ending with 'Types', 'Levels', 'Statuses', etc.) is readable by any signed-in user
-    // Writable only by admins
-    match /{refCollection}/{docId} {
-       allow read: if isSignedIn();
-       allow write: if isAdmin();
-    }
-
-    // All users can read departments, positions, and company info
-    match /departments/{departmentId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    match /positions/{positionId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-
-    // Onboarding program templates are managed by admins
-    match /onboardingPrograms/{programId}/{document=**} {
-       allow read: if isSignedIn();
-       allow write: if isAdmin();
-    }
-
-    match /newHires/{hireId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Байгууллагын үйлдлүүд (organization actions)
-    match /organization_actions/{actionId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // Тохиргоо (settings/onboarding гэх мэт)
-    match /settings/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // Компанийн түүхэн үйл явдлууд
-    match /companyHistory/{eventId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // company_profile (хэрэв тусгаар collection ашигласан бол)
-    match /company_profile/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // Attendance records can be created by the user, but likely only read by admins or managers
-    match /attendance/{attendanceId} {
-      allow create: if isOwner(request.resource.data.employeeId);
-      allow read, update: if isAdmin();
-    }
+    // company, companyPolicies, departments, positions, onboardingPrograms,
+    // newHires, organization_actions, settings, companyHistory, company_profile,
+    // attendance → now tenant-scoped under companies/{companyId}/
+    // Handled by catch-all rules in match /companies/{companyId}/{subcollection}/{...}
 
     // The following comment is a special instruction for the backend to create an index.
     // Please do not modify or remove it.
@@ -400,24 +291,8 @@ service cloud.firestore {
     // (companies/{companyId}/{subcollection}/{allPaths=**})
     
     
-    // --- Employment Relations Module Rules ---
-    
-    // Document Types - Admin only
-    match /er_document_types/{typeId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    // Templates - Admin only for write, all signed-in users can read active templates
-    match /er_templates/{templateId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    match /er_workflows/{workflowId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
+    // er_document_types, er_templates, er_workflows → now tenant-scoped
+    // Handled by catch-all rules in match /companies/{companyId}/{subcollection}/{...}
 
     // ER процессын баримтын төрлүүд (employment-relations settings)
     match /er_process_document_types/{typeId} {
@@ -482,8 +357,7 @@ service cloud.firestore {
         request.auth.uid == resource.data.creatorId ||
         request.auth.uid == resource.data.employeeId ||
         request.auth.uid in resource.data.get('reviewers', []) ||
-        (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in resource.data.get('reviewers', []))
+        request.auth.token.get('positionId', '') in resource.data.get('reviewers', [])
       );
       
       // Create: Any signed-in user can create documents
@@ -508,9 +382,7 @@ service cloud.firestore {
           (
             request.auth.uid == resource.data.creatorId ||
             request.auth.uid in resource.data.get('reviewers', []) ||
-            (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
-              get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in resource.data.get('reviewers', [])
-            )
+            request.auth.token.get('positionId', '') in resource.data.get('reviewers', [])
           ) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'status',
@@ -540,8 +412,7 @@ service cloud.firestore {
         // Reviewer updating approval status
         (resource.data.status == 'IN_REVIEW' && 
          (request.auth.uid in resource.data.get('reviewers', []) ||
-          (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
-           get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in resource.data.get('reviewers', []))) &&
+          request.auth.token.get('positionId', '') in resource.data.get('reviewers', [])) &&
          // Only allow updating specific fields
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvalStatus', 'status', 'updatedAt', 'rejectionReason']))
       );
@@ -559,8 +430,7 @@ service cloud.firestore {
             request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.creatorId ||
             request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.employeeId ||
             request.auth.uid in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers ||
-            (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers)
+            request.auth.token.get('positionId', '') in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers
         );
 
         // Create: Reviewers, Creator, and target Employee (ack) can add logs
@@ -568,8 +438,7 @@ service cloud.firestore {
             isAdmin() ||
             request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.creatorId ||
             request.auth.uid in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers ||
-            (exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('positionId', '') in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers)
+            request.auth.token.get('positionId', '') in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers
             ||
             (
               request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.employeeId &&
@@ -610,71 +479,11 @@ service cloud.firestore {
         allow write: if isAdmin();
     }
 
-    // --- Projects Module Rules ---
-    
-    // Projects - All signed-in users can read projects, admins can write
-    // Project owners and assigned employees can also update
-    match /projects/{projectId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && (
-            isAdmin() ||
-            request.auth.uid == resource.data.ownerId ||
-            request.auth.uid == resource.data.createdBy
-        );
-        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.createdBy);
-    }
-    
-    // Tasks subcollection under projects
-    match /projects/{projectId}/tasks/{taskId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && (
-            isAdmin() ||
-            request.auth.uid == resource.data.ownerId ||
-            request.auth.uid in resource.data.get('assigneeIds', [])
-        );
-        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.ownerId);
-    }
+    // Projects, tasks, messages → now tenant-scoped under companies/{companyId}/projects/
+    // See match /companies/{companyId}/projects/ above for detailed rules
 
-    // Messages subcollection under projects (Project Chat)
-    match /projects/{projectId}/messages/{messageId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && request.auth.uid == resource.data.senderId;
-        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.senderId);
-    }
-    
-    // Collection Group rules for tasks — handled by tenant-scoped rules above
-    // (companies/{companyId}/projects/{projectId}/tasks/{taskId})
-
-    // ─── Санал асуулга (Survey) ─────────────────────────────────────────
-    match /surveys/{surveyId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
-        allow delete: if isAdmin();
-    }
-
-    match /surveys/{surveyId}/questions/{questionId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
-        allow delete: if isSignedIn();
-    }
-
-    match /surveys/{surveyId}/responses/{responseId} {
-        allow read: if isAdmin();
-        allow create: if isSignedIn();
-        allow delete: if isAdmin();
-    }
-
-    match /survey_templates/{templateId} {
-        allow read: if isSignedIn();
-        allow create: if isAdmin();
-        allow update: if isAdmin();
-        allow delete: if isAdmin();
-    }
+    // Surveys, survey_templates → now tenant-scoped under companies/{companyId}/surveys/
+    // See match /companies/{companyId}/surveys/ above for detailed rules
 
   }
 }

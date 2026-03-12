@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useCollection, useFirebase } from '@/firebase';
+import { useFetchCollection, useFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { ERDocument, ERDocumentType } from './types';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -31,9 +31,9 @@ export default function DocumentListPage() {
     const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
     const templatesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_templates') : null, [firestore]);
 
-    const { data: documents, isLoading } = useCollection<ERDocument>(documentsQuery);
-    const { data: docTypes } = useCollection<ERDocumentType>(docTypesQuery);
-    const { data: templates } = useCollection<{ id: string; isSystem?: boolean }>(templatesQuery);
+    const { data: documents, isLoading } = useFetchCollection<ERDocument>(documentsQuery);
+    const { data: docTypes } = useFetchCollection<ERDocumentType>(docTypesQuery);
+    const { data: templates } = useFetchCollection<{ id: string; isSystem?: boolean }>(templatesQuery);
 
     const docTypeMap = React.useMemo(() => {
         return docTypes?.reduce((acc, type) => ({ ...acc, [type.id]: type.name }), {} as Record<string, string>) || {};

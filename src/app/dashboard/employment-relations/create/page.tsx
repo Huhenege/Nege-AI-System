@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useCollection, useFirebase, addDocumentNonBlocking, useDoc, useTenantWrite } from '@/firebase';
-import { collection, query, where, Timestamp, doc, getDocs, getDoc, addDoc } from 'firebase/firestore';
+import { useFetchCollection, useFirebase, addDocumentNonBlocking, useDoc, useTenantWrite } from '@/firebase';
+import { query, where, Timestamp, getDocs, getDoc, addDoc } from 'firebase/firestore';
 import { ERDocumentType, ERTemplate, ERDocument } from '../types';
 import { Employee } from '@/types';
 import { generateDocumentContent } from '../utils';
@@ -47,44 +47,44 @@ export default function CreateDocumentPage() {
         if (!firestore) return;
         const prefill = async () => {
             if (qEmployeeId) {
-                const empDoc = await getDoc(doc(firestore, 'employees', qEmployeeId));
+                const empDoc = await getDoc(tDoc('employees', qEmployeeId));
                 if (empDoc.exists()) {
                     setSelectedEmployee({ id: empDoc.id, ...empDoc.data() } as Employee);
                 }
             }
             if (qWorkflowId) {
-                const typeQuery = query(collection(firestore, 'er_process_document_types'), where('workflowId', '==', qWorkflowId));
+                const typeQuery = query(tCollection('er_process_document_types'), where('workflowId', '==', qWorkflowId));
                 const typeSnap = await getDocs(typeQuery);
                 if (!typeSnap.empty) setSelectedType(typeSnap.docs[0].id);
             }
         };
         prefill();
-    }, [firestore, qEmployeeId, qWorkflowId]);
+    }, [firestore, qEmployeeId, qWorkflowId, tDoc, tCollection]);
 
-    const docTypesQuery = useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
+    const docTypesQuery = useMemo(() => firestore ? tCollection('er_process_document_types') : null, [firestore, tCollection]);
     const templatesQuery = useMemo(() =>
-        firestore && selectedType ? query(collection(firestore, 'er_templates'), where('documentTypeId', '==', selectedType), where('isActive', '==', true)) : null
-        , [firestore, selectedType]);
-    const employeesQuery = useMemo(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
-    const departmentsQuery = useMemo(() => firestore ? collection(firestore, 'departments') : null, [firestore]);
+        firestore && selectedType ? query(tCollection('er_templates'), where('documentTypeId', '==', selectedType), where('isActive', '==', true)) : null
+        , [firestore, selectedType, tCollection]);
+    const employeesQuery = useMemo(() => firestore ? tCollection('employees') : null, [firestore, tCollection]);
+    const departmentsQuery = useMemo(() => firestore ? tCollection('departments') : null, [firestore, tCollection]);
     const positionsQuery = useMemo(() =>
-        firestore && selectedDepartment ? query(collection(firestore, 'positions'), where('departmentId', '==', selectedDepartment)) : null
-        , [firestore, selectedDepartment]);
+        firestore && selectedDepartment ? query(tCollection('positions'), where('departmentId', '==', selectedDepartment)) : null
+        , [firestore, selectedDepartment, tCollection]);
 
-    const { data: docTypes } = useCollection<ERDocumentType>(docTypesQuery);
-    const { data: templates } = useCollection<ERTemplate>(templatesQuery);
-    const { data: employees } = useCollection<Employee>(employeesQuery);
-    const { data: departments } = useCollection<any>(departmentsQuery);
-    const { data: positions } = useCollection<any>(positionsQuery);
+    const { data: docTypes } = useFetchCollection<ERDocumentType>(docTypesQuery);
+    const { data: templates } = useFetchCollection<ERTemplate>(templatesQuery);
+    const { data: employees } = useFetchCollection<Employee>(employeesQuery);
+    const { data: departments } = useFetchCollection<any>(departmentsQuery);
+    const { data: positions } = useFetchCollection<any>(positionsQuery);
 
     const [companyProfile, setCompanyProfile] = useState<any>(null);
 
     useEffect(() => {
         if (!firestore) return;
-        getDocs(collection(firestore, 'company_profile')).then(snap => {
+        getDocs(tCollection('company_profile')).then(snap => {
             if (!snap.empty) setCompanyProfile(snap.docs[0].data());
         });
-    }, [firestore]);
+    }, [firestore, tCollection]);
 
     const filteredEmployees = useMemo(() => {
         if (!employees || !employeeSearch) return [];

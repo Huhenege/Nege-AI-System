@@ -78,7 +78,7 @@ export function ModuleGate({ module, children }: ModuleGateProps) {
             </Link>
           </Button>
           <Button asChild>
-            <Link href="/dashboard/settings/general">
+            <Link href="/dashboard/billing">
               <Sparkles className="h-4 w-4 mr-1" />
               Багц сунгах
             </Link>

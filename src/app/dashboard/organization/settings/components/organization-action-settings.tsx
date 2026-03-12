@@ -1,5 +1,5 @@
 import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
-import { useCollection, useFirebase, useMemoFirebase, setDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFetchCollection, useFirebase, useMemoFirebase, setDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -66,14 +66,14 @@ export function OrganizationActionSettings() {
         ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'organization_actions') : null),
         [firestore]
     );
-    const { data: configuredActions, isLoading: isLoadingActions } = useCollection<any>(actionsRef);
+    const { data: configuredActions, isLoading: isLoadingActions } = useFetchCollection<any>(actionsRef);
 
     // Fetch only system templates (isSystem === true) for action configuration
     const templatesRef = useMemoFirebase(
         ({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'er_templates'), where('isActive', '==', true), where('isSystem', '==', true)) : null),
         [firestore]
     );
-    const { data: templates } = useCollection<ERTemplate>(templatesRef as any);
+    const { data: templates } = useFetchCollection<ERTemplate>(templatesRef as any);
 
     const handleUpdateAction = async (id: string) => {
         if (!firestore) return;

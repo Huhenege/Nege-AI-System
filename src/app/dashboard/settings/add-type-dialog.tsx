@@ -27,7 +27,7 @@ import {
   updateDocumentNonBlocking,
   useFirebase,
   useMemoFirebase,
-  useCollection,
+  useFetchCollection,
   tenantCollection,
   useTenantWrite,
 } from '@/firebase';
@@ -94,7 +94,7 @@ export function AddTypeDialog({ open, onOpenChange }: ManageTypesDialogProps) {
     []
   );
   
-  const { data: departmentTypes, isLoading } = useCollection<DepartmentType>(departmentTypesCollection);
+  const { data: departmentTypes, isLoading } = useFetchCollection<DepartmentType>(departmentTypesCollection);
 
   const form = useForm<TypeFormValues>({
     resolver: zodResolver(typeSchema),

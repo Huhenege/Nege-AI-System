@@ -40,7 +40,7 @@ import {
 import {
     useFirebase,
     useMemoFirebase,
-    useCollection,
+    useFetchCollection,
     updateDocumentNonBlocking,
     tenantCollection,
     useTenantWrite,
@@ -90,7 +90,7 @@ export function EditProjectDialog({ open, onOpenChange, project }: EditProjectDi
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
-    const { data: employees } = useCollection<Employee>(employeesQuery);
+    const { data: employees } = useFetchCollection<Employee>(employeesQuery);
 
     const activeEmployees = React.useMemo(() => {
         return (employees || []).filter(e => isActiveStatus(e.status));

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { z } from 'zod';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantDoc, tenantCollection } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useFetchCollection, tenantDoc, tenantCollection } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -104,8 +104,8 @@ export default function MobileCompanyPage() {
 
     // Data Fetching
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfileValues>(companyProfileRef as any);
-    const { data: coreValues } = useCollection<CoreValue>(valuesQuery);
-    const { data: historyEvents } = useCollection<CompanyHistoryEvent>(historyQuery);
+    const { data: coreValues } = useFetchCollection<CoreValue>(valuesQuery);
+    const { data: historyEvents } = useFetchCollection<CompanyHistoryEvent>(historyQuery);
 
     const [api, setApi] = React.useState<CarouselApi>();
     const [selectedValue, setSelectedValue] = React.useState<CoreValue | null>(null);

@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useFetchCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
 import { JobApplication, Vacancy } from '@/types/recruitment';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Users, CheckCircle, Clock, TrendingUp, XCircle } from 'lucide-react';
@@ -17,14 +17,14 @@ export function RecruitmentStats() {
         ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'applications') : null),
         [firestore]
     );
-    const { data: applications } = useCollection<JobApplication>(applicationsQuery as any);
+    const { data: applications } = useFetchCollection<JobApplication>(applicationsQuery as any);
 
     // Fetch all vacancies
     const vacanciesQuery = useMemoFirebase(
         ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'vacancies') : null),
         [firestore]
     );
-    const { data: vacancies } = useCollection<Vacancy>(vacanciesQuery as any);
+    const { data: vacancies } = useFetchCollection<Vacancy>(vacanciesQuery as any);
 
     // Calculate Stats
     const stats = useMemo(() => {

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { useFirebase, updateDocumentNonBlocking, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, updateDocumentNonBlocking, useFetchCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Department, DepartmentType } from '@/app/dashboard/organization/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -52,8 +52,8 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
     const typesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
     const deptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
 
-    const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
-    const { data: allDepartments } = useCollection<Department>(deptsQuery);
+    const { data: departmentTypes } = useFetchCollection<DepartmentType>(typesQuery);
+    const { data: allDepartments } = useFetchCollection<Department>(deptsQuery);
 
     // Local state for form fields - initialize directly from prop
     const [formData, setFormData] = useState({

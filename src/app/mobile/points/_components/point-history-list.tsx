@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useEffect } from 'react';
-import { useUser, useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, where, orderBy, limit } from 'firebase/firestore';
 import { PointTransaction } from '@/types/points';
 import { format } from 'date-fns';
 import { ArrowDownLeft, Gift, ShoppingBag, History } from 'lucide-react';
@@ -10,13 +10,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function PointHistoryList() {
     const { user } = useUser();
-    const firestore = useFirestore();
+    const { firestore, companyPath } = useTenantWrite();
 
     const q = useMemo(() =>
-        (user && firestore)
-            ? query(collection(firestore, 'point_transactions'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'), limit(50))
+        (user && firestore && companyPath)
+            ? query(tenantCollection(firestore, companyPath, 'point_transactions'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'), limit(50))
             : null
-        , [user?.uid, firestore]);
+        , [user?.uid, firestore, companyPath]);
 
     const { data: transactions, isLoading, error } = useCollection<PointTransaction>(q);
 

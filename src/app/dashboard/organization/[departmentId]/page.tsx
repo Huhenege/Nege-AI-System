@@ -10,6 +10,7 @@ import {
     useMemoFirebase,
     useDoc,
     useCollection,
+    useFetchCollection,
     addDocumentNonBlocking,
     deleteDocumentNonBlocking,
     updateDocumentNonBlocking,
@@ -85,7 +86,7 @@ export default function DepartmentPage() {
 
     const positionsColRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), [firestore]);
     const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore && departmentId ? query(tenantCollection(firestore, companyPath, 'positions'), where('departmentId', '==', departmentId)) : null), [firestore, departmentId]);
-    const { data: positions } = useCollection<Position>(positionsQuery as any);
+    const { data: positions } = useFetchCollection<Position>(positionsQuery as any);
 
     // Lookups for Edit Form
     const typesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
@@ -101,12 +102,12 @@ export default function DepartmentPage() {
         [firestore, departmentId]
     );
 
-    const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
-    const { data: allDepartments } = useCollection<Department>(deptsQuery);
-    const { data: levels } = useCollection<PositionLevel>(levelsQuery);
-    const { data: categories } = useCollection<JobCategory>(categoriesQuery);
-    const { data: empTypes } = useCollection<EmploymentType>(empTypesQuery);
-    const { data: schedules } = useCollection<WorkSchedule>(schedulesQuery);
+    const { data: departmentTypes } = useFetchCollection<DepartmentType>(typesQuery);
+    const { data: allDepartments } = useFetchCollection<Department>(deptsQuery);
+    const { data: levels } = useFetchCollection<PositionLevel>(levelsQuery);
+    const { data: categories } = useFetchCollection<JobCategory>(categoriesQuery);
+    const { data: empTypes } = useFetchCollection<EmploymentType>(empTypesQuery);
+    const { data: schedules } = useFetchCollection<WorkSchedule>(schedulesQuery);
     const { data: allActiveEmployees } = useCollection<any>(deptEmployeesQuery as any);
 
     // -- Derived Data --

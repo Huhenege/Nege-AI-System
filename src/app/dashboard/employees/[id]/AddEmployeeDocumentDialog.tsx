@@ -40,7 +40,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, Loader2, Upload, File as FileIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useFirebase, addDocumentNonBlocking, useMemoFirebase, useCollection, tenantCollection } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, useMemoFirebase, useCollection, useFetchCollection, tenantCollection } from '@/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -69,7 +69,7 @@ export function AddEmployeeDocumentDialog({
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const docTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'er_document_types') : null), []);
-    const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<any>(docTypesQuery);
+    const { data: documentTypes, isLoading: isLoadingDocTypes } = useFetchCollection<any>(docTypesQuery);
 
     // Backward-compat: some admins used `/dashboard/settings/documents` which historically wrote to `documentTypes`.
     // Merge both lists by name so the dropdown always shows what was configured.

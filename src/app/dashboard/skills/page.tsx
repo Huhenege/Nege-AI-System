@@ -3,7 +3,7 @@
 
 import React, { useMemo } from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { useFirebase, useCollection } from '@/firebase';
+import { useFirebase, useFetchCollection } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
@@ -55,12 +55,12 @@ export default function SkillsPage() {
     );
 
     // ── Data ─────────────────────────────────────────
-    const { data: skills, isLoading: skillsLoading } = useCollection<SkillInventoryItem>(skillsQuery);
-    const { data: assessments, isLoading: assessmentsLoading } = useCollection<SkillAssessment>(assessmentsQuery);
-    const { data: skillTypes, isLoading: skillTypesLoading } = useCollection<SkillTypeItem>(skillTypesQuery);
-    const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
-    const { data: positions, isLoading: positionsLoading } = useCollection<Position>(positionsQuery);
-    const { data: departments } = useCollection<Department>(departmentsQuery);
+    const { data: skills, isLoading: skillsLoading } = useFetchCollection<SkillInventoryItem>(skillsQuery);
+    const { data: assessments, isLoading: assessmentsLoading } = useFetchCollection<SkillAssessment>(assessmentsQuery);
+    const { data: skillTypes, isLoading: skillTypesLoading } = useFetchCollection<SkillTypeItem>(skillTypesQuery);
+    const { data: employees, isLoading: employeesLoading } = useFetchCollection<Employee>(employeesQuery);
+    const { data: positions, isLoading: positionsLoading } = useFetchCollection<Position>(positionsQuery);
+    const { data: departments } = useFetchCollection<Department>(departmentsQuery);
 
     const isLoading = skillsLoading || assessmentsLoading || employeesLoading || positionsLoading;
 

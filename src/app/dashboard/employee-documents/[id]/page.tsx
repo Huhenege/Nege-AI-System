@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/patterns/page-layout';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, tenantDoc, tenantCollection } from '@/firebase';
+import { useFirebase, useDoc, useFetchCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, tenantDoc, tenantCollection } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -213,7 +213,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
     const { toast } = useToast();
     const documentRef = useMemoFirebase(({ firestore, companyPath }) => tenantDoc(firestore, companyPath, 'documents', documentData.id), [documentData.id]);
     const docTypesQuery = useMemoFirebase(({ firestore, companyPath }) => tenantCollection(firestore, companyPath, 'er_document_types'), []);
-    const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<DocumentType>(docTypesQuery);
+    const { data: documentTypes, isLoading: isLoadingDocTypes } = useFetchCollection<DocumentType>(docTypesQuery);
 
     const form = useForm<DocumentFormValues>({
         // resolver stays simple, complex validation can be added later

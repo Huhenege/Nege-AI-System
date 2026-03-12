@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useFirebase, useMemoFirebase, useDoc, setDocumentNonBlocking, tenantCollection, tenantDoc } from "@/firebase";
+import { useCollection, useFirebase, useMemoFirebase, useFetchDoc, setDocumentNonBlocking, tenantCollection, tenantDoc } from "@/firebase";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -261,13 +261,13 @@ export default function TimeAndAttendanceSettingsPage() {
     const { data: workSchedules, isLoading: loadingWorkSchedules } = useCollection<WorkScheduleItem>(workSchedulesQuery);
 
     const timeConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'timeConfig') : null), []);
-    const { data: timeConfig, isLoading: loadingTimeConfig } = useDoc<TimeConfig>(timeConfigRef as any);
+    const { data: timeConfig, isLoading: loadingTimeConfig } = useFetchDoc<TimeConfig>(timeConfigRef as any);
 
     const timeOffConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'timeOffRequestConfig') : null), []);
-    const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useDoc<TimeOffRequestConfig>(timeOffConfigRef as any);
+    const { data: timeOffConfigData, isLoading: loadingTimeOffConfig } = useFetchDoc<TimeOffRequestConfig>(timeOffConfigRef as any);
 
     const vacationConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'vacationConfig') : null), []);
-    const { data: vacationConfigData, isLoading: loadingVacationConfig } = useDoc<VacationConfig>(vacationConfigRef as any);
+    const { data: vacationConfigData, isLoading: loadingVacationConfig } = useFetchDoc<VacationConfig>(vacationConfigRef as any);
 
     const workScheduleColumns = [
         { key: 'name', header: 'Нэр' },

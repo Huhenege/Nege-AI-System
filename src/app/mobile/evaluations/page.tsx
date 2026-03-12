@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebase, useTenantWrite } from '@/firebase';
+import { useFirebase, useTenantWrite, tenantCollection, tenantDoc } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -63,7 +63,7 @@ interface VacancyGroup {
 export default function MobileEvaluationsPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
-    const { tDoc, tCollection } = useTenantWrite();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { user, employeeProfile } = useEmployeeProfile();
     const { toast } = useToast();
     const mobileContainer = useMobileContainer();
@@ -88,10 +88,10 @@ export default function MobileEvaluationsPage() {
     const empCache = useRef<Map<string, { name: string; photoURL?: string }>>(new Map());
 
     const resolveAuthor = useCallback(async (authorId: string): Promise<{ name: string; photoURL?: string } | null> => {
-        if (!firestore) return null;
+        if (!firestore || !companyPath) return null;
         if (empCache.current.has(authorId)) return empCache.current.get(authorId)!;
         try {
-            const empDoc = await getDoc(doc(firestore, 'employees', authorId));
+            const empDoc = await getDoc(tenantDoc(firestore, companyPath, 'employees', authorId));
             if (empDoc.exists()) {
                 const d = empDoc.data();
                 const info = {
@@ -103,10 +103,10 @@ export default function MobileEvaluationsPage() {
             }
         } catch (_) {}
         return null;
-    }, [firestore]);
+    }, [firestore, companyPath]);
 
     useEffect(() => {
-        if (!firestore || !user?.uid) {
+        if (!firestore || !companyPath || !user?.uid) {
             setLoading(false);
             return;
         }
@@ -119,7 +119,7 @@ export default function MobileEvaluationsPage() {
             const allMyIds = [user.uid];
             if (user.email) {
                 try {
-                    const empQ = query(collection(firestore, 'employees'), where('email', '==', user.email));
+                    const empQ = query(tenantCollection(firestore, companyPath, 'employees'), where('email', '==', user.email));
                     const empSnap = await getDocs(empQ);
                     empSnap.docs.forEach(d => {
                         if (!allMyIds.includes(d.id)) allMyIds.push(d.id);
@@ -131,14 +131,14 @@ export default function MobileEvaluationsPage() {
             const evalMap = new Map<string, EvaluationRequest>();
             for (const myId of allMyIds) {
                 try {
-                    const q = query(collection(firestore, 'evaluation_requests'), where('assignedTo', '==', myId));
+                    const q = query(tenantCollection(firestore, companyPath, 'evaluation_requests'), where('assignedTo', '==', myId));
                     const snap = await getDocs(q);
                     snap.docs.forEach(d => evalMap.set(d.id, { id: d.id, ...d.data() } as EvaluationRequest));
                 } catch (_) {}
             }
             if (user.email) {
                 try {
-                    const q = query(collection(firestore, 'evaluation_requests'), where('assignedToEmail', '==', user.email));
+                    const q = query(tenantCollection(firestore, companyPath, 'evaluation_requests'), where('assignedToEmail', '==', user.email));
                     const snap = await getDocs(q);
                     snap.docs.forEach(d => evalMap.set(d.id, { id: d.id, ...d.data() } as EvaluationRequest));
                 } catch (_) {}
@@ -149,7 +149,7 @@ export default function MobileEvaluationsPage() {
             const interviewMap = new Map<string, Interview>();
             for (const myId of allMyIds) {
                 try {
-                    const q = query(collection(firestore, 'interviews'), where('interviewerIds', 'array-contains', myId));
+                    const q = query(tenantCollection(firestore, companyPath, 'interviews'), where('interviewerIds', 'array-contains', myId));
                     const snap = await getDocs(q);
                     snap.docs.forEach(d => interviewMap.set(d.id, { id: d.id, ...d.data() } as Interview));
                 } catch (_) {}
@@ -159,7 +159,7 @@ export default function MobileEvaluationsPage() {
             // Fetch default stages
             let defaultStages: RecruitmentStage[] = [];
             try {
-                const settingsSnap = await getDoc(doc(firestore, 'recruitment_settings', 'default'));
+                const settingsSnap = await getDoc(tenantDoc(firestore, companyPath, 'recruitment_settings', 'default'));
                 if (settingsSnap.exists()) {
                     defaultStages = settingsSnap.data().defaultStages || [];
                 }
@@ -169,7 +169,7 @@ export default function MobileEvaluationsPage() {
             const vacancyMap = new Map<string, Vacancy>();
             for (const myId of allMyIds) {
                 try {
-                    const q = query(collection(firestore, 'vacancies'), where('participantIds', 'array-contains', myId));
+                    const q = query(tenantCollection(firestore, companyPath, 'vacancies'), where('participantIds', 'array-contains', myId));
                     const snap = await getDocs(q);
                     snap.docs.forEach(d => {
                         const v = { id: d.id, ...d.data() } as Vacancy;
@@ -185,7 +185,7 @@ export default function MobileEvaluationsPage() {
                 const stages = vacancy.stages?.length ? vacancy.stages : defaultStages;
                 try {
                     const appsQ = query(
-                        collection(firestore, 'applications'),
+                        tenantCollection(firestore, companyPath, 'applications'),
                         where('vacancyId', '==', vacancy.id),
                         where('status', '==', 'ACTIVE'),
                     );
@@ -197,7 +197,7 @@ export default function MobileEvaluationsPage() {
                     await Promise.all(apps.map(async (app) => {
                         let candidate: Candidate | undefined;
                         try {
-                            const cDoc = await getDoc(doc(firestore, 'candidates', app.candidateId));
+                            const cDoc = await getDoc(tenantDoc(firestore, companyPath, 'candidates', app.candidateId));
                             if (cDoc.exists()) candidate = { id: cDoc.id, ...cDoc.data() } as Candidate;
                         } catch (_) {}
 
@@ -246,17 +246,17 @@ export default function MobileEvaluationsPage() {
 
         loadData();
         return () => { cancelled = true; };
-    }, [firestore, user?.uid, user?.email]);
+    }, [firestore, companyPath, user?.uid, user?.email]);
 
     // Real-time notes subscription when a candidate is selected
     useEffect(() => {
-        if (!firestore || !selectedCandidate?.applicationId) {
+        if (!firestore || !companyPath || !selectedCandidate?.applicationId) {
             setMyNotes([]);
             return;
         }
         setLoadingNotes(true);
         const notesQ = query(
-            collection(firestore, 'application_notes'),
+            tenantCollection(firestore, companyPath, 'application_notes'),
             where('applicationId', '==', selectedCandidate.applicationId),
         );
         const unsub = onSnapshot(notesQ, async (snap) => {
@@ -295,13 +295,13 @@ export default function MobileEvaluationsPage() {
             setLoadingNotes(false);
         }, () => setLoadingNotes(false));
         return () => unsub();
-    }, [firestore, selectedCandidate?.applicationId, resolveAuthor]);
+    }, [firestore, companyPath, selectedCandidate?.applicationId, resolveAuthor]);
 
     // Real-time application subscription — шат шилжилтийг шууд тусгана
     useEffect(() => {
-        if (!firestore || !selectedCandidate?.applicationId) return;
+        if (!firestore || !companyPath || !selectedCandidate?.applicationId) return;
         const unsub = onSnapshot(
-            doc(firestore, 'applications', selectedCandidate.applicationId),
+            tenantDoc(firestore, companyPath, 'applications', selectedCandidate.applicationId),
             (snap) => {
                 if (!snap.exists()) return;
                 const appData = { id: snap.id, ...snap.data() } as JobApplication;
@@ -315,7 +315,7 @@ export default function MobileEvaluationsPage() {
             },
         );
         return () => unsub();
-    }, [firestore, selectedCandidate?.applicationId]);
+    }, [firestore, companyPath, selectedCandidate?.applicationId]);
 
     const totalPending = useMemo(() => {
         let count = 0;

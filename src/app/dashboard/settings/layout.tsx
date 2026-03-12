@@ -8,7 +8,8 @@ import {
     FileText,
     Clock,
     MapPin,
-    Shield
+    Shield,
+    ScrollText
 } from 'lucide-react';
 import { PageHeader } from '@/components/patterns/page-layout';
 
@@ -42,8 +43,11 @@ const settingsNavItems = [
         href: "/dashboard/settings/insurance-types",
         icon: Shield,
     },
-    // Onboarding/Offboarding settings pages are moved to their own modules
-    // (see /dashboard/onboarding/settings and /dashboard/offboarding/settings)
+    {
+        title: "Аудит лог",
+        href: "/dashboard/settings/audit",
+        icon: ScrollText,
+    },
 ];
 
 export default function SettingsLayout({ children }: SettingsLayoutProps) {

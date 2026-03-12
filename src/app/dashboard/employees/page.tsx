@@ -17,7 +17,7 @@ import {
   Eye
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useCollection, useFetchCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { query, where } from 'firebase/firestore';
 import { Employee, Department, Position, EMPLOYEE_STATUS_LABELS } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -70,8 +70,8 @@ export default function EmployeesPage() {
     query(tenantCollection(firestore, companyPath, 'projects'), where('type', '==', 'offboarding')), []);
 
   const { data: employees, isLoading: isLoadingEmployees, error: errorEmployees } = useCollection<Employee>(employeesQuery);
-  const { data: departments, isLoading: isLoadingDepartments, error: errorDepartments } = useCollection<Department>(departmentsQuery);
-  const { data: positions } = useCollection<Position>(positionsQuery);
+  const { data: departments, isLoading: isLoadingDepartments, error: errorDepartments } = useFetchCollection<Department>(departmentsQuery);
+  const { data: positions } = useFetchCollection<Position>(positionsQuery);
   const { data: documents } = useCollection<any>(documentsQuery);
   const { data: onboardingProcesses } = useCollection<any>(onboardingQuery as any);
   const { data: offboardingProjects } = useCollection<any>(offboardingQuery as any);

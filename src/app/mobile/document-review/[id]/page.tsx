@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection, useTenantWrite } from '@/firebase';
-import { doc, updateDoc, Timestamp, collection, addDoc, query, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
+import { updateDoc, Timestamp, addDoc, query, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
 import { ERDocument, ProcessActivity } from '../../../dashboard/employment-relations/types';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ export default function DocumentReviewDetailPage() {
     const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
     // Document Data
-    const docRef = useMemo(() => (firestore && id ? doc(firestore, 'er_documents', id) : null), [firestore, id]);
+    const docRef = useMemo(() => (firestore && id ? tDoc('er_documents', id) : null), [firestore, id, tDoc]);
     const { data: document, isLoading: isDocLoading } = useDoc<ERDocument>(docRef as any);
 
     // Initial check for 404
@@ -45,7 +45,7 @@ export default function DocumentReviewDetailPage() {
     }, [isDocLoading, document, router, toast]);
 
     // Employee Data (to map IDs to Names)
-    const employeesRef = useMemo(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const employeesRef = useMemo(() => firestore ? tCollection('employees') : null, [firestore, tCollection]);
     const { data: employees } = useCollection<any>(employeesRef);
 
     // Activity Feed (Real-time)
@@ -56,14 +56,14 @@ export default function DocumentReviewDetailPage() {
         if (!firestore || !id) return;
 
         const q = query(
-            collection(firestore, `er_documents/${id}/activity`),
+            tCollection('er_documents', id, 'activity'),
             orderBy('createdAt', 'asc')
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const acts: ProcessActivity[] = [];
-            snapshot.forEach(doc => {
-                acts.push({ id: doc.id, ...doc.data() } as ProcessActivity);
+            snapshot.forEach(d => {
+                acts.push({ id: d.id, ...d.data() } as ProcessActivity);
             });
             setActivities(acts);
             // Scroll to bottom on new message
@@ -71,7 +71,7 @@ export default function DocumentReviewDetailPage() {
         });
 
         return () => unsubscribe();
-    }, [firestore, id]);
+    }, [firestore, id, tCollection]);
 
 
     // Actions State
@@ -87,18 +87,18 @@ export default function DocumentReviewDetailPage() {
 
     useEffect(() => {
         if (!firestore) return;
-        getDocs(collection(firestore, 'company_profile')).then(snap => {
+        getDocs(tCollection('company_profile')).then(snap => {
             if (!snap.empty) setCompanyProfile(snap.docs[0].data());
         });
-    }, [firestore]);
+    }, [firestore, tCollection]);
 
     useEffect(() => {
         if (document?.employeeId && firestore) {
-            getDoc(doc(firestore, 'employees', document.employeeId)).then(snap => {
+            getDoc(tDoc('employees', document.employeeId)).then(snap => {
                 if (snap.exists()) setTargetEmployee({ id: snap.id, ...snap.data() });
             });
         }
-    }, [document?.employeeId, firestore]);
+    }, [document?.employeeId, firestore, tDoc]);
 
     // Current User Status
     const myReviewStatus = useMemo(() => {

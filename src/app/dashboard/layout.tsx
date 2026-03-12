@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useUser, useMemoFirebase, useDoc, tenantDoc } from '@/firebase';
+import { useUser, useMemoFirebase, useFetchDoc, tenantDoc } from '@/firebase';
 import { usePathname } from 'next/navigation';
 import { useTenant } from '@/contexts/tenant-context';
 import { useRouter } from 'next/navigation';
@@ -15,7 +15,6 @@ import { NotificationCenter } from '@/components/notification-center';
 import { ImplementationGuideWidget } from './components/implementation-guide-widget';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { FloatingAssistant } from '@/components/assistant/floating-assistant';
-import { DashboardSidebar } from '@/components/dashboard-sidebar';
 
 interface CompanyProfile {
   name?: string;
@@ -29,7 +28,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), []);
-  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
+  const { data: companyProfile, isLoading: isLoadingProfile } = useFetchDoc<CompanyProfile>(companyProfileRef);
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
@@ -113,13 +112,10 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Sidebar + Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {!pathname.startsWith('/dashboard/setup') && <DashboardSidebar />}
-        <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
-          {children}
-        </main>
-      </div>
+      {/* Main Content */}
+      <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
+        {children}
+      </main>
 
       {/* Floating AI Assistant */}
       <FloatingAssistant />

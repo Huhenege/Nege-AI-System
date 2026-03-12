@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useDoc, useFirebase, useTenantWrite } from '@/firebase';
+import { useFetchDoc, useFirebase, useTenantWrite } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -457,7 +457,7 @@ export default function BrandingPage() {
 
     // Using useDoc for real-time sync
     const brandingRef = React.useMemo(() => firestore ? doc(firestore, 'company', 'branding') : null, [firestore]);
-    const { data: branding, isLoading } = useDoc<CompanyBranding>(brandingRef as any);
+    const { data: branding, isLoading } = useFetchDoc<CompanyBranding>(brandingRef as any);
 
     // Track original data for unsaved changes detection
     const originalDataRef = React.useRef<{ colors: BrandColor[]; mapping: ThemeMapping } | null>(null);

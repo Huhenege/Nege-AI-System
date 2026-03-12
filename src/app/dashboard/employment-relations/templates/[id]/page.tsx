@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useFirebase, useCollection, useDoc } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirebase, useFetchCollection, useDoc, useTenantWrite } from '@/firebase';
 import { ERDocumentType, ERTemplate } from '../../types';
 import { TemplateForm } from '../../components/template-form';
 import { Loader2 } from 'lucide-react';
@@ -11,15 +10,16 @@ import { useParams } from 'next/navigation';
 export default function EditTemplatePage() {
     const { id } = useParams() as { id: string };
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
 
     // Fetch document types
-    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
-    const { data: docTypes, isLoading: isLoadingTypes } = useCollection<ERDocumentType>(docTypesQuery);
+    const docTypesQuery = React.useMemo(() => firestore ? tCollection('er_process_document_types') : null, [firestore, tCollection]);
+    const { data: docTypes, isLoading: isLoadingTypes } = useFetchCollection<ERDocumentType>(docTypesQuery);
 
     // Fetch template data
     const templateRef = React.useMemo(() =>
-        firestore && id ? (doc(firestore, 'er_templates', id) as any) : null
-        , [firestore, id]);
+        firestore && id ? (tDoc('er_templates', id) as any) : null
+        , [firestore, id, tDoc]);
 
     const { data: template, isLoading: isLoadingTemplate } = useDoc<ERTemplate>(templateRef);
 

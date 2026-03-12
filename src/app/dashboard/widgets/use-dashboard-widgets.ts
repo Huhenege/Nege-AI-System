@@ -34,13 +34,21 @@ function loadFromStorage(): DashboardWidgetsState {
             return DEFAULT_STATE;
         }
         
-        // Filter out any invalid widget IDs
         const allWidgetIds = getAllWidgetIds();
         const validOrder = parsed.order.filter(id => allWidgetIds.includes(id));
         const validHidden = parsed.hidden.filter(id => allWidgetIds.includes(id));
         
+        // Detect newly added widgets not present in stored order or hidden list
+        const knownIds = new Set([...validOrder, ...validHidden]);
+        const newWidgets = allWidgetIds.filter(id => !knownIds.has(id));
+        
+        // Prepend new widgets so the user sees them immediately
+        const finalOrder = newWidgets.length > 0
+            ? [...newWidgets, ...validOrder]
+            : validOrder;
+        
         return {
-            order: validOrder.length > 0 ? validOrder : DEFAULT_ORDER,
+            order: finalOrder.length > 0 ? finalOrder : DEFAULT_ORDER,
             hidden: validHidden
         };
     } catch (e) {

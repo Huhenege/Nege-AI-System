@@ -99,7 +99,7 @@ function ProjectStatusSelect({
     onPointsDistributed?: (message: string) => void;
 }) {
     const { firestore } = useFirebase();
-    const { tDoc } = useTenantWrite();
+    const { tDoc, companyPath } = useTenantWrite();
     const [isUpdating, setIsUpdating] = useState(false);
     const selectValue = normalizeStatusForSelect(project.status);
 
@@ -132,6 +132,7 @@ function ProjectStatusSelect({
                 try {
                     const result = await ProjectPointsService.distributeProjectPoints(
                         firestore,
+                        companyPath!,
                         project.id,
                         completionDate
                     );

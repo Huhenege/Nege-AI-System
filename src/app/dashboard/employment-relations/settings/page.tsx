@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useMemoFirebase, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, tenantCollection, useTenantWrite } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { useFetchCollection, useMemoFirebase, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, tenantCollection, useTenantWrite } from "@/firebase";
+import { getDoc } from "firebase/firestore";
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -102,13 +102,13 @@ export default function ERDocumentTypesSettingsPage() {
     // Fetch company profile for logo
     React.useEffect(() => {
         if (!firestore) return;
-        const profileRef = doc(firestore, 'company', 'profile');
+        const profileRef = tDoc('company', 'profile');
         getDoc(profileRef).then(snap => {
             if (snap.exists()) {
                 setCompanyProfile(snap.data());
             }
         });
-    }, [firestore]);
+    }, [firestore, tDoc]);
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -124,7 +124,7 @@ export default function ERDocumentTypesSettingsPage() {
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_process_document_types') : null,
         []
     );
-    const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<ERDocumentTypeReferenceItem>(documentTypesQuery);
+    const { data: documentTypes, isLoading: loadingDocTypes } = useFetchCollection<ERDocumentTypeReferenceItem>(documentTypesQuery);
 
     // Reset form when dialog opens/closes
     React.useEffect(() => {

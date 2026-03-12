@@ -13,7 +13,7 @@ import {
     CheckCircle2,
     Eye
 } from 'lucide-react';
-import { useFirebase, useCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchCollection, useTenantWrite } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { query, where, orderBy } from 'firebase/firestore';
 import { ERDocument } from '../../dashboard/employment-relations/types';
@@ -63,12 +63,12 @@ export default function DocumentReviewPage() {
         data: reviewDocs,
         isLoading: isLoadingReview,
         error: reviewError,
-    } = useCollection<ERDocument>(reviewDocsQuery as any);
+    } = useFetchCollection<ERDocument>(reviewDocsQuery as any);
     const {
         data: ackDocs,
         isLoading: isLoadingAck,
         error: ackError,
-    } = useCollection<ERDocument>(ackDocsQuery as any);
+    } = useFetchCollection<ERDocument>(ackDocsQuery as any);
 
     const documents = tab === 'review' ? reviewDocs : ackDocs;
     const isLoading = tab === 'review' ? isLoadingReview : isLoadingAck;

@@ -4,6 +4,7 @@ import React, { useContext, useState, useEffect, useMemo, ReactNode } from 'reac
 import { useUser, useFirebase } from '@/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import type { Company, TenantClaims, TenantRole, SaaSModule } from '@/types/company';
+import { getPlanDefinition } from '@/types/company';
 import { TenantContext } from './tenant-types';
 import type { TenantState, TenantContextValue } from './tenant-types';
 
@@ -191,7 +192,10 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
       isModuleEnabled(module: SaaSModule): boolean {
         if (state.role === 'super_admin') return true;
         if (!state.company) return false;
-        return state.company.modules[module]?.enabled === true;
+        if (state.company.modules?.[module]?.enabled === true) return true;
+        // Fallback: if modules map is missing/incomplete, check plan definition
+        const def = getPlanDefinition(state.company.plan);
+        return def.modules.includes(module);
       },
 
       isWithinLimit(limitKey: keyof Company['limits'], currentCount: number): boolean {

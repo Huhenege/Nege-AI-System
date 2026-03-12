@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Plus, Trash2, Pencil, Check, X, GripVertical, Info, FileText } from 'lucide-react';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchDoc, useMemoFirebase, useCollection, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { setDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -84,7 +84,7 @@ export default function OnboardingSettingsPage() {
     const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const configRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'settings', 'onboarding') : null), [firestore]);
-    const { data: config, isLoading } = useDoc<any>(configRef as any);
+    const { data: config, isLoading } = useFetchDoc<any>(configRef as any);
 
     // Fetch policies for selection
     const policiesQuery = useMemoFirebase(({ firestore, companyPath }) =>

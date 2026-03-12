@@ -70,6 +70,7 @@ export class ProjectPointsService {
      */
     static async distributeProjectPoints(
         db: Firestore,
+        companyPath: string,
         projectId: string,
         completionDate: string
     ): Promise<ProjectPointDistributionResult> {
@@ -78,7 +79,7 @@ export class ProjectPointsService {
                 // --- PHASE 1: ALL READS ---
 
                 // 1. Read Project
-                const projectRef = doc(db, 'projects', projectId);
+                const projectRef = doc(db, `${companyPath}/projects`, projectId);
                 const projectSnap = await transaction.get(projectRef);
                 if (!projectSnap.exists()) {
                     throw new Error('Төсөл олдсонгүй');
@@ -105,7 +106,7 @@ export class ProjectPointsService {
                 const memberIds = project.teamMemberIds;
                 const memberProfileSnaps = await Promise.all(
                     memberIds.map(id =>
-                        transaction.get(doc(db, 'employees', id, 'point_profile', 'main'))
+                        transaction.get(doc(db, `${companyPath}/employees`, id, 'point_profile', 'main'))
                     )
                 );
 
@@ -134,10 +135,9 @@ export class ProjectPointsService {
                 if (pointsPerMember > 0) {
                     memberProfileSnaps.forEach((snap, idx) => {
                         const memberId = memberIds[idx];
-                        const profileRef = doc(db, 'employees', memberId, 'point_profile', 'main');
+                        const profileRef = doc(db, `${companyPath}/employees`, memberId, 'point_profile', 'main');
 
                         if (!snap.exists()) {
-                            // Initialize profile with the earned points
                             transaction.set(profileRef, {
                                 userId: memberId,
                                 balance: pointsPerMember,
@@ -154,8 +154,7 @@ export class ProjectPointsService {
                             });
                         }
 
-                        // Create a PointTransaction for traceability
-                        const txRef = doc(collection(db, 'point_transactions'));
+                        const txRef = doc(collection(db, `${companyPath}/point_transactions`));
                         const description = overdueDays > 0
                             ? `"${project.name}" төсөл дууссан (${overdueDays} хоног хоцорсон, ${penaltyPercent}% хасагдсан)`
                             : `"${project.name}" төсөл амжилттай дууссан`;

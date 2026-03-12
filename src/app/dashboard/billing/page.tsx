@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '@/contexts/tenant-context';
-import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
+import { useFirebase, useFetchCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,7 +91,7 @@ export default function BillingPage() {
         : null,
     [firestore]
   );
-  const { data: invoiceHistory } = useCollection<InvoiceRecord>(invoicesQuery);
+  const { data: invoiceHistory } = useFetchCollection<InvoiceRecord>(invoicesQuery);
 
   if (!company) return null;
 

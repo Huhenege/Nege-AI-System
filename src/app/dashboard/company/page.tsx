@@ -17,7 +17,7 @@ import {
     CarouselApi
 } from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useFetchCollection, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
 import { collection, addDoc, updateDoc, Timestamp, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Pencil, Building, Hash, Users, User, Globe, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, Handshake, Zap, Users2, ScrollText, ChevronLeft, ExternalLink, Calendar, Palette, Building2, Crown, UserPlus, ArrowRight, Loader2, Check, Plus, Trash2, ChevronRight, DollarSign, Gift, Layers, Briefcase, RotateCcw, AlertTriangle, History } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -231,14 +231,14 @@ export default function CompanyPage() {
     const valuesQuery = useMemoFirebase(({ firestore }) => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null), []);
     const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef as any);
     const { data: branding, isLoading: isLoadingBranding } = useDoc<CompanyBranding>(brandingRef as any);
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
-    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
-    const { data: policies, isLoading: isLoadingPolicies } = useCollection(policiesQuery);
-    const { data: coreValues, isLoading: isLoadingValues } = useCollection<CoreValue>(valuesQuery);
+    const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(departmentsQuery);
+    const { data: positions, isLoading: isLoadingPos } = useFetchCollection<Position>(positionsQuery);
+    const { data: policies, isLoading: isLoadingPolicies } = useFetchCollection(policiesQuery);
+    const { data: coreValues, isLoading: isLoadingValues } = useFetchCollection<CoreValue>(valuesQuery);
     
     // For CEO Setup Wizard
-    const { data: positionLevels } = useCollection<PositionLevel>(positionLevelsQuery);
-    const { data: employmentTypes } = useCollection<EmploymentType>(employmentTypesQuery);
+    const { data: positionLevels } = useFetchCollection<PositionLevel>(positionLevelsQuery);
+    const { data: employmentTypes } = useFetchCollection<EmploymentType>(employmentTypesQuery);
 
     // CEO Position and Employee fetching
     const ceoPositionRef = useMemoFirebase(

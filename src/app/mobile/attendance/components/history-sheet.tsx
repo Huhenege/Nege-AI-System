@@ -4,7 +4,8 @@ import * as React from 'react';
 import { History, Clock, CheckCircle, X, Trash2, Calendar, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { useTenantWrite } from '@/hooks/use-tenant-write';
 import { collection, query, orderBy, limit, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,7 @@ interface HistorySheetProps {
 
 export function HistorySheet({ employeeId }: HistorySheetProps) {
     const { firestore } = useFirebase();
+    const { companyPath } = useTenantWrite();
     const { toast } = useToast();
     const [activeTab, setActiveTab] = React.useState('attendance');
 
@@ -54,7 +56,7 @@ export function HistorySheet({ employeeId }: HistorySheetProps) {
     // Time-off requests
     const timeOffQuery = useMemoFirebase(({ companyPath }) => (
         employeeId ? query(
-            tenantCollection(firestore, companyPath, `employees/${employeeId}/timeOffRequests`),
+            collection(firestore, `${companyPath}/employees/${employeeId}/timeOffRequests`),
             orderBy('createdAt', 'desc'),
             limit(20)
         ) : null
@@ -63,7 +65,7 @@ export function HistorySheet({ employeeId }: HistorySheetProps) {
     // Attendance requests
     const attendanceRequestsQuery = useMemoFirebase(({ companyPath }) => (
         employeeId ? query(
-            tenantCollection(firestore, companyPath, `employees/${employeeId}/attendanceRequests`),
+            collection(firestore, `${companyPath}/employees/${employeeId}/attendanceRequests`),
             orderBy('createdAt', 'desc'),
             limit(20)
         ) : null
@@ -79,9 +81,9 @@ export function HistorySheet({ employeeId }: HistorySheetProps) {
     ), [attendanceRecords, employeeId]);
 
     const handleCancelTimeOff = async (requestId: string) => {
-        if (!firestore || !employeeId) return;
+        if (!firestore || !employeeId || !companyPath) return;
         try {
-            await deleteDocumentNonBlocking(doc(firestore, `employees/${employeeId}/timeOffRequests`, requestId));
+            await deleteDocumentNonBlocking(doc(firestore, `${companyPath}/employees/${employeeId}/timeOffRequests`, requestId));
             toast({ title: 'Хүсэлт амжилттай цуцлагдлаа' });
         } catch (error) {
             toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
@@ -89,9 +91,9 @@ export function HistorySheet({ employeeId }: HistorySheetProps) {
     };
 
     const handleCancelAttendanceReq = async (requestId: string) => {
-        if (!firestore || !employeeId) return;
+        if (!firestore || !employeeId || !companyPath) return;
         try {
-            await deleteDocumentNonBlocking(doc(firestore, `employees/${employeeId}/attendanceRequests`, requestId));
+            await deleteDocumentNonBlocking(doc(firestore, `${companyPath}/employees/${employeeId}/attendanceRequests`, requestId));
             toast({ title: 'Хүсэлт амжилттай цуцлагдлаа' });
         } catch (error) {
             toast({ title: 'Алдаа гарлаа', variant: 'destructive' });

@@ -24,7 +24,7 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useDoc, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
+import { useFirebase, useFetchDoc, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, X, Upload, Building, ArrowLeft, Trash, Image as ImageIcon, FileText, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -723,7 +723,7 @@ export default function EditCompanyPage() {
         []
     );
 
-    const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfileFormValues>(companyProfileRef as any);
+    const { data: companyProfile, isLoading: isLoadingProfile } = useFetchDoc<CompanyProfileFormValues>(companyProfileRef as any);
 
     if (isLoadingProfile) {
         return (

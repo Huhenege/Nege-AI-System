@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
+import { useFetchDoc, useMemoFirebase, tenantDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { hexToHsl } from '@/lib/color-utils';
@@ -33,7 +33,7 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
         [firestore]
     );
 
-    const { data: branding } = useDoc<CompanyBranding>(brandingRef as any);
+    const { data: branding } = useFetchDoc<CompanyBranding>(brandingRef as any);
 
     React.useEffect(() => {
         if (!branding || !branding.themeMapping || !branding.brandColors) return;

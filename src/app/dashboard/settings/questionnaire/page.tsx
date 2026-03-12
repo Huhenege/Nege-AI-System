@@ -4,7 +4,7 @@ import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useMemoFirebase, useFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from "@/firebase";
+import { useCollection, useFetchCollection, useMemoFirebase, useFirebase, addDocumentNonBlocking, tenantCollection, useTenantWrite } from "@/firebase";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -561,7 +561,7 @@ export default function QuestionnaireSettingsPage() {
     const { data: emergencyRelationships, isLoading: loadingEmergencyR } = useCollection<SimpleReferenceItem>(
         useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'questionnaireEmergencyRelationships') : null, [])
     );
-    const { data: jobCategories, isLoading: loadingJobCat } = useCollection<JobCategoryReferenceItem>(
+    const { data: jobCategories, isLoading: loadingJobCat } = useFetchCollection<JobCategoryReferenceItem>(
         useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'jobCategories') : null, [])
     );
 
