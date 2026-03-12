@@ -2,11 +2,12 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { collection, doc, query, orderBy, where } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
+import { Badge } from '@/components/ui/badge';
 import { Employee, isActiveStatus } from '@/types';
 import { Department } from '@/types';
 
@@ -19,13 +20,19 @@ import {
     PerformanceReview,
     PerformanceScore,
     Reward,
+    Strategy,
     CompanyProfile,
     CoreValue,
+    StrategyFramework,
+    FRAMEWORK_SHORT_LABELS,
 } from './types';
 
 import { BpDashboard } from './components/bp-dashboard';
 import { PlansTab } from './components/plans-tab';
 import { OkrTab } from './components/okr-tab';
+import { OgsmTab } from './components/ogsm-tab';
+import { BscTab } from './components/bsc-tab';
+import { BscStrategyMap } from './components/bsc-strategy-map';
 import { KpiTab } from './components/kpi-tab';
 import { PerformanceTab } from './components/performance-tab';
 import { RewardsTab } from './components/rewards-tab';
@@ -52,6 +59,11 @@ export default function BusinessPlanPage() {
 
     const keyResultsQuery = useMemo(() =>
         firestore ? query(collection(firestore, 'bp_key_results'), orderBy('createdAt', 'desc')) : null,
+        [firestore]
+    );
+
+    const strategiesQuery = useMemo(() =>
+        firestore ? query(collection(firestore, 'bp_strategies'), orderBy('createdAt', 'desc')) : null,
         [firestore]
     );
 
@@ -85,7 +97,6 @@ export default function BusinessPlanPage() {
         [firestore]
     );
 
-    // Company profile (vision, mission, values — read-only)
     const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null,
         [firestore]
@@ -103,6 +114,7 @@ export default function BusinessPlanPage() {
     const { data: themes, isLoading: themesLoading } = useCollection<StrategicTheme>(themesQuery);
     const { data: objectives, isLoading: objectivesLoading } = useCollection<Objective>(objectivesQuery);
     const { data: keyResults, isLoading: keyResultsLoading } = useCollection<KeyResult>(keyResultsQuery);
+    const { data: strategies, isLoading: strategiesLoading } = useCollection<Strategy>(strategiesQuery);
     const { data: kpis, isLoading: kpisLoading } = useCollection<Kpi>(kpisQuery);
     const { data: reviews, isLoading: reviewsLoading } = useCollection<PerformanceReview>(reviewsQuery);
     const { data: scores, isLoading: scoresLoading } = useCollection<PerformanceScore>(scoresQuery);
@@ -115,11 +127,12 @@ export default function BusinessPlanPage() {
         [employees]
     );
 
-    // Find active plan
     const activePlan = useMemo(() =>
         plans.find(p => p.status === 'active') || plans[0],
         [plans]
     );
+
+    const framework: StrategyFramework = activePlan?.framework || 'okr';
 
     // Filter data by active plan
     const activePlanThemes = useMemo(() =>
@@ -135,6 +148,11 @@ export default function BusinessPlanPage() {
     const activePlanKeyResults = useMemo(() =>
         activePlan ? keyResults.filter(kr => kr.planId === activePlan.id) : [],
         [keyResults, activePlan]
+    );
+
+    const activePlanStrategies = useMemo(() =>
+        activePlan ? strategies.filter(s => s.planId === activePlan.id) : [],
+        [strategies, activePlan]
     );
 
     const activePlanKpis = useMemo(() =>
@@ -157,14 +175,40 @@ export default function BusinessPlanPage() {
         [rewards, activePlan]
     );
 
-    const isLoading = plansLoading || themesLoading || objectivesLoading || keyResultsLoading;
+    const isLoading = plansLoading || themesLoading || objectivesLoading || keyResultsLoading || strategiesLoading;
+
+    // Framework-specific tab items
+    const tabItems = useMemo(() => {
+        const base = [
+            { value: 'dashboard', label: 'Хянах самбар' },
+            { value: 'plans', label: 'Төлөвлөгөө' },
+        ];
+
+        if (framework === 'okr') {
+            base.push({ value: 'okr', label: 'OKR Зорилго' });
+        } else if (framework === 'ogsm') {
+            base.push({ value: 'ogsm', label: 'OGSM' });
+        } else if (framework === 'bsc') {
+            base.push({ value: 'bsc', label: 'BSC Зорилго' });
+            base.push({ value: 'strategy-map', label: 'Strategy Map' });
+        }
+
+        base.push(
+            { value: 'kpi', label: 'KPI Хэмжүүр' },
+            { value: 'performance', label: 'Гүйцэтгэл' },
+            { value: 'rewards', label: 'Урамшуулал' },
+            { value: 'settings', label: 'Тохиргоо' },
+        );
+
+        return base;
+    }, [framework]);
 
     return (
         <div className="flex flex-col h-full overflow-hidden bg-slate-50/50">
             <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 pb-32">
                 <PageHeader
                     title="Бизнес төлөвлөгөө"
-                    description="Стратегийн гүйцэтгэлийн систем — Төлөвлөгөө → Зорилго → KPI → Гүйцэтгэл → Урамшуулал"
+                    description={`Стратегийн гүйцэтгэлийн систем — ${FRAMEWORK_SHORT_LABELS[framework]}`}
                     showBackButton
                     hideBreadcrumbs
                     backButtonPlacement="inline"
@@ -175,15 +219,7 @@ export default function BusinessPlanPage() {
                 <Tabs defaultValue="dashboard" className="space-y-6">
                     <VerticalTabMenu
                         orientation="horizontal"
-                        items={[
-                            { value: 'dashboard', label: 'Хянах самбар' },
-                            { value: 'plans', label: 'Төлөвлөгөө' },
-                            { value: 'okr', label: 'OKR Зорилго' },
-                            { value: 'kpi', label: 'KPI Хэмжүүр' },
-                            { value: 'performance', label: 'Гүйцэтгэл' },
-                            { value: 'rewards', label: 'Урамшуулал' },
-                            { value: 'settings', label: 'Тохиргоо' },
-                        ]}
+                        items={tabItems}
                     />
 
                     <TabsContent value="dashboard">
@@ -192,6 +228,7 @@ export default function BusinessPlanPage() {
                             themes={activePlanThemes}
                             objectives={activePlanObjectives}
                             keyResults={activePlanKeyResults}
+                            strategies={activePlanStrategies}
                             kpis={activePlanKpis}
                             reviews={activePlanReviews}
                             scores={activePlanScores}
@@ -212,6 +249,7 @@ export default function BusinessPlanPage() {
                         />
                     </TabsContent>
 
+                    {/* OKR Tab (only for OKR framework) */}
                     <TabsContent value="okr">
                         <OkrTab
                             activePlan={activePlan}
@@ -219,6 +257,43 @@ export default function BusinessPlanPage() {
                             objectives={activePlanObjectives}
                             keyResults={activePlanKeyResults}
                             employees={activeEmployees}
+                            isLoading={objectivesLoading || keyResultsLoading}
+                        />
+                    </TabsContent>
+
+                    {/* OGSM Tab (only for OGSM framework) */}
+                    <TabsContent value="ogsm">
+                        <OgsmTab
+                            activePlan={activePlan}
+                            themes={activePlanThemes}
+                            objectives={activePlanObjectives}
+                            keyResults={activePlanKeyResults}
+                            strategies={activePlanStrategies}
+                            employees={activeEmployees}
+                            isLoading={objectivesLoading || keyResultsLoading || strategiesLoading}
+                        />
+                    </TabsContent>
+
+                    {/* BSC Tab (only for BSC framework) */}
+                    <TabsContent value="bsc">
+                        <BscTab
+                            activePlan={activePlan}
+                            themes={activePlanThemes}
+                            objectives={activePlanObjectives}
+                            keyResults={activePlanKeyResults}
+                            strategies={activePlanStrategies}
+                            employees={activeEmployees}
+                            isLoading={objectivesLoading || keyResultsLoading || strategiesLoading}
+                        />
+                    </TabsContent>
+
+                    {/* BSC Strategy Map */}
+                    <TabsContent value="strategy-map">
+                        <BscStrategyMap
+                            activePlan={activePlan}
+                            themes={activePlanThemes}
+                            objectives={activePlanObjectives}
+                            keyResults={activePlanKeyResults}
                             isLoading={objectivesLoading || keyResultsLoading}
                         />
                     </TabsContent>
@@ -232,6 +307,7 @@ export default function BusinessPlanPage() {
                             employees={activeEmployees}
                             departments={departments}
                             isLoading={kpisLoading}
+                            framework={framework}
                         />
                     </TabsContent>
 
@@ -244,6 +320,7 @@ export default function BusinessPlanPage() {
                             kpis={activePlanKpis}
                             employees={activeEmployees}
                             isLoading={reviewsLoading || scoresLoading}
+                            framework={framework}
                         />
                     </TabsContent>
 
@@ -259,7 +336,10 @@ export default function BusinessPlanPage() {
                     </TabsContent>
 
                     <TabsContent value="settings">
-                        <BpSettings />
+                        <BpSettings
+                            activePlan={activePlan}
+                            framework={framework}
+                        />
                     </TabsContent>
                 </Tabs>
             </div>

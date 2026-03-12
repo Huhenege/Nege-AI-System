@@ -437,6 +437,7 @@ export default function ProjectsPage() {
                 open={isCreateDialogOpen}
                 onOpenChange={setIsCreateDialogOpen}
                 groups={groups || []}
+                currentProjectCount={projects?.length ?? 0}
             />
 
             <ProjectGroupsManagerDialog

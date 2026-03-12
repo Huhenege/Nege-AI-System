@@ -55,7 +55,8 @@ import { isWithinInterval, format, startOfToday, endOfToday, isToday, startOfDay
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTenant } from '@/contexts/tenant-context';
-import { COMPANY_PLAN_LABELS, COMPANY_STATUS_LABELS } from '@/types/company';
+import { COMPANY_STATUS_LABELS } from '@/types/company';
+import { usePricingPlans } from '@/hooks/use-pricing-plans';
 import { UserNav } from '@/components/user-nav';
 import { VacationRequest } from '@/types/vacation';
 import { Task } from '@/types/project';
@@ -374,8 +375,9 @@ const OrganizationChart = () => {
     const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
 
     const { toast } = useToast();
-    const { company } = useTenant();
+    const { company, isModuleEnabled } = useTenant();
     const { firestore, tDoc, tCollection } = useTenantWrite();
+    const { getPlanLabel } = usePricingPlans();
 
     // Data fetching
     const deptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
@@ -756,7 +758,7 @@ const OrganizationChart = () => {
 
             // Billing widget
             billingPlan: company?.plan,
-            billingPlanLabel: company?.plan ? COMPANY_PLAN_LABELS[company.plan] : undefined,
+            billingPlanLabel: company?.plan ? getPlanLabel(company.plan) : undefined,
             billingStatus: company?.status,
             billingStatusLabel: company?.status ? COMPANY_STATUS_LABELS[company.status] : undefined,
             billingEmployeeCount: company?.employeeCount ?? (employees || []).length,
@@ -1026,6 +1028,8 @@ const OrganizationChart = () => {
                 onShowWidget={showWidget}
                 data={widgetData}
                 isLoading={isStatsLoading || !isWidgetsLoaded}
+                isModuleEnabled={isModuleEnabled}
+                currentPlan={company?.plan || 'free'}
             />
 
             {/* Organization Chart - 80% height */}

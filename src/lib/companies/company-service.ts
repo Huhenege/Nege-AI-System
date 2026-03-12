@@ -237,5 +237,21 @@ export function isWithinLimit(
 
 export function isCompanyActive(company: Company | null): boolean {
   if (!company) return false;
-  return company.status === 'active' || company.status === 'trial';
+
+  const { status, plan, subscription } = company;
+
+  if (status === 'suspended' || status === 'cancelled') return false;
+  if (plan === 'free') return true;
+
+  if (subscription?.endDate) {
+    const endDate = new Date(subscription.endDate);
+    if (endDate < new Date()) return false;
+  }
+
+  if (status === 'trial' && subscription?.trialEndsAt) {
+    const trialEnd = new Date(subscription.trialEndsAt);
+    if (trialEnd < new Date()) return false;
+  }
+
+  return status === 'active' || status === 'trial';
 }

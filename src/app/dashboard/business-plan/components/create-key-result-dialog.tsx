@@ -21,10 +21,13 @@ import {
     KeyResultFormValues,
     keyResultSchema,
     Objective,
+    StrategyFramework,
     METRIC_TYPES,
     METRIC_TYPE_LABELS,
     OKR_STATUSES,
     OKR_STATUS_LABELS,
+    KEY_RESULT_LABEL,
+    OBJECTIVE_LABEL,
 } from '../types';
 
 interface CreateKeyResultDialogProps {
@@ -35,10 +38,11 @@ interface CreateKeyResultDialogProps {
     objectives: Objective[];
     employees: Employee[];
     defaultObjectiveId?: string;
+    framework?: StrategyFramework;
 }
 
 export function CreateKeyResultDialog({
-    open, onOpenChange, onSubmit, editingKeyResult, objectives, employees, defaultObjectiveId,
+    open, onOpenChange, onSubmit, editingKeyResult, objectives, employees, defaultObjectiveId, framework = 'okr',
 }: CreateKeyResultDialogProps) {
     const form = useForm<KeyResultFormValues>({
         resolver: zodResolver(keyResultSchema),
@@ -109,7 +113,7 @@ export function CreateKeyResultDialog({
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>
-                        {editingKeyResult ? 'Гол үр дүн засах' : 'Шинэ гол үр дүн (Key Result)'}
+                        {editingKeyResult ? `${KEY_RESULT_LABEL[framework]} засах` : `Шинэ ${KEY_RESULT_LABEL[framework]}`}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -120,7 +124,7 @@ export function CreateKeyResultDialog({
                             name="objectiveId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Зорилго</FormLabel>
+                                    <FormLabel>{OBJECTIVE_LABEL[framework]}</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
@@ -145,7 +149,7 @@ export function CreateKeyResultDialog({
                             name="title"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Гол үр дүн</FormLabel>
+                                    <FormLabel>{KEY_RESULT_LABEL[framework]}</FormLabel>
                                     <FormControl>
                                         <Input placeholder="Шинэ 50 харилцагч олж авах" {...field} />
                                     </FormControl>

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useTenant } from '@/contexts/tenant-context';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, Home, Building, Settings } from 'lucide-react';
+import { Loader2, Home, Building, Settings, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,7 +23,7 @@ interface CompanyProfile {
 
 function AdminDashboard({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
-  const { companyId, company, isLoading: isTenantLoading, role } = useTenant();
+  const { companyId, company, isLoading: isTenantLoading, role, isCompanyActive } = useTenant();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -111,6 +111,26 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      {/* Subscription expiry banner */}
+      {!isCompanyActive && role !== 'super_admin' && company && (
+        <div className="flex-none bg-destructive/10 border-b border-destructive/20 px-page py-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              <span>
+                {company.status === 'suspended' || company.status === 'cancelled'
+                  ? 'Таны бүртгэл түр зогссон байна.'
+                  : 'Таны багцын хугацаа дууссан байна. Зарим модулууд хязгаарлагдсан.'
+                }
+              </span>
+            </div>
+            <Button size="sm" variant="destructive" asChild>
+              <Link href="/dashboard/billing">Багц сунгах</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">

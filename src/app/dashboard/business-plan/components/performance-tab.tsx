@@ -22,12 +22,14 @@ import {
     ScoreEmployeeFormValues,
     Objective,
     Kpi,
+    StrategyFramework,
     REVIEW_STATUS_LABELS,
     REVIEW_PERIOD_LABELS,
     RATING_COLORS,
     RATING_LABELS,
     Rating,
     getRatingFromScore,
+    getFrameworkScoreLabel,
 } from '../types';
 import { CreateReviewDialog } from './create-review-dialog';
 import { ScoreEmployeeDialog } from './score-employee-dialog';
@@ -40,10 +42,11 @@ interface PerformanceTabProps {
     kpis: Kpi[];
     employees: Employee[];
     isLoading: boolean;
+    framework?: StrategyFramework;
 }
 
 export function PerformanceTab({
-    activePlan, reviews, scores, objectives, kpis, employees, isLoading,
+    activePlan, reviews, scores, objectives, kpis, employees, isLoading, framework = 'okr',
 }: PerformanceTabProps) {
     const { firestore, user } = useFirebase();
     const { tDoc, tCollection } = useTenantWrite();
@@ -120,7 +123,7 @@ export function PerformanceTab({
             <div className="flex items-center justify-between">
                 <div>
                     <h3 className="text-lg font-semibold">Гүйцэтгэлийн үнэлгээ</h3>
-                    <p className="text-sm text-muted-foreground">OKR + KPI суурилсан гүйцэтгэлийн хяналт</p>
+                    <p className="text-sm text-muted-foreground">{getFrameworkScoreLabel(framework)} + KPI суурилсан гүйцэтгэлийн хяналт</p>
                 </div>
                 <Button onClick={() => { setEditingReview(null); setIsReviewDialogOpen(true); }} className="gap-2">
                     <Plus className="h-4 w-4" />Шинэ үнэлгээ
@@ -226,7 +229,7 @@ export function PerformanceTab({
                                                     <thead className="bg-muted/50">
                                                         <tr>
                                                             <th className="text-left p-3 font-medium">Ажилтан</th>
-                                                            <th className="text-center p-3 font-medium">OKR</th>
+                                                            <th className="text-center p-3 font-medium">{getFrameworkScoreLabel(framework)}</th>
                                                             <th className="text-center p-3 font-medium">KPI</th>
                                                             <th className="text-center p-3 font-medium">Нийт</th>
                                                             <th className="text-center p-3 font-medium">Үнэлгээ</th>

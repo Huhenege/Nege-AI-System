@@ -22,9 +22,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { WidgetId, getAllWidgetIds } from './catalog';
+import { WidgetId, getAllWidgetIds, getWidgetConfig } from './catalog';
 import { DashboardWidgetCard, WidgetData } from './dashboard-widget-card';
 import { AddWidgetDialog } from './add-widget-dialog';
+import type { SaaSModule, CompanyPlan } from '@/types/company';
 
 interface DashboardWidgetsBarProps {
     order: WidgetId[];
@@ -34,6 +35,8 @@ interface DashboardWidgetsBarProps {
     onShowWidget: (id: WidgetId) => void;
     data: WidgetData;
     isLoading?: boolean;
+    isModuleEnabled?: (module: SaaSModule) => boolean;
+    currentPlan?: CompanyPlan;
 }
 
 export function DashboardWidgetsBar({
@@ -44,6 +47,8 @@ export function DashboardWidgetsBar({
     onShowWidget,
     data,
     isLoading = false,
+    isModuleEnabled,
+    currentPlan = 'free',
 }: DashboardWidgetsBarProps) {
     const [activeId, setActiveId] = useState<WidgetId | null>(null);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -87,8 +92,17 @@ export function DashboardWidgetsBar({
     const hasAvailableWidgets = hidden.length > 0 || order.length < totalWidgetCount;
 
     // Build items array - widgets only
+    const isWidgetLocked = (widgetId: WidgetId): boolean => {
+        if (!isModuleEnabled) return false;
+        const cfg = getWidgetConfig(widgetId);
+        if (!cfg?.module) return false;
+        return !isModuleEnabled(cfg.module);
+    };
+
+    const visibleOrder = order.filter(id => !isWidgetLocked(id));
+
     const renderItems = () => {
-        return order.map((widgetId) => (
+        return visibleOrder.map((widgetId) => (
             <DashboardWidgetCard
                 key={widgetId}
                 id={widgetId}
@@ -112,7 +126,7 @@ export function DashboardWidgetsBar({
                         onDragCancel={handleDragCancel}
                     >
                         <SortableContext
-                            items={order}
+                            items={visibleOrder}
                             strategy={horizontalListSortingStrategy}
                         >
                             <div className="flex gap-3 sm:gap-6 h-full min-w-max pr-14 sm:pr-12">
@@ -162,6 +176,8 @@ export function DashboardWidgetsBar({
                 currentOrder={order}
                 hidden={hidden}
                 onAddWidget={onShowWidget}
+                isModuleEnabled={isModuleEnabled}
+                currentPlan={currentPlan}
             />
         </>
     );

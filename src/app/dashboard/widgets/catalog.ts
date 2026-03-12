@@ -22,6 +22,7 @@ import {
     Settings,
     LucideIcon
 } from 'lucide-react';
+import type { SaaSModule } from '@/types/company';
 
 export type WidgetId = 
     | 'projects'
@@ -55,6 +56,7 @@ export interface WidgetConfig {
     icon: LucideIcon;
     requiredData: string[];
     category: 'core' | 'kpi';
+    module?: SaaSModule;
 }
 
 // Default order for widgets (initial 9 cards)
@@ -100,7 +102,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: FolderKanban,
         requiredData: ['projects'],
-        category: 'core'
+        category: 'core',
+        module: 'projects',
     },
     employees: {
         id: 'employees',
@@ -110,7 +113,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: Users,
         requiredData: ['employees'],
-        category: 'core'
+        category: 'core',
+        module: 'employees',
     },
     structure: {
         id: 'structure',
@@ -120,7 +124,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: Network,
         requiredData: ['departments', 'positions'],
-        category: 'core'
+        category: 'core',
+        module: 'organization',
     },
     attendance: {
         id: 'attendance',
@@ -130,7 +135,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: UserCheck,
         requiredData: ['attendance', 'timeOff'],
-        category: 'core'
+        category: 'core',
+        module: 'attendance',
     },
     vacation: {
         id: 'vacation',
@@ -140,7 +146,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: Palmtree,
         requiredData: ['vacationRequests'],
-        category: 'core'
+        category: 'core',
+        module: 'vacation',
     },
     posts: {
         id: 'posts',
@@ -160,7 +167,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: Handshake,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'recruitment',
     },
     points: {
         id: 'points',
@@ -170,7 +178,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: Sparkles,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'points',
     },
     er: {
         id: 'er',
@@ -180,7 +189,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: Handshake,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'employment_relations',
     },
     training: {
         id: 'training',
@@ -190,7 +200,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: GraduationCap,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'training',
     },
     meetings: {
         id: 'meetings',
@@ -200,7 +211,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: DoorOpen,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'meetings',
     },
     skills: {
         id: 'skills',
@@ -210,7 +222,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: Award,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'skills',
     },
     'business-plan': {
         id: 'business-plan',
@@ -220,7 +233,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: BarChart3,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'business_plan',
     },
     survey: {
         id: 'survey',
@@ -230,7 +244,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: ClipboardList,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'survey',
     },
     company: {
         id: 'company',
@@ -240,7 +255,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: Building,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'company',
     },
     calendar: {
         id: 'calendar',
@@ -250,7 +266,8 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'compact',
         icon: Calendar,
         requiredData: [],
-        category: 'core'
+        category: 'core',
+        module: 'calendar',
     },
     documents: {
         id: 'documents',

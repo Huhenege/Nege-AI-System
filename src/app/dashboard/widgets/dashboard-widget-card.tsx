@@ -8,7 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { EyeOff, GripVertical, ClipboardList } from 'lucide-react';
+import { EyeOff, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { WidgetId, getWidgetConfig } from './catalog';
 
@@ -102,7 +102,7 @@ export function DashboardWidgetCard({
     data, 
     isLoading = false,
     onHide,
-    isDragging = false
+    isDragging = false,
 }: DashboardWidgetCardProps) {
     const config = getWidgetConfig(id);
     
@@ -598,13 +598,11 @@ export function DashboardWidgetCard({
             className={cn(
                 "h-full flex-none bg-slate-900 dark:bg-slate-800 border-slate-700 transition-all duration-300 group overflow-hidden",
                 "hover:bg-slate-800 dark:hover:bg-slate-700 hover:shadow-xl hover:scale-[1.02]",
-                // Keep all widgets the same width for consistent UX
                 "w-[240px] sm:w-[280px] lg:w-[320px]",
                 isDragging && "opacity-50 scale-105 shadow-2xl z-50"
             )}
         >
             <CardContent className="p-3 sm:p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                {/* Decorative gradient background for some widgets */}
                 {getGradientClasses() && (
                     <div className={cn(
                         "absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-3xl transition-all",
@@ -613,10 +611,9 @@ export function DashboardWidgetCard({
                     )} />
                 )}
 
-                {/* Header with title, icon, and actions */}
+                {/* Header */}
                 <div className="flex items-center justify-between mb-3 sm:mb-4 relative z-10">
                     <div className="flex items-center gap-2">
-                        {/* Drag handle */}
                         <button
                             {...attributes}
                             {...listeners}
@@ -645,7 +642,6 @@ export function DashboardWidgetCard({
                                 <EyeOff className="h-3.5 w-3.5 text-slate-400" />
                             </Button>
                         )}
-                        {/* Top-right icon */}
                         <Icon
                             className={cn(
                                 "h-5 w-5 text-slate-500 group-hover:scale-110 transition-transform",
@@ -669,13 +665,11 @@ export function DashboardWidgetCard({
                     </div>
                 </div>
 
-                {/* Widget content */}
                 {renderContent()}
             </CardContent>
         </Card>
     );
 
-    // Wrap with Link if href is provided
     if (config.href) {
         return (
             <Link href={config.href} className="flex-shrink-0">

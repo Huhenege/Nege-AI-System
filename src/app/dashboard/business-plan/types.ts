@@ -4,6 +4,84 @@
 import { z } from 'zod';
 
 // ============================================
+// STRATEGY FRAMEWORKS
+// ============================================
+
+export const FRAMEWORKS = ['okr', 'ogsm', 'bsc'] as const;
+export type StrategyFramework = (typeof FRAMEWORKS)[number];
+
+export const FRAMEWORK_LABELS: Record<StrategyFramework, string> = {
+    okr: 'OKR (Objectives & Key Results)',
+    ogsm: 'OGSM (Objectives, Goals, Strategies, Measures)',
+    bsc: 'Balanced Scorecard',
+};
+
+export const FRAMEWORK_SHORT_LABELS: Record<StrategyFramework, string> = {
+    okr: 'OKR',
+    ogsm: 'OGSM',
+    bsc: 'BSC',
+};
+
+export const FRAMEWORK_DESCRIPTIONS: Record<StrategyFramework, string> = {
+    okr: 'Улирлын зорилго тус бүрт хэмжигдэхүйц гол үр дүнгүүд тодорхойлж, явцыг доороос дээш тооцоолно.',
+    ogsm: 'Жилийн зорилго → Зорилт → Стратеги → Хэмжүүр гэсэн 4 түвшинт каскадаар стратеги хэрэгжүүлнэ.',
+    bsc: 'Санхүүгийн, Хэрэглэгчийн, Дотоод процесс, Суралцахуй гэсэн 4 хэмжигдэхүүнээр стратегийг тэнцвэржүүлнэ.',
+};
+
+/** Framework-specific label mappings for shared entities */
+export const THEME_LABEL: Record<StrategyFramework, string> = {
+    okr: 'Стратегийн чиглэл',
+    ogsm: 'Зорилго (Objective)',
+    bsc: 'Хэмжигдэхүүн (Perspective)',
+};
+
+export const OBJECTIVE_LABEL: Record<StrategyFramework, string> = {
+    okr: 'Зорилго (Objective)',
+    ogsm: 'Зорилт (Goal)',
+    bsc: 'Стратегийн зорилго',
+};
+
+export const KEY_RESULT_LABEL: Record<StrategyFramework, string> = {
+    okr: 'Гол үр дүн (Key Result)',
+    ogsm: 'Хэмжүүр (Measure)',
+    bsc: 'Хэмжүүр (Measure)',
+};
+
+// ============================================
+// BSC PERSPECTIVES
+// ============================================
+
+export const BSC_PERSPECTIVE_TYPES = ['financial', 'customer', 'internal_process', 'learning_growth'] as const;
+export type BscPerspectiveType = (typeof BSC_PERSPECTIVE_TYPES)[number];
+
+export const BSC_PERSPECTIVE_LABELS: Record<BscPerspectiveType, string> = {
+    financial: 'Санхүүгийн',
+    customer: 'Хэрэглэгчийн',
+    internal_process: 'Дотоод процесс',
+    learning_growth: 'Суралцахуй & Өсөлт',
+};
+
+export const BSC_PERSPECTIVE_COLORS: Record<BscPerspectiveType, string> = {
+    financial: '#3B82F6',
+    customer: '#10B981',
+    internal_process: '#F59E0B',
+    learning_growth: '#8B5CF6',
+};
+
+export const BSC_DEFAULT_PERSPECTIVES: {
+    type: BscPerspectiveType;
+    title: string;
+    description: string;
+    color: string;
+    weight: number;
+}[] = [
+    { type: 'financial', title: 'Санхүүгийн хэмжигдэхүүн', description: 'Орлого, ашиг, өгөөж, зардлын бүтэц', color: '#3B82F6', weight: 25 },
+    { type: 'customer', title: 'Хэрэглэгчийн хэмжигдэхүүн', description: 'Хэрэглэгчийн сэтгэл ханамж, хадгалалт, шинэ хэрэглэгч', color: '#10B981', weight: 25 },
+    { type: 'internal_process', title: 'Дотоод процессийн хэмжигдэхүүн', description: 'Үйл ажиллагааны үр ашиг, чанар, инноваци', color: '#F59E0B', weight: 25 },
+    { type: 'learning_growth', title: 'Суралцахуй & Өсөлтийн хэмжигдэхүүн', description: 'Ажилтны ур чадвар, технологи, соёл', color: '#8B5CF6', weight: 25 },
+];
+
+// ============================================
 // PLAN STATUS
 // ============================================
 
@@ -74,6 +152,7 @@ export interface BusinessPlan {
     id: string;
     title: string;
     fiscalYear: number;
+    framework: StrategyFramework;
     status: PlanStatus;
     startDate: string;
     endDate: string;
@@ -84,6 +163,7 @@ export interface BusinessPlan {
 export const businessPlanSchema = z.object({
     title: z.string().min(1, 'Төлөвлөгөөний нэр оруулна уу'),
     fiscalYear: z.coerce.number().min(2020).max(2100),
+    framework: z.enum(FRAMEWORKS).default('okr'),
     status: z.enum(PLAN_STATUSES).default('draft'),
     startDate: z.string().min(1, 'Эхлэх огноо оруулна уу'),
     endDate: z.string().min(1, 'Дуусах огноо оруулна уу'),
@@ -111,6 +191,7 @@ export interface StrategicTheme {
     ownerName: string;
     order: number;
     status: PlanStatus;
+    perspectiveType?: BscPerspectiveType; // BSC only
     createdAt: string;
 }
 
@@ -155,7 +236,7 @@ export interface Objective {
     themeId: string;
     title: string;
     description: string;
-    quarter: Quarter;
+    quarter?: Quarter; // optional for OGSM/BSC (annual)
     year: number;
     ownerId: string;
     ownerName: string;
@@ -168,11 +249,16 @@ export const objectiveSchema = z.object({
     themeId: z.string().min(1, 'Стратегийн чиглэл сонгоно уу'),
     title: z.string().min(1, 'Зорилгын нэр оруулна уу'),
     description: z.string().optional().default(''),
-    quarter: z.enum(QUARTERS, { required_error: 'Улирал сонгоно уу' }),
+    quarter: z.enum(QUARTERS).optional(),
     year: z.coerce.number().min(2020).max(2100),
     ownerId: z.string().optional().default(''),
     ownerName: z.string().optional().default(''),
     status: z.enum(OKR_STATUSES).default('not_started'),
+});
+
+/** OKR-specific schema requiring quarter */
+export const okrObjectiveSchema = objectiveSchema.extend({
+    quarter: z.enum(QUARTERS, { required_error: 'Улирал сонгоно уу' }),
 });
 
 export type ObjectiveFormValues = z.infer<typeof objectiveSchema>;
@@ -196,6 +282,7 @@ export interface KeyResult {
     objectiveId: string;
     themeId: string;
     planId: string;
+    strategyId?: string; // OGSM: links measure to strategy
     title: string;
     metricType: MetricType;
     startValue: number;
@@ -224,6 +311,57 @@ export const keyResultSchema = z.object({
 });
 
 export type KeyResultFormValues = z.infer<typeof keyResultSchema>;
+
+// ============================================
+// STRATEGY / INITIATIVE (OGSM Strategy & BSC Initiative)
+// ============================================
+
+export const STRATEGY_TYPES = ['ogsm_strategy', 'bsc_initiative'] as const;
+export type StrategyType = (typeof STRATEGY_TYPES)[number];
+
+export interface Strategy {
+    id: string;
+    planId: string;
+    parentId: string; // OGSM: objectiveId (goal), BSC: objectiveId
+    themeId: string;
+    type: StrategyType;
+    title: string;
+    description: string;
+    ownerId: string;
+    ownerName: string;
+    status: OkrStatus;
+    progress: number; // 0-100
+    startDate: string;
+    endDate: string;
+    budget?: number;
+    createdAt: string;
+}
+
+export const strategySchema = z.object({
+    parentId: z.string().min(1, 'Зорилт/зорилго сонгоно уу'),
+    type: z.enum(STRATEGY_TYPES),
+    title: z.string().min(1, 'Нэр оруулна уу'),
+    description: z.string().optional().default(''),
+    ownerId: z.string().optional().default(''),
+    ownerName: z.string().optional().default(''),
+    status: z.enum(OKR_STATUSES).default('not_started'),
+    startDate: z.string().optional().default(''),
+    endDate: z.string().optional().default(''),
+    budget: z.coerce.number().optional(),
+});
+
+export type StrategyFormValues = z.infer<typeof strategySchema>;
+
+// ============================================
+// BSC STRATEGY MAP LINKS (cause-effect)
+// ============================================
+
+export interface StrategyMapLink {
+    id: string;
+    planId: string;
+    fromObjectiveId: string;
+    toObjectiveId: string;
+}
 
 // ============================================
 // KPI ENGINE
@@ -548,4 +686,31 @@ export function validateThemeWeights(themes: { weight: number }[]): boolean {
     if (themes.length === 0) return true;
     const total = themes.reduce((sum, t) => sum + t.weight, 0);
     return total === 100;
+}
+
+// ============================================
+// OGSM PROGRESS ROLL-UP (Strategy layer)
+// ============================================
+
+/** Compute Strategy progress from its Measures (KeyResults linked via strategyId) */
+export function computeStrategyProgress(measures: KeyResult[]): number {
+    if (measures.length === 0) return 0;
+    const total = measures.reduce((sum, m) => sum + computeKeyResultProgress(m), 0);
+    return Math.round(total / measures.length);
+}
+
+/** Compute Goal (Objective) progress from its Strategies */
+export function computeGoalProgressFromStrategies(strategies: Strategy[]): number {
+    if (strategies.length === 0) return 0;
+    const total = strategies.reduce((sum, s) => sum + s.progress, 0);
+    return Math.round(total / strategies.length);
+}
+
+/** Get framework-aware label for the main scoring dimension */
+export function getFrameworkScoreLabel(framework: StrategyFramework): string {
+    switch (framework) {
+        case 'okr': return 'OKR оноо';
+        case 'ogsm': return 'OGSM оноо';
+        case 'bsc': return 'Scorecard оноо';
+    }
 }

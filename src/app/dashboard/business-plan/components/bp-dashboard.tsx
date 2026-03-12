@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-    Target, TrendingUp, BarChart3, Award, ArrowDown,
+    Target, TrendingUp, BarChart3, Award, ArrowDown, Layers, Rocket,
     CheckCircle2, AlertTriangle, XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,13 +19,16 @@ import {
     Kpi,
     PerformanceReview,
     PerformanceScore,
+    Strategy,
     CompanyProfile,
     CoreValue,
+    StrategyFramework,
     computeKeyResultProgress,
     computeObjectiveProgress,
     computeThemeProgress,
     computePlanProgress,
     computeRagStatus,
+    computeStrategyProgress,
     getCurrentQuarter,
     PLAN_STATUS_LABELS,
     PLAN_STATUS_COLORS,
@@ -33,6 +36,11 @@ import {
     OKR_STATUS_COLORS,
     RAG_STATUS_COLORS,
     RAG_STATUS_LABELS,
+    FRAMEWORK_SHORT_LABELS,
+    THEME_LABEL,
+    OBJECTIVE_LABEL,
+    KEY_RESULT_LABEL,
+    BSC_PERSPECTIVE_LABELS,
 } from '../types';
 
 interface BpDashboardProps {
@@ -40,6 +48,7 @@ interface BpDashboardProps {
     themes: StrategicTheme[];
     objectives: Objective[];
     keyResults: KeyResult[];
+    strategies?: Strategy[];
     kpis: Kpi[];
     reviews: PerformanceReview[];
     scores: PerformanceScore[];
@@ -53,6 +62,7 @@ export function BpDashboard({
     themes,
     objectives,
     keyResults,
+    strategies = [],
     kpis,
     reviews,
     scores,
@@ -61,8 +71,8 @@ export function BpDashboard({
     isLoading,
 }: BpDashboardProps) {
     const currentQuarter = getCurrentQuarter();
+    const framework: StrategyFramework = activePlan?.framework || 'okr';
 
-    // Compute progress for each objective (using key results)
     const objectivesWithProgress = useMemo(() => {
         return objectives.map(obj => {
             const objKrs = keyResults.filter(kr => kr.objectiveId === obj.id);
@@ -71,13 +81,13 @@ export function BpDashboard({
         });
     }, [objectives, keyResults]);
 
-    // Current quarter objectives
     const currentQObjectives = useMemo(() =>
-        objectivesWithProgress.filter(o => o.quarter === currentQuarter),
-        [objectivesWithProgress, currentQuarter]
+        framework === 'okr'
+            ? objectivesWithProgress.filter(o => o.quarter === currentQuarter)
+            : objectivesWithProgress,
+        [objectivesWithProgress, currentQuarter, framework]
     );
 
-    // Theme progress map
     const themeProgressMap = useMemo(() => {
         const map = new Map<string, number>();
         themes.forEach(t => {
@@ -87,13 +97,11 @@ export function BpDashboard({
         return map;
     }, [themes, objectivesWithProgress]);
 
-    // Plan progress
     const planProgress = useMemo(() =>
         computePlanProgress(themes, themeProgressMap),
         [themes, themeProgressMap]
     );
 
-    // KPI stats
     const kpiStats = useMemo(() => {
         const green = kpis.filter(k => computeRagStatus(k.current, k.target) === 'green').length;
         const amber = kpis.filter(k => computeRagStatus(k.current, k.target) === 'amber').length;
@@ -101,12 +109,13 @@ export function BpDashboard({
         return { green, amber, red, total: kpis.length };
     }, [kpis]);
 
-    // Average performance score
     const avgScore = useMemo(() => {
         if (scores.length === 0) return 0;
         const total = scores.reduce((sum, s) => sum + s.overallScore, 0);
         return Math.round(total / scores.length);
     }, [scores]);
+
+    const strategyCount = useMemo(() => strategies.length, [strategies]);
 
     if (isLoading) {
         return (
@@ -140,12 +149,16 @@ export function BpDashboard({
                 <div>
                     <h2 className="text-xl font-bold">{activePlan.title}</h2>
                     <p className="text-sm text-muted-foreground">
-                        {activePlan.fiscalYear} он • {currentQuarter}
+                        {activePlan.fiscalYear} он • {FRAMEWORK_SHORT_LABELS[framework]}
+                        {framework === 'okr' && ` • ${currentQuarter}`}
                     </p>
                 </div>
-                <Badge className={cn(PLAN_STATUS_COLORS[activePlan.status])}>
-                    {PLAN_STATUS_LABELS[activePlan.status]}
-                </Badge>
+                <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">{FRAMEWORK_SHORT_LABELS[framework]}</Badge>
+                    <Badge className={cn(PLAN_STATUS_COLORS[activePlan.status])}>
+                        {PLAN_STATUS_LABELS[activePlan.status]}
+                    </Badge>
+                </div>
             </div>
 
             {/* Company strategy foundation */}
@@ -168,7 +181,6 @@ export function BpDashboard({
 
             {/* Summary cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {/* Plan progress */}
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3 mb-3">
@@ -184,7 +196,6 @@ export function BpDashboard({
                     </CardContent>
                 </Card>
 
-                {/* OKR this quarter */}
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3 mb-3">
@@ -192,7 +203,10 @@ export function BpDashboard({
                                 <TrendingUp className="h-5 w-5 text-blue-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground font-medium">OKR ({currentQuarter})</p>
+                                <p className="text-xs text-muted-foreground font-medium">
+                                    {OBJECTIVE_LABEL[framework]}
+                                    {framework === 'okr' && ` (${currentQuarter})`}
+                                </p>
                                 <p className="text-2xl font-bold">{currentQObjectives.length}</p>
                             </div>
                         </div>
@@ -202,7 +216,6 @@ export function BpDashboard({
                     </CardContent>
                 </Card>
 
-                {/* KPI RAG overview */}
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3 mb-3">
@@ -228,7 +241,6 @@ export function BpDashboard({
                     </CardContent>
                 </Card>
 
-                {/* Performance */}
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3 mb-3">
@@ -247,15 +259,19 @@ export function BpDashboard({
                 </Card>
             </div>
 
-            {/* Strategy Cascade */}
+            {/* Strategy Cascade - framework-specific */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Стратегийн каскад</CardTitle>
+                    <CardTitle className="text-base">
+                        {framework === 'bsc' ? 'Perspective-ийн каскад' :
+                         framework === 'ogsm' ? 'OGSM каскад' :
+                         'Стратегийн каскад'}
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     {themes.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-8">
-                            Стратегийн чиглэл нэмэгдээгүй байна
+                            {THEME_LABEL[framework]} нэмэгдээгүй байна
                         </p>
                     ) : (
                         <div className="space-y-4">
@@ -263,6 +279,10 @@ export function BpDashboard({
                                 const progress = themeProgressMap.get(theme.id) ?? 0;
                                 const themeObjs = objectivesWithProgress.filter(o => o.themeId === theme.id);
                                 const themeKpis = kpis.filter(k => k.themeId === theme.id);
+                                const themeStrategies = strategies.filter(s => s.themeId === theme.id);
+                                const perspLabel = theme.perspectiveType
+                                    ? BSC_PERSPECTIVE_LABELS[theme.perspectiveType]
+                                    : null;
 
                                 return (
                                     <div key={theme.id} className="border rounded-lg p-4">
@@ -275,7 +295,10 @@ export function BpDashboard({
                                                 <div>
                                                     <h4 className="font-medium text-sm">{theme.title}</h4>
                                                     <p className="text-xs text-muted-foreground">
-                                                        Жин: {theme.weight}% • {themeObjs.length} зорилго • {themeKpis.length} KPI
+                                                        {perspLabel && `${perspLabel} • `}
+                                                        Жин: {theme.weight}% • {themeObjs.length} {OBJECTIVE_LABEL[framework].toLowerCase()}
+                                                        {themeKpis.length > 0 && ` • ${themeKpis.length} KPI`}
+                                                        {themeStrategies.length > 0 && ` • ${themeStrategies.length} ${framework === 'ogsm' ? 'стратеги' : 'санаачилга'}`}
                                                     </p>
                                                 </div>
                                             </div>
@@ -283,7 +306,6 @@ export function BpDashboard({
                                         </div>
                                         <Progress value={progress} className="h-1.5 mb-3" />
 
-                                        {/* Objectives under theme */}
                                         {themeObjs.length > 0 && (
                                             <div className="ml-6 space-y-2">
                                                 {themeObjs.map(obj => (

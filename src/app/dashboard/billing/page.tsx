@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useTenant } from '@/contexts/tenant-context';
 import { useFirebase, useFetchCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { query, orderBy } from 'firebase/firestore';
@@ -10,13 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
-  PLAN_DEFINITIONS,
-  COMPANY_PLAN_LABELS,
   COMPANY_STATUS_LABELS,
   COMPANY_STATUS_COLORS,
   type CompanyPlan,
-  type PlanDefinition,
 } from '@/types/company';
+import { usePricingPlans } from '@/hooks/use-pricing-plans';
 import { Check, Loader2, Sparkles, QrCode, Receipt, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -61,28 +59,7 @@ export default function BillingPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [invoice, setInvoice] = useState<InvoiceResult | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-  const [plans, setPlans] = useState<PlanDefinition[]>(PLAN_DEFINITIONS);
-  const [plansLoading, setPlansLoading] = useState(true);
-
-  const loadPlans = useCallback(async () => {
-    try {
-      const res = await fetch('/api/pricing');
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.plans) && data.plans.length > 0) {
-          setPlans(data.plans);
-        }
-      }
-    } catch {
-      // fallback to hardcoded PLAN_DEFINITIONS already set
-    } finally {
-      setPlansLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPlans();
-  }, [loadPlans]);
+  const { plans, getPlanLabel, isLoading: plansLoading } = usePricingPlans();
 
   const invoicesQuery = useMemoFirebase(
     ({ firestore, companyPath }) =>
@@ -141,7 +118,7 @@ export default function BillingPage() {
       const data = await res.json();
 
       if (data.status === 'paid' || data.status === 'already_paid') {
-        toast({ title: 'Төлбөр амжилттай!', description: `${COMPANY_PLAN_LABELS[selectedPlan!]} багц идэвхжлээ.` });
+        toast({ title: 'Төлбөр амжилттай!', description: `${getPlanLabel(selectedPlan!)} багц идэвхжлээ.` });
         setInvoice(null);
         setSelectedPlan(null);
         window.location.reload();
@@ -163,7 +140,7 @@ export default function BillingPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Багц & Төлбөр</h1>
         <div className="text-muted-foreground text-sm mt-1">
-          Одоогийн багц: <span className="font-medium text-foreground">{COMPANY_PLAN_LABELS[currentPlan]}</span>
+          Одоогийн багц: <span className="font-medium text-foreground">{getPlanLabel(currentPlan)}</span>
           {' · '}
           <Badge className={cn('text-xs', COMPANY_STATUS_COLORS[company.status])}>
             {COMPANY_STATUS_LABELS[company.status]}
@@ -178,7 +155,7 @@ export default function BillingPage() {
             <QrCode className="mx-auto h-8 w-8 text-primary mb-2" />
             <CardTitle>QPay Төлбөр</CardTitle>
             <CardDescription>
-              {COMPANY_PLAN_LABELS[selectedPlan!]} багц · ₮{invoice.amount.toLocaleString()}
+              {getPlanLabel(selectedPlan!)} багц · ₮{invoice.amount.toLocaleString()}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-6">
@@ -343,7 +320,7 @@ export default function BillingPage() {
                   {invoiceHistory.map((inv) => (
                     <tr key={inv.id} className="border-b last:border-0">
                       <td className="py-2 font-mono text-xs">{inv.invoiceNo}</td>
-                      <td className="py-2">{COMPANY_PLAN_LABELS[inv.plan] || inv.plan}</td>
+                      <td className="py-2">{getPlanLabel(inv.plan)}</td>
                       <td className="py-2 text-xs text-muted-foreground">
                         {inv.billingCycle === 'yearly' ? 'Жилийн' : 'Сарын'}
                       </td>

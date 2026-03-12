@@ -36,8 +36,10 @@ import {
 } from '@/firebase';
 import { setDoc, getDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, Upload } from 'lucide-react';
+import { Loader2, Save, Upload, AlertTriangle, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTenant } from '@/contexts/tenant-context';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     buildInvitationEmailHtmlFromFields,
@@ -133,10 +135,15 @@ export function AddEmployeeDialog({
     const auth = useAuth();
     const { user: currentUser } = useUser();
     const { toast } = useToast();
+    const { company, isWithinLimit } = useTenant();
     const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
     const [photoFile, setPhotoFile] = React.useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const employeeCount = company?.employeeCount ?? 0;
+    const limitReached = !isWithinLimit('maxEmployees', employeeCount);
+    const maxEmployees = company?.limits?.maxEmployees ?? 0;
 
     const codeConfigRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null), []) as any;
     const { data: codeConfig } = useFetchDoc<EmployeeCodeConfig>(codeConfigRef);
@@ -413,6 +420,19 @@ export function AddEmployeeDialog({
                             </AppDialogDescription>
                         </AppDialogHeader>
                         <div className="px-6 py-4 space-y-4">
+                            {limitReached && (
+                                <Alert variant="destructive">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertTitle>Ажилтны хязгаар хэтэрсэн</AlertTitle>
+                                    <AlertDescription>
+                                        Таны багцад хамгийн ихдээ {maxEmployees} ажилтан бүртгэх боломжтой (одоо: {employeeCount}).
+                                        Илүү олон ажилтан нэмэхийн тулд багцаа шинэчилнэ үү.
+                                        <a href="/dashboard/billing" className="ml-1 inline-flex items-center gap-1 font-medium underline underline-offset-2">
+                                            <Sparkles className="h-3 w-3" />Багц сунгах
+                                        </a>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             <div className="flex flex-col items-center gap-3">
                                 <Avatar className="h-20 w-20">
                                     <AvatarImage src={photoPreview || undefined} />
@@ -446,7 +466,7 @@ export function AddEmployeeDialog({
                             <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                                 Цуцлах
                             </Button>
-                            <Button type="submit" disabled={isSubmitting}>
+                            <Button type="submit" disabled={isSubmitting || limitReached}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 Нэмэх
                             </Button>

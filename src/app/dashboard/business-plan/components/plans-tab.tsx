@@ -21,8 +21,12 @@ import {
     StrategicThemeFormValues,
     CompanyProfile,
     CoreValue,
+    StrategyFramework,
     PLAN_STATUS_LABELS,
     PLAN_STATUS_COLORS,
+    FRAMEWORK_SHORT_LABELS,
+    THEME_LABEL,
+    BSC_DEFAULT_PERSPECTIVES,
     validateThemeWeights,
 } from '../types';
 import { CreatePlanDialog } from './create-plan-dialog';
@@ -46,13 +50,13 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
     const [editingPlan, setEditingPlan] = useState<BusinessPlan | null>(null);
     const [editingTheme, setEditingTheme] = useState<StrategicTheme | null>(null);
 
-    // Current year's plan (primary view)
     const currentYear = new Date().getFullYear();
     const currentPlan = useMemo(() =>
         plans.find(p => p.status === 'active') || plans.find(p => p.fiscalYear === currentYear) || plans[0],
         [plans, currentYear]
     );
 
+    const framework: StrategyFramework = currentPlan?.framework || 'okr';
     const existingYears = useMemo(() => plans.map(p => p.fiscalYear), [plans]);
 
     const planThemes = useMemo(() =>
@@ -63,13 +67,38 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
     const totalWeight = planThemes.reduce((s, t) => s + t.weight, 0);
     const isWeightValid = planThemes.length === 0 || totalWeight === 100;
 
+    const themeLabel = THEME_LABEL[framework];
+
     const handleCreatePlan = (values: BusinessPlanFormValues) => {
         if (!firestore || !user) return;
-        addDocumentNonBlocking(tCollection('bp_plans'), {
+        const promise = addDocumentNonBlocking(tCollection('bp_plans'), {
             ...values,
             createdAt: new Date().toISOString(),
             createdBy: user.uid,
         });
+
+        // Auto-create BSC default perspectives after plan is created
+        if (values.framework === 'bsc') {
+            promise?.then((docRef) => {
+                if (!docRef) return;
+                BSC_DEFAULT_PERSPECTIVES.forEach((persp, idx) => {
+                    addDocumentNonBlocking(tCollection('bp_themes'), {
+                        planId: docRef.id,
+                        title: persp.title,
+                        description: persp.description,
+                        color: persp.color,
+                        weight: persp.weight,
+                        perspectiveType: persp.type,
+                        ownerId: '',
+                        ownerName: '',
+                        order: idx,
+                        status: 'active',
+                        createdAt: new Date().toISOString(),
+                    });
+                });
+            });
+        }
+
         toast({ title: 'Төлөвлөгөө үүсгэлээ', description: values.title });
     };
 
@@ -88,13 +117,13 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
             order: planThemes.length,
             createdAt: new Date().toISOString(),
         });
-        toast({ title: 'Стратегийн чиглэл нэмэгдлээ', description: values.title });
+        toast({ title: `${themeLabel} нэмэгдлээ`, description: values.title });
     };
 
     const handleUpdateTheme = (values: StrategicThemeFormValues) => {
         if (!firestore || !editingTheme) return;
         updateDocumentNonBlocking(tDoc('bp_themes', editingTheme.id), values);
-        toast({ title: 'Чиглэл шинэчлэгдлээ' });
+        toast({ title: `${themeLabel} шинэчлэгдлээ` });
         setEditingTheme(null);
     };
 
@@ -126,7 +155,6 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
-                        {/* Vision */}
                         <div className="p-4 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
                             <div className="flex items-center gap-2 mb-2">
                                 <Eye className="h-4 w-4 text-blue-500" />
@@ -137,7 +165,6 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                             </p>
                         </div>
 
-                        {/* Mission */}
                         <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
                             <div className="flex items-center gap-2 mb-2">
                                 <Target className="h-4 w-4 text-emerald-500" />
@@ -149,7 +176,6 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                         </div>
                     </div>
 
-                    {/* Core Values */}
                     {coreValues.length > 0 && (
                         <div>
                             <div className="flex items-center gap-2 mb-3">
@@ -198,6 +224,9 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                    {FRAMEWORK_SHORT_LABELS[framework]}
+                                </Badge>
                                 <Badge className={cn(PLAN_STATUS_COLORS[currentPlan.status])}>
                                     {PLAN_STATUS_LABELS[currentPlan.status]}
                                 </Badge>
@@ -212,7 +241,6 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Weight warning */}
                         {planThemes.length > 0 && !isWeightValid && (
                             <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
                                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -220,23 +248,22 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                             </div>
                         )}
 
-                        {/* Strategic Themes */}
                         <div>
                             <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-medium">Стратегийн чиглэлүүд</h4>
+                                <h4 className="text-sm font-medium">{themeLabel}үүд</h4>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     className="gap-1.5 h-8"
                                     onClick={() => { setEditingTheme(null); setIsThemeDialogOpen(true); }}
                                 >
-                                    <Plus className="h-3.5 w-3.5" />Чиглэл нэмэх
+                                    <Plus className="h-3.5 w-3.5" />{themeLabel} нэмэх
                                 </Button>
                             </div>
 
                             {planThemes.length === 0 ? (
                                 <p className="text-sm text-muted-foreground text-center py-6">
-                                    Стратегийн чиглэл нэмэгдээгүй
+                                    {themeLabel} нэмэгдээгүй
                                 </p>
                             ) : (
                                 <div className="space-y-2">
@@ -280,7 +307,6 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                                         </div>
                                     ))}
 
-                                    {/* Weight bar */}
                                     <div className="flex h-3 rounded-full overflow-hidden bg-muted mt-2">
                                         {planThemes.map(t => (
                                             <div
@@ -295,7 +321,6 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                             )}
                         </div>
 
-                        {/* Other years */}
                         {plans.length > 1 && (
                             <div className="pt-4 border-t">
                                 <p className="text-xs font-medium text-muted-foreground mb-2">Бусад жилийн төлөвлөгөөнүүд</p>
@@ -306,7 +331,7 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                                             variant="outline"
                                             className="text-xs cursor-pointer hover:bg-muted"
                                         >
-                                            {p.fiscalYear} — {PLAN_STATUS_LABELS[p.status]}
+                                            {p.fiscalYear} — {FRAMEWORK_SHORT_LABELS[p.framework || 'okr']} — {PLAN_STATUS_LABELS[p.status]}
                                         </Badge>
                                     ))}
                                 </div>
@@ -316,7 +341,6 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                 </Card>
             )}
 
-            {/* Dialogs */}
             <CreatePlanDialog
                 open={isPlanDialogOpen}
                 onOpenChange={setIsPlanDialogOpen}

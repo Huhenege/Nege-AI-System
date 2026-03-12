@@ -4,7 +4,7 @@ import React, { useContext, useState, useEffect, useMemo, ReactNode } from 'reac
 import { useUser, useFirebase } from '@/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import type { Company, TenantClaims, TenantRole, SaaSModule } from '@/types/company';
-import { getPlanDefinition } from '@/types/company';
+import { getPlanDefinition, BASE_MODULES } from '@/types/company';
 import { TenantContext } from './tenant-types';
 import type { TenantState, TenantContextValue } from './tenant-types';
 
@@ -186,14 +186,38 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
   }, [state.companyId, firestore, user]);
 
   const contextValue = useMemo((): TenantContextValue => {
+    const checkSubscriptionActive = (): boolean => {
+      if (state.role === 'super_admin') return true;
+      if (!state.company) return false;
+
+      const { status, plan, subscription } = state.company;
+
+      if (status === 'suspended' || status === 'cancelled') return false;
+      if (plan === 'free') return true;
+
+      if (subscription?.endDate) {
+        const endDate = new Date(subscription.endDate);
+        if (endDate < new Date()) return false;
+      }
+
+      if (status === 'trial' && subscription?.trialEndsAt) {
+        const trialEnd = new Date(subscription.trialEndsAt);
+        if (trialEnd < new Date()) return false;
+      }
+
+      return status === 'active' || status === 'trial';
+    };
+
+    const companyActive = checkSubscriptionActive();
+
     return {
       ...state,
 
       isModuleEnabled(module: SaaSModule): boolean {
         if (state.role === 'super_admin') return true;
         if (!state.company) return false;
+        if (!companyActive) return BASE_MODULES.includes(module);
         if (state.company.modules?.[module]?.enabled === true) return true;
-        // Fallback: if modules map is missing/incomplete, check plan definition
         const def = getPlanDefinition(state.company.plan);
         return def.modules.includes(module);
       },
@@ -205,9 +229,7 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
       },
 
       get isCompanyActive(): boolean {
-        if (state.role === 'super_admin') return true;
-        if (!state.company) return false;
-        return state.company.status === 'active' || state.company.status === 'trial';
+        return companyActive;
       },
 
       get isSuperAdmin(): boolean {

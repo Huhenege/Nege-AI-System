@@ -2,7 +2,8 @@
 
 import { useTenant } from '@/contexts/tenant-context';
 import type { SaaSModule } from '@/types/company';
-import { COMPANY_PLAN_LABELS, getPlanDefinition } from '@/types/company';
+import { getPlanDefinition } from '@/types/company';
+import { usePricingPlans } from '@/hooks/use-pricing-plans';
 import { Lock, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -35,6 +36,7 @@ interface ModuleGateProps {
 
 export function ModuleGate({ module, children }: ModuleGateProps) {
   const { isModuleEnabled, company, isLoading } = useTenant();
+  const { getPlanLabel } = usePricingPlans();
 
   if (isLoading) return null;
 
@@ -62,10 +64,10 @@ export function ModuleGate({ module, children }: ModuleGateProps) {
             {moduleName} модуль идэвхгүй байна
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Таны одоогийн <span className="font-medium text-foreground">{COMPANY_PLAN_LABELS[currentPlan]}</span> багцад
+            Таны одоогийн <span className="font-medium text-foreground">{getPlanLabel(currentPlan)}</span> багцад
             энэ модуль ороогүй байна.
             {requiredPlan && (
-              <> <span className="font-medium text-foreground">{COMPANY_PLAN_LABELS[requiredPlan]}</span> болон дээш багцад идэвхжинэ.</>
+              <> <span className="font-medium text-foreground">{getPlanLabel(requiredPlan)}</span> болон дээш багцад идэвхжинэ.</>
             )}
           </p>
         </div>

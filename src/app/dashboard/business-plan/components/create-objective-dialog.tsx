@@ -16,16 +16,21 @@ import { Button } from '@/components/ui/button';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { Employee } from '@/types';
 import {
     Objective,
     ObjectiveFormValues,
     objectiveSchema,
+    okrObjectiveSchema,
     StrategicTheme,
+    StrategyFramework,
     QUARTERS,
     QUARTER_LABELS,
     OKR_STATUSES,
     OKR_STATUS_LABELS,
+    THEME_LABEL,
+    OBJECTIVE_LABEL,
     getCurrentQuarter,
 } from '../types';
 
@@ -37,15 +42,18 @@ interface CreateObjectiveDialogProps {
     themes: StrategicTheme[];
     employees: Employee[];
     defaultThemeId?: string;
+    framework?: StrategyFramework;
 }
 
 export function CreateObjectiveDialog({
-    open, onOpenChange, onSubmit, editingObjective, themes, employees, defaultThemeId,
+    open, onOpenChange, onSubmit, editingObjective, themes, employees, defaultThemeId, framework = 'okr',
 }: CreateObjectiveDialogProps) {
     const currentYear = new Date().getFullYear();
 
+    const showQuarter = framework === 'okr';
+
     const form = useForm<ObjectiveFormValues>({
-        resolver: zodResolver(objectiveSchema),
+        resolver: zodResolver(showQuarter ? okrObjectiveSchema : objectiveSchema),
         defaultValues: {
             themeId: defaultThemeId || '',
             title: '',
@@ -102,7 +110,7 @@ export function CreateObjectiveDialog({
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>
-                        {editingObjective ? 'Зорилго засах' : 'Шинэ OKR зорилго'}
+                        {editingObjective ? `${OBJECTIVE_LABEL[framework]} засах` : `Шинэ ${OBJECTIVE_LABEL[framework]}`}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -113,7 +121,7 @@ export function CreateObjectiveDialog({
                             name="themeId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Стратегийн чиглэл</FormLabel>
+                                    <FormLabel>{THEME_LABEL[framework]}</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
@@ -141,7 +149,7 @@ export function CreateObjectiveDialog({
                             name="title"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Зорилго (Objective)</FormLabel>
+                                    <FormLabel>{OBJECTIVE_LABEL[framework]}</FormLabel>
                                     <FormControl>
                                         <Input placeholder="Борлуулалтыг 30%-аар нэмэгдүүлэх" {...field} />
                                     </FormControl>
@@ -164,29 +172,31 @@ export function CreateObjectiveDialog({
                             )}
                         />
 
-                        <div className="grid grid-cols-3 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="quarter"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Улирал</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {QUARTERS.map(q => (
-                                                    <SelectItem key={q} value={q}>{q}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                        <div className={cn('grid gap-4', showQuarter ? 'grid-cols-3' : 'grid-cols-2')}>
+                            {showQuarter && (
+                                <FormField
+                                    control={form.control}
+                                    name="quarter"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Улирал</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {QUARTERS.map(q => (
+                                                        <SelectItem key={q} value={q}>{q}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
 
                             <FormField
                                 control={form.control}

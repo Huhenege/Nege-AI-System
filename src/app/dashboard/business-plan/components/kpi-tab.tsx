@@ -20,12 +20,14 @@ import {
     Objective,
     Kpi,
     KpiFormValues,
+    StrategyFramework,
     computeRagStatus,
     computeKpiAchievement,
     RAG_STATUS_LABELS,
     RAG_STATUS_COLORS,
     KPI_FREQUENCY_LABELS,
     RagStatus,
+    THEME_LABEL,
 } from '../types';
 import { CreateKpiDialog } from './create-kpi-dialog';
 
@@ -37,10 +39,11 @@ interface KpiTabProps {
     employees: Employee[];
     departments: Department[];
     isLoading: boolean;
+    framework?: StrategyFramework;
 }
 
 export function KpiTab({
-    activePlan, themes, objectives, kpis, employees, departments, isLoading,
+    activePlan, themes, objectives, kpis, employees, departments, isLoading, framework = 'okr',
 }: KpiTabProps) {
     const { firestore } = useFirebase();
     const { tDoc, tCollection } = useTenantWrite();

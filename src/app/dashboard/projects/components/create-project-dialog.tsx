@@ -46,7 +46,7 @@ import {
     useTenantWrite,
 } from '@/firebase';
 import { Timestamp } from 'firebase/firestore';
-import { Loader2, CalendarIcon, Users, Star, Tag } from 'lucide-react';
+import { Loader2, CalendarIcon, Users, Star, Tag, AlertTriangle, Sparkles } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +55,8 @@ import { mn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Employee, isActiveStatus } from '@/types';
 import { ProjectStatus, Priority, ProjectGroup } from '@/types/project';
+import { useTenant } from '@/contexts/tenant-context';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const projectSchema = z.object({
     name: z.string().min(1, 'Төслийн нэр хоосон байж болохгүй.'),
@@ -79,13 +81,18 @@ interface CreateProjectDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     groups?: ProjectGroup[];
+    currentProjectCount?: number;
 }
 
-export function CreateProjectDialog({ open, onOpenChange, groups = [] }: CreateProjectDialogProps) {
+export function CreateProjectDialog({ open, onOpenChange, groups = [], currentProjectCount = 0 }: CreateProjectDialogProps) {
     const { firestore } = useFirebase();
     const { tCollection } = useTenantWrite();
     const { toast } = useToast();
+    const { company, isWithinLimit } = useTenant();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const limitReached = !isWithinLimit('maxProjects', currentProjectCount);
+    const maxProjects = company?.limits?.maxProjects ?? 0;
 
     // Fetch employees for owner selection
     const employeesQuery = useMemoFirebase(
@@ -197,6 +204,18 @@ export function CreateProjectDialog({ open, onOpenChange, groups = [] }: CreateP
                     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col min-h-0 flex-1">
                         <div className="overflow-y-auto overflow-x-hidden max-h-[55vh]">
                             <div className="space-y-4 px-6 py-4">
+                        {limitReached && (
+                            <Alert variant="destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTitle>Төслийн хязгаар хэтэрсэн</AlertTitle>
+                                <AlertDescription>
+                                    Таны багцад хамгийн ихдээ {maxProjects} төсөл үүсгэх боломжтой (одоо: {currentProjectCount}).
+                                    <a href="/dashboard/billing" className="ml-1 inline-flex items-center gap-1 font-medium underline underline-offset-2">
+                                        <Sparkles className="h-3 w-3" />Багц сунгах
+                                    </a>
+                                </AlertDescription>
+                            </Alert>
+                        )}
                         <FormField
                             control={form.control}
                             name="name"
@@ -539,7 +558,7 @@ export function CreateProjectDialog({ open, onOpenChange, groups = [] }: CreateP
                             >
                                 Болих
                             </Button>
-                            <Button type="submit" disabled={isSubmitting}>
+                            <Button type="submit" disabled={isSubmitting || limitReached}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Үүсгэх
                             </Button>
