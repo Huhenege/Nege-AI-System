@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useCollection, useTenantWrite } from '@/firebase';
-import { updateDoc, Timestamp, addDoc, query, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
+import { updateDoc, Timestamp, addDoc, query, orderBy, onSnapshot, writeBatch, doc } from 'firebase/firestore';
 import { ERDocument, ProcessActivity } from '../../../dashboard/employment-relations/types';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { Button } from '@/components/ui/button';

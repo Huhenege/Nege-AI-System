@@ -4,7 +4,7 @@ import * as React from 'react';
 import { History, Clock, CheckCircle, X, Trash2, Calendar, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
-import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection } from '@/firebase';
 import { useTenantWrite } from '@/hooks/use-tenant-write';
 import { collection, query, orderBy, limit, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';

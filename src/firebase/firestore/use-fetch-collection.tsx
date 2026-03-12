@@ -51,7 +51,7 @@ export function useFetchCollection<T = DocumentData>(
     let cancelled = false;
     setIsLoading(true);
 
-    getDocs(ref as any)
+    getDocs(ref as Query<DocumentData>)
       .then((snapshot) => {
         if (cancelled) return;
         const docs = snapshot.docs.map(
@@ -59,7 +59,7 @@ export function useFetchCollection<T = DocumentData>(
             ({
               id: doc.id,
               ref: doc.ref,
-              ...doc.data(),
+              ...(doc.data() as Record<string, unknown>),
             } as T & { id: string; ref: any })
         );
         setData(docs);
