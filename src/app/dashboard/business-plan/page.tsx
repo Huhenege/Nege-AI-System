@@ -3,7 +3,7 @@
 
 import React, { useMemo } from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, useMemoFirebase, tenantDoc } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, tenantDoc, tenantCollection } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
@@ -87,13 +87,13 @@ export default function BusinessPlanPage() {
         [firestore]
     );
 
-    const employeesQuery = useMemo(() =>
-        firestore ? collection(firestore, 'employees') : null,
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
         [firestore]
     );
 
-    const departmentsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'departments') : null,
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'departments') : null,
         [firestore]
     );
 
