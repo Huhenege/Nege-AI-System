@@ -237,6 +237,7 @@ interface LockedWidgetPreviewProps {
 
 function LockedWidgetPreview({ widget, currentPlan, onUpgrade, index }: LockedWidgetPreviewProps) {
     const Icon = widget.icon;
+    const { getPlanLabel } = usePricingPlans();
 
     const requiredPlan = widget.module
         ? (['starter', 'pro', 'enterprise'] as const).find((p) => {
