@@ -41,12 +41,9 @@ const companyProfileSchema = z.object({
     certificateFrontUrl: z.string().optional(),
     certificateBackUrl: z.string().optional(),
     legalName: z.string().optional(),
-    executiveOrderName: z.string().optional(),
     registrationNumber: z.string().optional(),
     taxId: z.string().optional(),
     industry: z.string().optional(),
-    employeeCount: z.string().optional(),
-    ceo: z.string().optional(),
     website: z.string().url({ message: 'Вэбсайтын хаяг буруу байна.' }).optional().or(z.literal('')),
     phoneNumber: z.string().optional(),
     contactEmail: z.string().email({ message: 'Имэйл хаяг буруу байна.' }).optional().or(z.literal('')),
@@ -197,17 +194,14 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
             };
             setIf('name', extractedData.name);
             setIf('legalName', extractedData.legalName);
-            setIf('executiveOrderName', extractedData.executiveOrderName);
             setIf('registrationNumber', extractedData.registrationNumber);
             setIf('taxId', extractedData.taxId);
             setIf('industry', extractedData.industry);
             setIf('establishedDate', extractedData.establishedDate);
-            setIf('ceo', extractedData.ceo);
             setIf('address', extractedData.address);
             setIf('phoneNumber', extractedData.phoneNumber);
             setIf('contactEmail', extractedData.contactEmail);
             setIf('website', extractedData.website);
-            setIf('employeeCount', extractedData.employeeCount);
 
             const count = Object.keys(extractedData).length;
             toast({
@@ -503,19 +497,6 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                         />
                         <FormField
                             control={form.control}
-                            name="executiveOrderName"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Гүйцэтгэх захиалын нэр</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Ар талын нэмэлт өөрчлөлтийн агуулгаас" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
                             name="registrationNumber"
                             render={({ field }) => (
                                 <FormItem>
@@ -555,51 +536,12 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                         />
                         <FormField
                             control={form.control}
-                            name="employeeCount"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Ажилтны тоо</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="51-100 ажилтан" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
                             name="establishedDate"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Үүсгэн байгуулагдсан огноо</FormLabel>
                                     <FormControl>
                                         <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="ceo"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Гүйцэтгэх захирал</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Ж. Ганбаатар" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="website"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Веб хуудас</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="https://hrzen.example.com" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -630,6 +572,19 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
                         <CardTitle>Холбоо барих</CardTitle>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <FormField
+                            control={form.control}
+                            name="website"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Веб хуудас</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="https://hrzen.example.com" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         <FormField
                             control={form.control}
                             name="phoneNumber"
@@ -700,12 +655,9 @@ const defaultFormValues: CompanyProfileFormValues = {
     certificateFrontUrl: '',
     certificateBackUrl: '',
     legalName: '',
-    executiveOrderName: '',
     registrationNumber: '',
     taxId: '',
     industry: '',
-    employeeCount: '',
-    ceo: '',
     website: '',
     phoneNumber: '',
     contactEmail: '',

@@ -39,7 +39,7 @@ export default function DocumentsSettingsPage() {
     const { toast } = useToast();
     const [isCleaning, setIsCleaning] = React.useState(false);
     const documentTypesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_document_types') : null, []);
-    const { data: documentTypes, isLoading: loadingDocTypes } = useFetchCollection<DocumentTypeReferenceItem>(documentTypesQuery);
+    const { data: documentTypes, isLoading: loadingDocTypes, refetch } = useFetchCollection<DocumentTypeReferenceItem>(documentTypesQuery);
 
     const cleanupSummary = React.useMemo(() => {
         const items = documentTypes || [];
@@ -115,6 +115,7 @@ export default function DocumentsSettingsPage() {
                 title: 'Амжилттай цэвэрлэлээ',
                 description: `${affectedDocs} төрлөөс ${removedFields} давхардсан/хоосон key талбар устгалаа.`,
             });
+            refetch();
         } catch (e: any) {
             console.error(e);
             toast({ variant: 'destructive', title: 'Алдаа', description: e?.message || 'Цэвэрлэхэд алдаа гарлаа.' });

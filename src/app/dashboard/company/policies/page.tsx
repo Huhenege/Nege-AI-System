@@ -37,12 +37,13 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Pencil, Trash2, FileText, ExternalLink, Search, ArrowUpDown, Filter, Video, Calendar, Users, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { useFetchCollection, useFirebase, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
-import { query, orderBy } from 'firebase/firestore';
+import { useFetchCollection, useFirebase, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, orderBy, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { AddPolicyDialog, POLICY_TYPES } from './add-policy-dialog';
 import { PageHeader } from '@/components/patterns/page-layout';
+import { AddActionButton } from '@/components/ui/add-action-button';
 
 import { CompanyPolicy } from './types';
 
@@ -71,7 +72,7 @@ export default function CompanyPoliciesPage() {
     const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), []);
     const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), []);
 
-    const { data: policies, isLoading: isLoadingPolicies } = useFetchCollection<CompanyPolicy>(policiesQuery);
+    const { data: policies, isLoading: isLoadingPolicies, refetch: refetchPolicies } = useFetchCollection<CompanyPolicy>(policiesQuery);
     const { data: departments, isLoading: isLoadingDepartments } = useFetchCollection<DepartmentOption>(departmentsQuery);
     const { data: positions, isLoading: isLoadingPositions } = useFetchCollection<PositionOption>(positionsQuery);
 
@@ -95,14 +96,22 @@ export default function CompanyPoliciesPage() {
         setIsDialogOpen(true);
     };
 
-    const handleDelete = (policy: CompanyPolicy) => {
+    const handleDelete = async (policy: CompanyPolicy) => {
         if (!firestore) return;
-        deleteDocumentNonBlocking(tDoc('companyPolicies', policy.id));
-        toast({
-            title: 'Амжилттай устгагдлаа',
-            description: `"${policy.title}" дүрэм устгагдлаа.`,
-            variant: 'destructive',
-        });
+        try {
+            await deleteDoc(tDoc('companyPolicies', policy.id));
+            toast({
+                title: 'Амжилттай устгагдлаа',
+                description: `"${policy.title}" дүрэм устгагдлаа.`,
+            });
+            refetchPolicies();
+        } catch {
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Устгахад алдаа гарлаа.',
+            });
+        }
     };
 
     const isLoading = isLoadingPolicies || isLoadingDepartments || isLoadingPositions;
@@ -148,17 +157,23 @@ export default function CompanyPoliciesPage() {
                 editingPolicy={editingPolicy}
                 departments={departments || []}
                 positions={positions || []}
+                onSuccess={refetchPolicies}
             />
             <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-0 md:pt-0 space-y-6 pb-32">
                 <PageHeader
                     title="Мөрдөгдөж буй баримт бичиг"
-                    showBackButton={true}
-                    hideBreadcrumbs={true}
-                    backHref="/dashboard/company"
+                    description="Компанийн дүрэм, журмууд болон холбогдох баримтууд"
+                    showBackButton
+                    hideBreadcrumbs
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard/company"
                     actions={
-                        <Button onClick={handleAddNew} size="icon">
-                            <PlusCircle className="h-4 w-4" />
-                        </Button>
+                        <AddActionButton
+                            label="Журм нэмэх"
+                            description="Шинэ дүрэм эсвэл баримт нэмэх"
+                            onClick={handleAddNew}
+                        />
                     }
                 />
 

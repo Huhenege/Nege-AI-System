@@ -39,7 +39,7 @@ export function VacanciesList() {
         [firestore]
     );
 
-    const { data: vacancies, isLoading: isLoadingVacancies } = useFetchCollection<Vacancy>(vacanciesQuery as any);
+    const { data: vacancies, isLoading: isLoadingVacancies, refetch: refetchVacancies } = useFetchCollection<Vacancy>(vacanciesQuery as any);
     const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(departmentsQuery as any);
     const { data: employmentTypes } = useFetchCollection<any>(empTypesQuery as any);
 
@@ -174,6 +174,7 @@ export function VacanciesList() {
                 open={isCreateOpen}
                 onOpenChange={setIsCreateOpen}
                 hideTrigger={true}
+                onSuccess={refetchVacancies}
             />
 
             {!filtered.length ? (

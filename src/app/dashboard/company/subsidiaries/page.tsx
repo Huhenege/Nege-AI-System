@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/patterns/page-layout';
-import { useFirebase, useFetchDoc, useMemoFirebase, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
-import { ChevronLeft, Building2, Plus, Loader2, Pencil, Trash2, X, Check, Hash } from 'lucide-react';
+import { useFirebase, useFetchDoc, useMemoFirebase, tenantDoc } from '@/firebase';
+import { setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ChevronLeft, Building2, Plus, Loader2, Pencil, Trash2, X, Check, Hash, Upload, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -24,6 +27,7 @@ import {
 interface Subsidiary {
     name: string;
     registrationNumber?: string;
+    logoUrl?: string;
 }
 
 interface CompanyProfile {
@@ -31,22 +35,30 @@ interface CompanyProfile {
 }
 
 export default function SubsidiariesPage() {
-    const { firestore } = useFirebase();
+    const { firestore, storage } = useFirebase();
     const { toast } = useToast();
+    const newLogoInputRef = React.useRef<HTMLInputElement>(null);
     
     const companyProfileRef = useMemoFirebase(
         ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
         []
     );
     
-    const { data: companyProfile, isLoading } = useFetchDoc<CompanyProfile>(companyProfileRef as any);
+    const { data: companyProfile, isLoading, refetch } = useFetchDoc<CompanyProfile>(companyProfileRef as any);
     
     const [newName, setNewName] = React.useState('');
     const [newRegNumber, setNewRegNumber] = React.useState('');
+    const [newLogoUrl, setNewLogoUrl] = React.useState('');
+    const [newLogoPreview, setNewLogoPreview] = React.useState<string | null>(null);
+    const [isLogoUploading, setIsLogoUploading] = React.useState(false);
     const [isAdding, setIsAdding] = React.useState(false);
     const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
     const [editingName, setEditingName] = React.useState('');
     const [editingRegNumber, setEditingRegNumber] = React.useState('');
+    const [editingLogoUrl, setEditingLogoUrl] = React.useState('');
+    const [editingLogoPreview, setEditingLogoPreview] = React.useState<string | null>(null);
+    const [isEditingLogoUploading, setIsEditingLogoUploading] = React.useState(false);
+    const editingLogoInputRef = React.useRef<HTMLInputElement>(null);
     const [isSaving, setIsSaving] = React.useState(false);
     const [deleteTarget, setDeleteTarget] = React.useState<Subsidiary | null>(null);
     const [isDeleting, setIsDeleting] = React.useState(false);
@@ -62,6 +74,54 @@ export default function SubsidiariesPage() {
         });
     }, [companyProfile?.subsidiaries]);
 
+    const handleNewLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !storage) return;
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Зөвхөн зураг (JPG, PNG, WebP) оруулна уу.' });
+            return;
+        }
+        setIsLogoUploading(true);
+        try {
+            const storageRef = ref(storage, `company-assets/subsidiary-logos/${Date.now()}-${file.name}`);
+            await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(storageRef);
+            setNewLogoUrl(url);
+            setNewLogoPreview(url);
+            toast({ title: 'Лого амжилттай байршлаа.' });
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Лого байршуулахад алдаа гарлаа.' });
+        } finally {
+            setIsLogoUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleEditingLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !storage) return;
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Зөвхөн зураг (JPG, PNG, WebP) оруулна уу.' });
+            return;
+        }
+        setIsEditingLogoUploading(true);
+        try {
+            const storageRef = ref(storage, `company-assets/subsidiary-logos/${Date.now()}-${file.name}`);
+            await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(storageRef);
+            setEditingLogoUrl(url);
+            setEditingLogoPreview(url);
+            toast({ title: 'Лого амжилттай байршлаа.' });
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Лого байршуулахад алдаа гарлаа.' });
+        } finally {
+            setIsEditingLogoUploading(false);
+            e.target.value = '';
+        }
+    };
+
     const handleAdd = async () => {
         if (!companyProfileRef || !newName.trim()) return;
         
@@ -74,15 +134,17 @@ export default function SubsidiariesPage() {
         try {
             const newSubsidiary: Subsidiary = {
                 name: newName.trim(),
-                registrationNumber: newRegNumber.trim() || undefined
+                registrationNumber: newRegNumber.trim() || undefined,
+                ...(newLogoUrl ? { logoUrl: newLogoUrl } : {})
             };
             
-            await updateDocumentNonBlocking(companyProfileRef, {
-                subsidiaries: [...subsidiaries, newSubsidiary]
-            });
+            await setDoc(companyProfileRef, { subsidiaries: [...subsidiaries, newSubsidiary] }, { merge: true });
             setNewName('');
             setNewRegNumber('');
+            setNewLogoUrl('');
+            setNewLogoPreview(null);
             toast({ title: 'Охин компани нэмэгдлээ' });
+            refetch();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Алдаа гарлаа' });
         } finally {
@@ -92,14 +154,19 @@ export default function SubsidiariesPage() {
 
     const handleEdit = (index: number) => {
         setEditingIndex(index);
-        setEditingName(subsidiaries[index].name);
-        setEditingRegNumber(subsidiaries[index].registrationNumber || '');
+        const sub = subsidiaries[index];
+        setEditingName(sub.name);
+        setEditingRegNumber(sub.registrationNumber || '');
+        setEditingLogoUrl(sub.logoUrl || '');
+        setEditingLogoPreview(sub.logoUrl || null);
     };
 
     const handleCancelEdit = () => {
         setEditingIndex(null);
         setEditingName('');
         setEditingRegNumber('');
+        setEditingLogoUrl('');
+        setEditingLogoPreview(null);
     };
 
     const handleSaveEdit = async () => {
@@ -108,10 +175,11 @@ export default function SubsidiariesPage() {
         const oldItem = subsidiaries[editingIndex];
         const newItem: Subsidiary = {
             name: editingName.trim(),
-            registrationNumber: editingRegNumber.trim() || undefined
+            registrationNumber: editingRegNumber.trim() || undefined,
+            logoUrl: editingLogoUrl || oldItem.logoUrl || undefined
         };
         
-        if (oldItem.name === newItem.name && oldItem.registrationNumber === newItem.registrationNumber) {
+        if (oldItem.name === newItem.name && oldItem.registrationNumber === newItem.registrationNumber && oldItem.logoUrl === newItem.logoUrl) {
             handleCancelEdit();
             return;
         }
@@ -127,11 +195,10 @@ export default function SubsidiariesPage() {
             const newSubsidiaries = [...subsidiaries];
             newSubsidiaries[editingIndex] = newItem;
             
-            await updateDocumentNonBlocking(companyProfileRef, {
-                subsidiaries: newSubsidiaries
-            });
+            await setDoc(companyProfileRef, { subsidiaries: newSubsidiaries }, { merge: true });
             toast({ title: 'Засвар хадгалагдлаа' });
             handleCancelEdit();
+            refetch();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Алдаа гарлаа' });
         } finally {
@@ -146,11 +213,10 @@ export default function SubsidiariesPage() {
         try {
             const newSubsidiaries = subsidiaries.filter(s => s.name !== deleteTarget.name);
             
-            await updateDocumentNonBlocking(companyProfileRef, {
-                subsidiaries: newSubsidiaries
-            });
+            await setDoc(companyProfileRef, { subsidiaries: newSubsidiaries }, { merge: true });
             toast({ title: 'Охин компани устгагдлаа' });
             setDeleteTarget(null);
+            refetch();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Алдаа гарлаа' });
         } finally {
@@ -190,6 +256,49 @@ export default function SubsidiariesPage() {
                             <div className="bg-white rounded-xl border p-4">
                                 <h3 className="text-sm font-medium mb-4">Шинэ охин компани нэмэх</h3>
                                 <div className="space-y-3">
+                                    {/* Logo upload */}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Лого</Label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                ref={newLogoInputRef}
+                                                type="file"
+                                                accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                className="hidden"
+                                                onChange={handleNewLogoUpload}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => newLogoInputRef.current?.click()}
+                                                disabled={!storage || isLogoUploading}
+                                                className="h-16 w-16 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center hover:border-primary/50 hover:bg-muted/50 transition-colors overflow-hidden"
+                                            >
+                                                {isLogoUploading ? (
+                                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                                ) : newLogoPreview ? (
+                                                    <img src={newLogoPreview} alt="" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <Upload className="h-6 w-6 text-muted-foreground" />
+                                                )}
+                                            </button>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs text-muted-foreground">
+                                                    {newLogoPreview ? 'Лого сонгогдсон. Дахин дарж солино.' : 'Зураг оруулах (JPG, PNG, WebP)'}
+                                                </p>
+                                                {newLogoPreview && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-7 text-xs mt-1"
+                                                        onClick={() => { setNewLogoUrl(''); setNewLogoPreview(null); }}
+                                                    >
+                                                        <X className="h-3 w-3 mr-1" /> Лого устгах
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-1.5">
                                             <Label className="text-xs text-muted-foreground">Компанийн нэр *</Label>
@@ -245,6 +354,37 @@ export default function SubsidiariesPage() {
                                             <div key={index} className="p-4">
                                                 {editingIndex === index ? (
                                                     <div className="space-y-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <input
+                                                                ref={editingLogoInputRef}
+                                                                type="file"
+                                                                accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                                className="hidden"
+                                                                onChange={handleEditingLogoUpload}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => editingLogoInputRef.current?.click()}
+                                                                disabled={!storage || isEditingLogoUploading}
+                                                                className="h-12 w-12 rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center hover:border-primary/50 overflow-hidden shrink-0"
+                                                            >
+                                                                {isEditingLogoUploading ? (
+                                                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                                                ) : editingLogoPreview ? (
+                                                                    <img src={editingLogoPreview} alt="" className="h-full w-full object-cover" />
+                                                                ) : (
+                                                                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                                                )}
+                                                            </button>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {editingLogoPreview ? 'Лого солих' : 'Лого нэмэх'}
+                                                            </span>
+                                                            {editingLogoPreview && (
+                                                                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditingLogoUrl(''); setEditingLogoPreview(null); }}>
+                                                                    <X className="h-3 w-3 mr-1" /> Устгах
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                             <div className="space-y-1.5">
                                                                 <Label className="text-xs text-muted-foreground">Компанийн нэр</Label>
@@ -291,9 +431,18 @@ export default function SubsidiariesPage() {
                                                 ) : (
                                                     <div className="flex items-center justify-between group">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="h-10 w-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                                                                <Building2 className="h-5 w-5 text-indigo-600" />
-                                                            </div>
+                                                            {item.logoUrl ? (
+                                                                <Avatar className="h-10 w-10 rounded-lg shrink-0">
+                                                                    <AvatarImage src={item.logoUrl} alt={item.name} className="object-cover" />
+                                                                    <AvatarFallback className="rounded-lg bg-indigo-50">
+                                                                        <Building2 className="h-5 w-5 text-indigo-600" />
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                            ) : (
+                                                                <div className="h-10 w-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                                                                    <Building2 className="h-5 w-5 text-indigo-600" />
+                                                                </div>
+                                                            )}
                                                             <div>
                                                                 <p className="font-medium">{item.name}</p>
                                                                 {item.registrationNumber && (

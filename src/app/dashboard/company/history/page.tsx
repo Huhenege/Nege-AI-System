@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useFirebase, useFetchCollection, useMemoFirebase, deleteDocumentNonBlocking, tenantCollection, useTenantWrite } from '@/firebase';
-import { query, orderBy } from 'firebase/firestore';
+import { useFirebase, useFetchCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, orderBy, deleteDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/patterns/page-layout';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -188,7 +189,7 @@ export default function CompanyHistoryPage() {
         []
     );
 
-    const { data: events, isLoading } = useFetchCollection<CompanyHistoryEvent>(historyQuery);
+    const { data: events, isLoading, refetch } = useFetchCollection<CompanyHistoryEvent>(historyQuery);
 
     const handleEdit = (event: CompanyHistoryEvent) => {
         setEditingEvent(event);
@@ -200,11 +201,12 @@ export default function CompanyHistoryPage() {
         
         try {
             const eventRef = tDoc('companyHistory', event.id);
-            deleteDocumentNonBlocking(eventRef);
+            await deleteDoc(eventRef);
             toast({
                 title: 'Амжилттай устгалаа',
                 description: `"${event.title}" үйл явдал устгагдлаа.`,
             });
+            refetch();
         } catch (error) {
             toast({
                 variant: 'destructive',
@@ -249,10 +251,11 @@ export default function CompanyHistoryPage() {
                             backBehavior="history"
                             fallbackBackHref="/dashboard/company"
                             actions={
-                                <Button size="sm" onClick={handleAddNew}>
-                                    <PlusCircle className="h-4 w-4 mr-2" />
-                                    Нэмэх
-                                </Button>
+                                <AddActionButton
+                                    label="Үйл явдал нэмэх"
+                                    description="Шинэ түүхэн үйл явдал нэмэх"
+                                    onClick={handleAddNew}
+                                />
                             }
                         />
                     </div>
@@ -295,6 +298,7 @@ export default function CompanyHistoryPage() {
                     open={dialogOpen}
                     onOpenChange={handleDialogClose}
                     event={editingEvent}
+                    onSaved={refetch}
                 />
             </div>
         </div>

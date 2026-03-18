@@ -40,8 +40,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { addDoc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Upload, File as FileIcon, Search, Calendar as CalendarIcon, Video } from 'lucide-react';
 import { CompanyPolicy, Position } from './types';
 
@@ -80,6 +81,7 @@ interface AddPolicyDialogProps {
     editingPolicy?: CompanyPolicy | null;
     departments: DepartmentOption[];
     positions: Position[];
+    onSuccess?: () => void;
 }
 
 export function AddPolicyDialog({
@@ -88,8 +90,9 @@ export function AddPolicyDialog({
     editingPolicy,
     departments,
     positions,
+    onSuccess,
 }: AddPolicyDialogProps) {
-    const { firestore } = useFirebase();
+    const { firestore, storage } = useFirebase();
     const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const isEditMode = !!editingPolicy;
@@ -181,10 +184,13 @@ export function AddPolicyDialog({
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (!storage) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Storage бэлэн болоогүй байна.' });
+            return;
+        }
 
         setIsUploading(true);
         setFileName(file.name);
-        const storage = getStorage();
         const storageRef = ref(storage, `company-policies/${Date.now()}-${file.name}`);
 
         try {
@@ -202,10 +208,13 @@ export function AddPolicyDialog({
     const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (!storage) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Storage бэлэн болоогүй байна.' });
+            return;
+        }
 
         setIsUploadingVideo(true);
         setVideoFileName(file.name);
-        const storage = getStorage();
         const storageRef = ref(storage, `company-policies-videos/${Date.now()}-${file.name}`);
 
         try {
@@ -220,11 +229,9 @@ export function AddPolicyDialog({
         }
     };
 
-    const onSubmit = (data: PolicyFormValues) => {
-        const policiesCollectionRef = tCollection('companyPolicies');
+    const onSubmit = async (data: PolicyFormValues) => {
         if (!firestore) return;
 
-        // Clear the non-selected type's IDs
         const finalData = {
             ...data,
             uploadDate: new Date().toISOString(),
@@ -232,16 +239,19 @@ export function AddPolicyDialog({
             applicablePositionIds: data.selectionType === 'positions' ? (data.applicablePositionIds ?? []) : [],
         };
 
-        if (isEditMode && editingPolicy) {
-            const docRef = tDoc('companyPolicies', editingPolicy.id);
-            updateDocumentNonBlocking(docRef, finalData);
-            toast({ title: 'Амжилттай шинэчлэгдлээ' });
-        } else {
-            addDocumentNonBlocking(tCollection('companyPolicies'), finalData);
-            toast({ title: 'Шинэ журам амжилттай нэмэгдлээ' });
+        try {
+            if (isEditMode && editingPolicy) {
+                await updateDoc(tDoc('companyPolicies', editingPolicy.id), finalData);
+                toast({ title: 'Амжилттай шинэчлэгдлээ' });
+            } else {
+                await addDoc(tCollection('companyPolicies'), finalData);
+                toast({ title: 'Шинэ журам амжилттай нэмэгдлээ' });
+            }
+            onOpenChange(false);
+            onSuccess?.();
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Хадгалахад алдаа гарлаа.' });
         }
-
-        onOpenChange(false);
     };
 
     const appliesToAll = form.watch('appliesToAll');

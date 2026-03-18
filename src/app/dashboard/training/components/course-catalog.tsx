@@ -2,7 +2,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -45,9 +46,10 @@ interface CourseCatalogProps {
     skills: SkillItem[];
     categories: TrainingCategory[];
     isLoading: boolean;
+    onMutate?: () => void;
 }
 
-export function CourseCatalog({ courses, skills, categories, isLoading }: CourseCatalogProps) {
+export function CourseCatalog({ courses, skills, categories, isLoading, onMutate }: CourseCatalogProps) {
     const { firestore, user } = useFirebase();
     const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
@@ -80,35 +82,55 @@ export function CourseCatalog({ courses, skills, categories, isLoading }: Course
         });
     }, [courses, searchQuery]);
 
-    const handleCreate = (values: TrainingCourseFormValues) => {
+    const handleCreate = async (values: TrainingCourseFormValues) => {
         if (!firestore || !user) return;
-        const data = {
-            ...values,
-            createdAt: new Date().toISOString(),
-            createdBy: user.uid,
-        };
-        addDocumentNonBlocking(tCollection('training_courses'), data);
-        toast({ title: 'Сургалт үүсгэлээ', description: values.title });
+        try {
+            const data = {
+                ...values,
+                createdAt: new Date().toISOString(),
+                createdBy: user.uid,
+            };
+            await addDoc(tCollection('training_courses'), data);
+            toast({ title: 'Сургалт үүсгэлээ', description: values.title });
+            onMutate?.();
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Үүсгэхэд алдаа гарлаа.' });
+        }
     };
 
-    const handleEdit = (values: TrainingCourseFormValues) => {
+    const handleEdit = async (values: TrainingCourseFormValues) => {
         if (!firestore || !editingCourse) return;
-        updateDocumentNonBlocking(tDoc('training_courses', editingCourse.id), values);
-        toast({ title: 'Сургалт шинэчлэгдлээ', description: values.title });
-        setEditingCourse(null);
+        try {
+            await updateDoc(tDoc('training_courses', editingCourse.id), values);
+            toast({ title: 'Сургалт шинэчлэгдлээ', description: values.title });
+            setEditingCourse(null);
+            onMutate?.();
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Шинэчлэхэд алдаа гарлаа.' });
+        }
     };
 
-    const handleArchive = (course: TrainingCourse) => {
+    const handleArchive = async (course: TrainingCourse) => {
         if (!firestore) return;
-        updateDocumentNonBlocking(tDoc('training_courses', course.id), { status: 'archived' });
-        toast({ title: 'Архивлагдлаа', description: course.title });
+        try {
+            await updateDoc(tDoc('training_courses', course.id), { status: 'archived' });
+            toast({ title: 'Архивлагдлаа', description: course.title });
+            onMutate?.();
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Архивлахад алдаа гарлаа.' });
+        }
     };
 
-    const handleDelete = (course: TrainingCourse) => {
+    const handleDelete = async (course: TrainingCourse) => {
         if (!firestore) return;
-        deleteDocumentNonBlocking(tDoc('training_courses', course.id));
-        toast({ title: 'Сургалт устгагдлаа', description: course.title });
-        setCourseToDelete(null);
+        try {
+            await deleteDoc(tDoc('training_courses', course.id));
+            toast({ title: 'Сургалт устгагдлаа', description: course.title });
+            setCourseToDelete(null);
+            onMutate?.();
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Устгахад алдаа гарлаа.' });
+        }
     };
 
     const statusColor: Record<string, string> = {

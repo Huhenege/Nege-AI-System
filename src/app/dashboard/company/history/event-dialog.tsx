@@ -23,8 +23,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, useTenantWrite } from '@/firebase';
-import { doc, Timestamp } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { doc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Image, X, PlusCircle, Video, Upload, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -47,9 +47,10 @@ interface EventDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     event: CompanyHistoryEvent | null;
+    onSaved?: () => void;
 }
 
-export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
+export function EventDialog({ open, onOpenChange, event, onSaved }: EventDialogProps) {
     const { firestore, storage } = useFirebase();
     const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
@@ -166,17 +167,15 @@ export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
             const now = Timestamp.now();
             
             if (isEditing && event) {
-                // Update existing
                 const eventRef = tDoc('companyHistory', event.id);
-                updateDocumentNonBlocking(eventRef, {
+                await updateDoc(eventRef, {
                     ...values,
                     updatedAt: now,
                 });
                 toast({ title: 'Амжилттай шинэчлэгдлээ' });
             } else {
-                // Create new
                 const newEventRef = doc(tCollection('companyHistory'));
-                setDocumentNonBlocking(newEventRef, {
+                await setDoc(newEventRef, {
                     ...values,
                     order: Date.now(),
                     createdAt: now,
@@ -186,6 +185,7 @@ export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
             }
 
             onOpenChange(false);
+            onSaved?.();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Алдаа', description: 'Хадгалахад алдаа гарлаа' });
         }

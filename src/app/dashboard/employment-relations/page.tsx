@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFetchCollection, useFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { ERDocument, ERDocumentType } from './types';
@@ -31,7 +31,7 @@ export default function DocumentListPage() {
     const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
     const templatesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_templates') : null, [firestore]);
 
-    const { data: documents, isLoading } = useFetchCollection<ERDocument>(documentsQuery);
+    const { data: documents, isLoading, refetch: refetchDocuments } = useFetchCollection<ERDocument>(documentsQuery);
     const { data: docTypes } = useFetchCollection<ERDocumentType>(docTypesQuery);
     const { data: templates } = useFetchCollection<{ id: string; isSystem?: boolean }>(templatesQuery);
 
@@ -39,7 +39,15 @@ export default function DocumentListPage() {
         return docTypes?.reduce((acc, type) => ({ ...acc, [type.id]: type.name }), {} as Record<string, string>) || {};
     }, [docTypes]);
 
-
+    useEffect(() => {
+        const onVisibilityChange = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                refetchDocuments();
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+    }, [refetchDocuments]);
 
     const filteredDocuments = React.useMemo(() => {
         if (!documents) return [];

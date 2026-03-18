@@ -1,5 +1,5 @@
-import { query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { useFetchCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { query, where, getDocs, writeBatch, addDoc, deleteDoc } from 'firebase/firestore';
+import { useFetchCollection, useFirebase, useMemoFirebase, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -80,7 +80,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
         [firestore, collectionName]
     );
 
-    const { data: items, isLoading } = useFetchCollection<any>(collectionRef);
+    const { data: items, isLoading, refetch } = useFetchCollection<any>(collectionRef);
 
     // Create a stable key for items to use in dependencies
     const itemsKey = useMemo(() => items?.map(i => i.id).join(',') || '', [items]);
@@ -180,17 +180,16 @@ export function LookupManagement({ collectionName, title, description, columns, 
 
         setIsSubmitting(true);
         try {
-            // Add all generated items to Firebase
             for (const item of generatedItems) {
-                await addDocumentNonBlocking(tCollection(collectionName), item);
+                await addDoc(tCollection(collectionName), item);
             }
-            
             toast({
                 title: 'Амжилттай',
                 description: `${generatedItems.length} бичлэг нэмэгдлээ`,
             });
             setGeneratedItems([]);
             setShowAIConfirmDialog(false);
+            refetch();
         } catch (error) {
             console.error('Error adding AI items:', error);
             toast({
@@ -215,10 +214,11 @@ export function LookupManagement({ collectionName, title, description, columns, 
 
         setIsSubmitting(true);
         try {
-            await addDocumentNonBlocking(tCollection(collectionName), newItemData);
+            await addDoc(tCollection(collectionName), newItemData);
             setNewItemData({});
             setIsAdding(false);
             toast({ title: 'Амжилттай нэмэгдлээ' });
+            refetch();
         } catch (e) {
             toast({ title: 'Алдаа', variant: 'destructive' });
         } finally {
@@ -276,8 +276,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
             if (!referenceCheck || usageCounts[id] === 0) {
                 toast({ title: 'Амжилттай шинэчлэгдлээ' });
             }
-            
-            // Refresh usage counts
+            refetch();
             fetchUsageCounts();
         } catch (e) {
             console.error('Update error:', e);
@@ -323,8 +322,9 @@ export function LookupManagement({ collectionName, title, description, columns, 
         
         if (!confirm('Та итгэлтэй байна уу?')) return;
         try {
-            await deleteDocumentNonBlocking(tDoc(collectionName, id));
+            await deleteDoc(tDoc(collectionName, id));
             toast({ title: 'Устгагдлаа' });
+            refetch();
             fetchUsageCounts();
         } catch (e) {
             toast({ title: 'Алдаа', variant: 'destructive' });

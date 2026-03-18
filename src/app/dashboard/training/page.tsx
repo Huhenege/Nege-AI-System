@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { query, orderBy } from 'firebase/firestore';
-import { useFirebase, useFetchCollection, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, orderBy, addDoc, deleteDoc } from 'firebase/firestore';
+import { useFirebase, useFetchCollection, useTenantWrite, useMemoFirebase, tenantCollection } from '@/firebase';
 import type { Department, PositionLevel, Position } from '@/app/dashboard/organization/types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -81,8 +81,8 @@ export default function TrainingPage() {
     );
 
     // ── Data ─────────────────────────────────────────
-    const { data: courses, isLoading: coursesLoading } = useFetchCollection<TrainingCourse>(coursesQuery);
-    const { data: plansRaw, isLoading: plansLoading } = useFetchCollection<TrainingPlan>(plansQuery);
+    const { data: courses, isLoading: coursesLoading, refetch: refetchCourses } = useFetchCollection<TrainingCourse>(coursesQuery);
+    const { data: plansRaw, isLoading: plansLoading, refetch: refetchPlans } = useFetchCollection<TrainingPlan>(plansQuery);
     const plans = useMemo(() => {
         const sortKey = (p: TrainingPlan) => p.scheduledQuarter ?? p.scheduledAt ?? p.dueDate ?? p.assignedAt ?? p.createdAt ?? '';
         return [...plansRaw].sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
@@ -104,7 +104,7 @@ export default function TrainingPage() {
     );
 
     // ── Create Plan Handler (one plan = one scheduled training + participants) ──
-    const handleCreatePlan = (values: CreatePlanFormValues, courseName: string) => {
+    const handleCreatePlan = async (values: CreatePlanFormValues, courseName: string) => {
         if (!firestore || !user) return;
 
         const now = new Date().toISOString();
@@ -137,18 +137,27 @@ export default function TrainingPage() {
         if (values.providerType != null) data.providerType = values.providerType;
         if (values.categoryIds != null && values.categoryIds.length > 0) data.categoryIds = values.categoryIds;
 
-        addDocumentNonBlocking(tCollection('training_plans'), data);
-
-        toast({
-            title: 'Төлөвлөгөө үүслээ',
-            description: `${courseName} — ${values.participantIds.length} оролцогч`,
-        });
+        try {
+            await addDoc(tCollection('training_plans'), data);
+            toast({
+                title: 'Төлөвлөгөө үүслээ',
+                description: `${courseName} — ${values.participantIds.length} оролцогч`,
+            });
+            refetchPlans();
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Төлөвлөгөө үүсгэхэд алдаа гарлаа.' });
+        }
     };
 
-    const handleDeletePlan = (planId: string) => {
+    const handleDeletePlan = async (planId: string) => {
         if (!firestore) return;
-        deleteDocumentNonBlocking(tDoc('training_plans', planId));
-        toast({ title: 'Төлөвлөгөө устгагдлаа' });
+        try {
+            await deleteDoc(tDoc('training_plans', planId));
+            toast({ title: 'Төлөвлөгөө устгагдлаа' });
+            refetchPlans();
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Устгахад алдаа гарлаа.' });
+        }
     };
 
     return (
@@ -206,6 +215,7 @@ export default function TrainingPage() {
                             skills={skills}
                             categories={categories}
                             isLoading={coursesLoading}
+                            onMutate={refetchCourses}
                         />
                     </TabsContent>
 

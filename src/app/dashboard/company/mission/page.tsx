@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/patterns/page-layout';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import {
   Form,
   FormControl,
@@ -15,9 +16,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useFetchDoc, useMemoFirebase, useCollection, tenantDoc, tenantCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchDoc, useMemoFirebase, useCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { collection, addDoc, deleteDoc, serverTimestamp, query, orderBy, setDoc } from 'firebase/firestore';
-import { Loader2, Save, PlusCircle, Trash2, Rocket, Eye, ChevronLeft, Heart } from 'lucide-react';
+import { Loader2, Save, Trash2, Rocket, Eye, ChevronLeft, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
@@ -287,15 +288,11 @@ function EditMissionVisionForm({
               <h3 className="font-semibold text-base">Үнэт зүйлс</h3>
               <p className="text-xs text-muted-foreground mt-1">Пойнт системтэй холбоотой</p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
+            <AddActionButton
+              label="Үнэт зүйл нэмэх"
+              description="Шинэ үнэт зүйл нэмэх"
               onClick={() => append({ title: '', description: '', emoji: '⭐', color: '#3b82f6', isActive: true })}
-            >
-              <PlusCircle className="h-4 w-4" />
-            </Button>
+            />
           </div>
           
           <div className="p-6">
@@ -306,15 +303,12 @@ function EditMissionVisionForm({
                 </div>
                 <p className="text-sm font-semibold text-slate-700 mb-1">Үнэт зүйлс хоосон байна</p>
                 <p className="text-xs text-muted-foreground mb-6 max-w-sm">Байгууллагын соёлыг тодорхойлох үнэт зүйлийг нэмнэ үү</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-full hover:bg-primary hover:text-primary-foreground transition-all hover:scale-105"
+                <AddActionButton
+                  label="Үнэт зүйл нэмэх"
+                  description="Шинэ үнэт зүйл нэмэх"
                   onClick={() => append({ title: '', description: '', emoji: '⭐', color: '#3b82f6', isActive: true })}
-                >
-                  <PlusCircle className="h-5 w-5" />
-                </Button>
+                  className="h-10 w-10 rounded-full"
+                />
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -490,7 +484,11 @@ export default function EditMissionPage() {
   );
 
   const valuesQuery = useMemoFirebase(
-    ({ firestore }) => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null),
+    ({ firestore, companyPath }) => {
+      if (!firestore || !companyPath) return null;
+      const pathSegments = [...companyPath.split('/'), 'company', 'branding', 'values'];
+      return query(collection(firestore, ...pathSegments), orderBy('createdAt', 'asc'));
+    },
     []
   );
 

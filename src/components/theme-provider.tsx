@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useFetchDoc, useMemoFirebase, tenantDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
-import { hexToHsl } from '@/lib/color-utils';
+import { hexToHsl, getContrastTextColor } from '@/lib/color-utils';
 
 interface BrandColor {
     id: string;
@@ -33,7 +33,16 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
         [firestore]
     );
 
-    const { data: branding } = useFetchDoc<CompanyBranding>(brandingRef as any);
+    const { data: branding, refetch: refetchBranding } = useFetchDoc<CompanyBranding>(brandingRef as any);
+
+    // Refetch branding when tab/window becomes visible (e.g. after saving on branding page)
+    React.useEffect(() => {
+        const onFocus = () => refetchBranding();
+        if (typeof document !== 'undefined' && document.addEventListener) {
+            document.addEventListener('visibilitychange', onFocus);
+            return () => document.removeEventListener('visibilitychange', onFocus);
+        }
+    }, [refetchBranding]);
 
     React.useEffect(() => {
         if (!branding || !branding.themeMapping || !branding.brandColors) return;
@@ -47,21 +56,26 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
             return brandColors.find(c => c.id === id)?.hex;
         };
 
-        // Map and Apply - all theme slots
-        const mappings: { slot: string; colorId: string | undefined }[] = [
-            { slot: '--primary', colorId: themeMapping.primary },
-            { slot: '--secondary', colorId: themeMapping.secondary },
-            { slot: '--accent', colorId: themeMapping.accent },
-            { slot: '--destructive', colorId: themeMapping.destructive },
-            { slot: '--muted', colorId: themeMapping.muted },
+        // Map and Apply - all theme slots + foreground (contrast text) for readability
+        const mappings: { slot: string; foregroundSlot: string; colorId: string | undefined }[] = [
+            { slot: '--primary', foregroundSlot: '--primary-foreground', colorId: themeMapping.primary },
+            { slot: '--secondary', foregroundSlot: '--secondary-foreground', colorId: themeMapping.secondary },
+            { slot: '--accent', foregroundSlot: '--accent-foreground', colorId: themeMapping.accent },
+            { slot: '--destructive', foregroundSlot: '--destructive-foreground', colorId: themeMapping.destructive },
+            { slot: '--muted', foregroundSlot: '--muted-foreground', colorId: themeMapping.muted },
         ];
 
-        mappings.forEach(({ slot, colorId }) => {
+        mappings.forEach(({ slot, foregroundSlot, colorId }) => {
             const hex = getColorHex(colorId);
             if (hex) {
                 const hsl = hexToHsl(hex);
                 if (hsl) {
                     root.style.setProperty(slot, hsl);
+                }
+                const fgHex = getContrastTextColor(hex);
+                const fgHsl = hexToHsl(fgHex);
+                if (fgHsl) {
+                    root.style.setProperty(foregroundSlot, fgHsl);
                 }
             }
         });

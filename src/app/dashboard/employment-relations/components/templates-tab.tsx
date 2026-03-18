@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useFetchCollection, useFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
-import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
+import { useFetchCollection, useFirebase, useTenantWrite } from '@/firebase';
+import { collection, query, orderBy, Timestamp, deleteDoc, addDoc } from 'firebase/firestore';
 import { ERTemplate, ERDocumentType } from '../types';
 import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
@@ -50,7 +50,7 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
         firestore ? query(collection(firestore, 'er_templates'), orderBy('updatedAt', 'desc')) : null
         , [firestore]);
 
-    const { data: templates, isLoading } = useFetchCollection<ERTemplate>(templatesQuery);
+    const { data: templates, isLoading, refetch } = useFetchCollection<ERTemplate>(templatesQuery);
 
     const docTypeMap = React.useMemo(() => {
         return docTypes.reduce((acc, type) => ({ ...acc, [type.id]: type.name }), {} as Record<string, string>);
@@ -68,8 +68,9 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
     const handleDelete = async (id: string) => {
         if (!firestore) return;
         try {
-            await deleteDocumentNonBlocking(tDoc('er_templates', id));
+            await deleteDoc(tDoc('er_templates', id));
             toast({ title: "Амжилттай", description: "Загвар устгагдлаа" });
+            refetch();
         } catch (error) {
             console.error(error);
             toast({ title: "Алдаа", description: "Загвар устгахад алдаа гарлаа", variant: "destructive" });
@@ -81,15 +82,16 @@ export function TemplatesTab({ docTypes }: TemplatesTabProps) {
         try {
             const newDoc = {
                 ...template,
-                id: undefined, // Let firestore generate ID
+                id: undefined,
                 name: `${template.name} (Copy)`,
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
             };
             delete (newDoc as any).id;
 
-            await addDocumentNonBlocking(tCollection('er_templates'), newDoc);
+            await addDoc(tCollection('er_templates'), newDoc);
             toast({ title: "Амжилттай", description: "Загвар хувилагдлаа" });
+            refetch();
         } catch (error) {
             console.error(error);
             toast({ title: "Алдаа", description: "Хувилахад алдаа гарлаа", variant: "destructive" });

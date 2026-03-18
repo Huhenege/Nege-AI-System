@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useFetchCollection, useMemoFirebase, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, tenantCollection, useTenantWrite } from "@/firebase";
-import { getDoc } from "firebase/firestore";
+import { useFetchCollection, useMemoFirebase, useFirebase, tenantCollection, useTenantWrite } from "@/firebase";
+import { getDoc, updateDoc, addDoc } from "firebase/firestore";
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -124,7 +124,7 @@ export default function ERDocumentTypesSettingsPage() {
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_process_document_types') : null,
         []
     );
-    const { data: documentTypes, isLoading: loadingDocTypes } = useFetchCollection<ERDocumentTypeReferenceItem>(documentTypesQuery);
+    const { data: documentTypes, isLoading: loadingDocTypes, refetch: refetchDocTypes } = useFetchCollection<ERDocumentTypeReferenceItem>(documentTypesQuery);
 
     // Reset form when dialog opens/closes
     React.useEffect(() => {
@@ -175,13 +175,13 @@ export default function ERDocumentTypesSettingsPage() {
 
         try {
             if (editingItem) {
-                await updateDocumentNonBlocking(tDoc('er_process_document_types', editingItem.id), data);
+                await updateDoc(tDoc('er_process_document_types', editingItem.id), data);
             } else {
                 const startNumber = formData.numberingConfig?.startNumber || 1;
                 const colRef = tCollection('er_process_document_types');
-                await addDocumentNonBlocking(colRef, {
+                await addDoc(colRef, {
                     ...data,
-                    currentNumber: startNumber - 1, // Will be incremented to startNumber on first use
+                    currentNumber: startNumber - 1,
                     lastNumberYear: new Date().getFullYear(),
                     lastNumberMonth: new Date().getMonth() + 1,
                     lastNumberDay: new Date().getDate(),
@@ -190,6 +190,7 @@ export default function ERDocumentTypesSettingsPage() {
             }
             setDialogOpen(false);
             setEditingItem(null);
+            refetchDocTypes();
         } finally {
             setIsSubmitting(false);
         }

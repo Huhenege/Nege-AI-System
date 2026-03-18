@@ -219,8 +219,9 @@ export default function EditPostPage() {
 
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const { tDoc } = useTenantWrite();
 
-  const postDocRef = React.useMemo(() => (firestore && postId ? doc(firestore, 'posts', postId) : null), [firestore, postId]);
+  const postDocRef = React.useMemo(() => (firestore && postId ? tDoc('posts', postId) : null), [firestore, postId, tDoc]);
   const { data: post, isLoading: isLoadingPost } = useDoc<Post>(postDocRef);
   
   const [imageFiles, setImageFiles] = React.useState<File[]>([]);

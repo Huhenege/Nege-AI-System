@@ -228,7 +228,14 @@ export default function CompanyPage() {
         []
     );
 
-    const valuesQuery = useMemoFirebase(({ firestore }) => (firestore ? query(collection(firestore, 'company', 'branding', 'values'), orderBy('createdAt', 'asc')) : null), []);
+    const valuesQuery = useMemoFirebase(
+        ({ firestore, companyPath }) => {
+            if (!firestore || !companyPath) return null;
+            const pathSegments = [...companyPath.split('/'), 'company', 'branding', 'values'];
+            return query(collection(firestore, ...pathSegments), orderBy('createdAt', 'asc'));
+        },
+        []
+    );
     const { data: companyProfile, isLoading: isLoadingProfile, error } = useDoc<CompanyProfileValues>(companyProfileRef as any);
     const { data: branding, isLoading: isLoadingBranding } = useDoc<CompanyBranding>(brandingRef as any);
     const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(departmentsQuery);
@@ -655,7 +662,7 @@ export default function CompanyPage() {
                         )}
 
                         {/* Company Info */}
-                        <div className="p-6 -mt-16 relative">
+                        <div className="p-6 -mt-16 relative bg-white" style={{ marginTop: '-4rem' }}>
                             <div className="flex flex-col md:flex-row gap-6">
                                 <Avatar className="h-28 w-28 rounded-2xl border-4 border-white shadow-lg bg-white self-start md:self-end">
                                     <AvatarImage src={companyProfile.logoUrl} className="object-contain p-2" />
@@ -668,10 +675,12 @@ export default function CompanyPage() {
                                     {companyProfile.legalName && (
                                         <p className="text-sm text-muted-foreground">{companyProfile.legalName}</p>
                                     )}
+                                    {companyProfile.introduction && (
+                                        <p className="text-sm text-foreground leading-relaxed bg-white rounded-lg p-3 border border-slate-200">
+                                            {companyProfile.introduction}
+                                        </p>
+                                    )}
                                     <div className="flex flex-wrap gap-2">
-                                        {companyProfile.industry && (
-                                            <Badge variant="secondary">{companyProfile.industry}</Badge>
-                                        )}
                                         {companyProfile.employeeCount && (
                                             <Badge variant="outline" className="gap-1">
                                                 <Users className="h-3 w-3" />
@@ -687,15 +696,6 @@ export default function CompanyPage() {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Introduction */}
-                            {companyProfile.introduction && (
-                                <div className="mt-6 pt-6 border-t">
-                                    <p className="text-sm text-muted-foreground leading-relaxed">
-                                        {companyProfile.introduction}
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -1576,29 +1576,27 @@ export default function CompanyPage() {
                                 </div>
                             </div>
 
-                            {/* Core Values */}
-                            {coreValues && coreValues.filter(v => v.isActive).length > 0 && (
-                                <div className="bg-white rounded-xl border">
-                                    <div className="p-4 border-b">
-                                        <h3 className="font-medium">Үнэт зүйлс</h3>
-                                    </div>
-                                    <div className="p-6">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {coreValues.filter(v => v.isActive).map((value) => (
-                                                <div key={value.id} className="flex items-start gap-3 p-4 rounded-lg bg-slate-50">
+                            {/* Core Values - карт бүр тусад картаар */}
+                            {coreValues && coreValues.filter(v => v.isActive !== false).length > 0 && (
+                                <div className="space-y-3">
+                                    <h3 className="font-medium px-1">Үнэт зүйлс</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {coreValues.filter(v => v.isActive !== false).map((value) => (
+                                            <Card key={value.id} className="rounded-xl border overflow-hidden">
+                                                <CardContent className="p-4 flex items-start gap-3">
                                                     <div
                                                         className="h-10 w-10 rounded-lg flex items-center justify-center text-xl shrink-0"
                                                         style={{ backgroundColor: `${value.color}15` }}
                                                     >
                                                         {value.emoji || '⭐'}
                                                     </div>
-                                                    <div className="min-w-0">
+                                                    <div className="min-w-0 flex-1">
                                                         <p className="font-medium text-sm">{value.title}</p>
                                                         <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{value.description}</p>
                                                     </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
                                     </div>
                                 </div>
                             )}
@@ -1735,25 +1733,6 @@ export default function CompanyPage() {
                                 </div>
                             </div>
 
-                            {/* Stats Card */}
-                            <div className="bg-white rounded-xl border">
-                                <div className="p-4 border-b">
-                                    <h3 className="font-medium">Статистик</h3>
-                                </div>
-                                <div className="p-4 grid grid-cols-2 gap-4">
-                                    <div className="text-center p-3 rounded-lg bg-slate-50">
-                                        <p className="text-2xl font-bold text-primary">{departments?.length || 0}</p>
-                                        <p className="text-xs text-muted-foreground">Нэгж</p>
-                                    </div>
-                                    <div className="text-center p-3 rounded-lg bg-slate-50">
-                                        <p className="text-2xl font-bold text-primary">
-                                            {(positions || []).filter((p) => p.isApproved !== false).length}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">Ажлын байр</p>
-                                    </div>
-                                </div>
-                            </div>
-
                             {/* Subsidiaries Card */}
                             <Link href="/dashboard/company/subsidiaries" className="block bg-white rounded-xl border hover:border-primary/50 hover:shadow-sm transition-all">
                                 <div className="p-4 border-b flex items-center justify-between">
@@ -1765,13 +1744,25 @@ export default function CompanyPage() {
                                         <div className="space-y-2">
                                             {companyProfile.subsidiaries.slice(0, 3).map((item, index) => {
                                                 const name = typeof item === 'string' ? item : item.name;
-                                                const regNum = typeof item === 'string' ? null : item.registrationNumber;
+                                                const regNum = typeof item === 'string' ? null : (item as { registrationNumber?: string }).registrationNumber;
+                                                const logoUrl = typeof item === 'string' ? null : (item as { logoUrl?: string }).logoUrl;
                                                 return (
                                                     <div
                                                         key={index}
                                                         className="flex items-center gap-2 p-2 rounded-lg bg-slate-50"
                                                     >
-                                                        <Building2 className="h-4 w-4 text-indigo-500 shrink-0" />
+                                                        {logoUrl ? (
+                                                            <Avatar className="h-8 w-8 rounded-lg shrink-0">
+                                                                <AvatarImage src={logoUrl} alt={name} className="object-cover" />
+                                                                <AvatarFallback className="rounded-lg bg-indigo-50">
+                                                                    <Building2 className="h-4 w-4 text-indigo-500" />
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                        ) : (
+                                                            <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                                                                <Building2 className="h-4 w-4 text-indigo-500" />
+                                                            </div>
+                                                        )}
                                                         <div className="min-w-0">
                                                             <p className="text-sm font-medium truncate">{name}</p>
                                                             {regNum && (

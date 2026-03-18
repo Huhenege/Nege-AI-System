@@ -14,6 +14,7 @@ import {
     CardDescription,
 } from '@/components/ui/card';
 import { PageHeader } from '@/components/patterns/page-layout';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -37,7 +38,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, X, PlusCircle, Trash2, Upload, Film, CheckCircle2, AlertCircle, ChevronLeft, Video } from 'lucide-react';
+import { Loader2, Save, X, Trash2, Upload, Film, CheckCircle2, AlertCircle, ChevronLeft, Video } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -220,16 +221,11 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
                                 <p className="text-xs text-muted-foreground mt-1">Компанийн танилцуулга, соёлын видеонууд</p>
                             </div>
                             {fields.length > 0 && (
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    size="icon"
-                                    className="h-9 w-9 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
-                                    onClick={() => append({ title: '', description: '', url: '' })} 
-                                    title="Видео нэмэх"
-                                >
-                                    <PlusCircle className="h-4 w-4" />
-                                </Button>
+                                <AddActionButton
+                                    label="Видео нэмэх"
+                                    description="Шинэ видео контент нэмэх"
+                                    onClick={() => append({ title: '', description: '', url: '' })}
+                                />
                             )}
                         </div>
                     </div>
@@ -241,16 +237,12 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
                                 </div>
                                 <p className="text-sm font-semibold text-slate-700 mb-1">Видео контент хоосон байна</p>
                                 <p className="text-xs text-muted-foreground mb-6 max-w-sm">Компанийн танилцуулга, соёлын видеонуудыг нэмнэ үү</p>
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    size="icon"
-                                    className="h-10 w-10 rounded-full hover:bg-primary hover:text-primary-foreground transition-all hover:scale-105"
-                                    onClick={() => append({ title: '', description: '', url: '' })} 
-                                    title="Видео нэмэх"
-                                >
-                                    <PlusCircle className="h-5 w-5" />
-                                </Button>
+                                <AddActionButton
+                                    label="Видео нэмэх"
+                                    description="Шинэ видео контент нэмэх"
+                                    onClick={() => append({ title: '', description: '', url: '' })}
+                                    className="h-10 w-10 rounded-full"
+                                />
                             </div>
                         ) : (
                             <div className="space-y-6">
@@ -425,16 +417,11 @@ function EditVideosForm({ initialData }: { initialData: VideosFormValues }) {
                                 
                                 {/* Add Video Button */}
                                 <div className="flex justify-center pt-2">
-                                    <Button 
-                                        type="button" 
-                                        variant="outline" 
-                                        size="lg"
-                                        className="h-12 px-6 border-2 border-dashed hover:border-primary hover:bg-primary/5 transition-all"
-                                        onClick={() => append({ title: '', description: '', url: '' })} 
-                                    >
-                                        <PlusCircle className="mr-2 h-5 w-5" />
-                                        Видео нэмэх
-                                    </Button>
+                                    <AddActionButton
+                                        label="Видео нэмэх"
+                                        description="Шинэ видео контент нэмэх"
+                                        onClick={() => append({ title: '', description: '', url: '' })}
+                                    />
                                 </div>
                             </div>
                         )}

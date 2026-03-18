@@ -1,21 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { useFetchDoc, useFirebase, useTenantWrite } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useFetchDoc, useFirebase, useMemoFirebase, tenantDoc, useTenantWrite } from '@/firebase';
+import { setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
     Plus, Trash2, Save, RotateCcw, Paintbrush, Palette, Check, X, 
-    Sun, Moon, Pencil, AlertTriangle, CheckCircle2, Sparkles, Info
+    Sun, Moon, Pencil, AlertTriangle, CheckCircle2, Sparkles, Info, Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -50,116 +46,209 @@ const DEFAULT_MAPPING: ThemeMapping = {
     muted: '',
 };
 
-// Preset color palettes
 const PRESET_PALETTES = [
     {
         id: 'professional',
-        name: 'Professional',
-        description: 'Цэнхэр, саарал өнгөний мэргэжлийн харагдац',
+        name: 'Мэргэжлийн',
         colors: [
             { name: 'Ocean Blue', hex: '#0066CC' },
             { name: 'Dark Navy', hex: '#1a365d' },
             { name: 'Steel Gray', hex: '#64748b' },
             { name: 'Light Gray', hex: '#f1f5f9' },
             { name: 'Error Red', hex: '#dc2626' },
-        ]
+        ],
     },
     {
         id: 'warm',
-        name: 'Warm',
-        description: 'Улаан, улбар шар өнгөний дулаан харагдац',
+        name: 'Дулаан',
         colors: [
             { name: 'Sunset Orange', hex: '#ea580c' },
             { name: 'Deep Red', hex: '#b91c1c' },
             { name: 'Golden Yellow', hex: '#ca8a04' },
             { name: 'Warm Cream', hex: '#fef3c7' },
             { name: 'Crimson', hex: '#dc2626' },
-        ]
+        ],
     },
     {
         id: 'nature',
-        name: 'Nature',
-        description: 'Ногоон, хүрэн өнгөний байгалийн харагдац',
+        name: 'Байгаль',
         colors: [
             { name: 'Forest Green', hex: '#15803d' },
             { name: 'Leaf Green', hex: '#22c55e' },
             { name: 'Earth Brown', hex: '#78350f' },
             { name: 'Sand Beige', hex: '#fef3c7' },
             { name: 'Rust Red', hex: '#b45309' },
-        ]
+        ],
     },
     {
         id: 'modern',
-        name: 'Modern',
-        description: 'Хар, цагаан өнгөний орчин үеийн харагдац',
+        name: 'Орчин үеийн',
         colors: [
             { name: 'Pure Black', hex: '#0a0a0a' },
             { name: 'Charcoal', hex: '#262626' },
             { name: 'Electric Purple', hex: '#7c3aed' },
             { name: 'Light Silver', hex: '#f5f5f5' },
             { name: 'Hot Pink', hex: '#ec4899' },
-        ]
+        ],
     },
     {
         id: 'corporate',
-        name: 'Corporate',
-        description: 'Тогтвортой байгууллагын өнгө',
+        name: 'Байгууллагын',
         colors: [
             { name: 'Corporate Blue', hex: '#2563eb' },
             { name: 'Trust Navy', hex: '#1e3a8a' },
             { name: 'Success Green', hex: '#16a34a' },
             { name: 'Neutral Gray', hex: '#6b7280' },
             { name: 'Alert Red', hex: '#ef4444' },
-        ]
+        ],
     },
 ];
 
-// Theme slot configurations
 const THEME_SLOTS = [
     {
         key: 'primary' as const,
-        label: 'Primary (Үндсэн)',
-        description: 'Үндсэн товчлуур, идэвхтэй элементүүд, холбоос',
-        previewClass: 'bg-primary'
+        label: 'Үндсэн өнгө',
+        description: 'Товчлуур, холбоос, идэвхтэй элементүүд',
+        defaultIndex: 0,
     },
     {
         key: 'secondary' as const,
-        label: 'Secondary (Хоёрдогч)',
-        description: 'Хоёрдогч товчлуур, badge, дэвсгэр',
-        previewClass: 'bg-secondary'
+        label: 'Хоёрдогч өнгө',
+        description: 'Badge, хоёрдогч товчлуур, дэвсгэр',
+        defaultIndex: 1,
     },
     {
         key: 'accent' as const,
-        label: 'Accent (Тодотгол)',
-        description: 'Онцлох элемент, hover эффект',
-        previewClass: 'bg-accent'
+        label: 'Тодотгол өнгө',
+        description: 'Hover эффект, онцлох элемент',
+        defaultIndex: 2,
     },
     {
         key: 'destructive' as const,
-        label: 'Destructive (Устгах)',
+        label: 'Анхааруулга',
         description: 'Устгах товчлуур, алдааны мессеж',
-        previewClass: 'bg-destructive'
+        defaultIndex: 4,
     },
     {
         key: 'muted' as const,
-        label: 'Muted (Бүдэгдүү)',
-        description: 'Идэвхгүй текст, дэвсгэр',
-        previewClass: 'bg-muted'
+        label: 'Бүдэг өнгө',
+        description: 'Идэвхгүй текст, бүдэг дэвсгэр',
+        defaultIndex: 3,
     },
 ];
 
-// Color item component with edit capability
-function ColorItem({ 
-    color, 
-    isEditing, 
-    onEdit, 
-    onSaveEdit, 
-    onCancelEdit, 
-    onDelete, 
-    editName, 
-    editHex, 
-    onEditNameChange, 
-    onEditHexChange 
+function ThemeColorPicker({
+    label,
+    description,
+    colorId,
+    colors,
+    onChange,
+}: {
+    label: string;
+    description: string;
+    colorId: string;
+    colors: BrandColor[];
+    onChange: (colorId: string) => void;
+}) {
+    const selected = colors.find(c => c.id === colorId);
+    const [isOpen, setIsOpen] = React.useState(false);
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-muted-foreground">{description}</p>
+                </div>
+            </div>
+            <div className="relative">
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setIsOpen(!isOpen)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen(!isOpen); } }}
+                    className={cn(
+                        "w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left cursor-pointer",
+                        isOpen ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/50"
+                    )}
+                >
+                    <div
+                        className="h-8 w-8 rounded-md border shadow-sm flex-shrink-0"
+                        style={{ backgroundColor: selected?.hex || '#e5e7eb' }}
+                    />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                            {selected ? selected.name : 'Өнгө сонгоно уу'}
+                        </p>
+                        {selected && (
+                            <p className="text-xs text-muted-foreground font-mono uppercase">
+                                {selected.hex}
+                            </p>
+                        )}
+                    </div>
+                    {selected && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onChange(''); setIsOpen(false); }}
+                            className="p-1 rounded hover:bg-muted"
+                        >
+                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                    )}
+                </div>
+
+                {isOpen && colors.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-popover border rounded-lg shadow-lg p-2 grid grid-cols-5 gap-1.5">
+                        {colors.map(c => {
+                            const textColor = getContrastTextColor(c.hex);
+                            const isSelected = c.id === colorId;
+                            return (
+                                <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => { onChange(c.id); setIsOpen(false); }}
+                                    className={cn(
+                                        "flex flex-col items-center gap-1 p-2 rounded-lg transition-all",
+                                        isSelected ? "bg-primary/10 ring-2 ring-primary" : "hover:bg-muted"
+                                    )}
+                                    title={`${c.name} (${c.hex})`}
+                                >
+                                    <div
+                                        className="h-8 w-8 rounded-md border shadow-sm flex items-center justify-center"
+                                        style={{ backgroundColor: c.hex, color: textColor }}
+                                    >
+                                        {isSelected && <Check className="h-4 w-4" />}
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground truncate w-full text-center">
+                                        {c.name}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {isOpen && colors.length === 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-popover border rounded-lg shadow-lg p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Эхлээд дээрх хэсэгт өнгө нэмнэ үү</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function ColorItem({
+    color,
+    isEditing,
+    onEdit,
+    onSaveEdit,
+    onCancelEdit,
+    onDelete,
+    editName,
+    editHex,
+    onEditNameChange,
+    onEditHexChange,
 }: {
     color: BrandColor;
     isEditing: boolean;
@@ -178,7 +267,7 @@ function ColorItem({
         return (
             <div className="flex items-center gap-3 p-3 border-2 border-primary rounded-lg bg-primary/5">
                 <div className="relative">
-                    <div 
+                    <div
                         className="h-10 w-10 rounded-lg border-2 shadow-sm cursor-pointer overflow-hidden"
                         style={{ backgroundColor: editHex }}
                     >
@@ -217,10 +306,10 @@ function ColorItem({
     }
 
     return (
-        <div className="group flex items-center justify-between p-3 border rounded-lg bg-card hover:border-primary/50 transition-colors">
+        <div className="group flex items-center justify-between p-2.5 border rounded-lg bg-card hover:border-primary/50 transition-colors">
             <div className="flex items-center gap-3">
-                <div 
-                    className="h-10 w-10 rounded-lg border shadow-sm flex items-center justify-center text-xs font-bold"
+                <div
+                    className="h-9 w-9 rounded-md border shadow-sm flex items-center justify-center text-xs font-bold"
                     style={{ backgroundColor: color.hex, color: textColor }}
                 >
                     {color.name.charAt(0)}
@@ -231,208 +320,151 @@ function ColorItem({
                 </div>
             </div>
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
-                    <Pencil className="h-3.5 w-3.5" />
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+                    <Pencil className="h-3 w-3" />
                 </Button>
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={onDelete} 
-                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onDelete}
+                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3 w-3" />
                 </Button>
             </div>
         </div>
     );
 }
 
-// Contrast checker component
-function ContrastChecker({ colors, mapping }: { colors: BrandColor[]; mapping: ThemeMapping }) {
+function ContrastInfo({ colors, mapping }: { colors: BrandColor[]; mapping: ThemeMapping }) {
     const primaryColor = colors.find(c => c.id === mapping.primary);
-    const secondaryColor = colors.find(c => c.id === mapping.secondary);
-
-    if (!primaryColor) {
-        return (
-            <div className="text-center py-8 text-muted-foreground">
-                <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Primary өнгө сонгосны дараа contrast шалгалт харагдана.</p>
-            </div>
-        );
-    }
+    if (!primaryColor) return null;
 
     const whiteContrast = checkWcagCompliance(primaryColor.hex, '#ffffff');
     const blackContrast = checkWcagCompliance(primaryColor.hex, '#000000');
 
     return (
-        <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-                {/* White background check */}
-                <div className="p-4 rounded-lg border bg-white">
-                    <div className="flex items-center gap-2 mb-3">
-                        <div 
-                            className="w-6 h-6 rounded" 
-                            style={{ backgroundColor: primaryColor.hex }}
-                        />
-                        <span className="text-xs font-medium">+ Цагаан дэвсгэр</span>
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                            <span>Contrast Ratio:</span>
-                            <Badge variant={whiteContrast.aa.normalText ? 'default' : 'destructive'}>
-                                {whiteContrast.ratio}:1
-                            </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs">
-                            <span className="text-muted-foreground">AA:</span>
-                            {whiteContrast.aa.normalText ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                            ) : (
-                                <X className="h-3.5 w-3.5 text-red-500" />
-                            )}
-                            <span className="text-muted-foreground ml-2">AAA:</span>
-                            {whiteContrast.aaa.normalText ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                            ) : (
-                                <X className="h-3.5 w-3.5 text-red-500" />
-                            )}
-                        </div>
-                    </div>
+        <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-lg border bg-white">
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="w-5 h-5 rounded" style={{ backgroundColor: primaryColor.hex }} />
+                    <span className="text-xs font-medium">Цагаан дэвсгэр</span>
                 </div>
-
-                {/* Black background check */}
-                <div className="p-4 rounded-lg border bg-slate-900">
-                    <div className="flex items-center gap-2 mb-3">
-                        <div 
-                            className="w-6 h-6 rounded" 
-                            style={{ backgroundColor: primaryColor.hex }}
-                        />
-                        <span className="text-xs font-medium text-white">+ Хар дэвсгэр</span>
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-300">Contrast Ratio:</span>
-                            <Badge variant={blackContrast.aa.normalText ? 'default' : 'destructive'}>
-                                {blackContrast.ratio}:1
-                            </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-300">
-                            <span>AA:</span>
-                            {blackContrast.aa.normalText ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                            ) : (
-                                <X className="h-3.5 w-3.5 text-red-500" />
-                            )}
-                            <span className="ml-2">AAA:</span>
-                            {blackContrast.aaa.normalText ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                            ) : (
-                                <X className="h-3.5 w-3.5 text-red-500" />
-                            )}
-                        </div>
-                    </div>
+                <div className="flex items-center gap-2 text-xs">
+                    <Badge variant={whiteContrast.aa.normalText ? 'default' : 'destructive'} className="text-[10px]">
+                        {whiteContrast.ratio}:1
+                    </Badge>
+                    <span className="text-muted-foreground">AA:</span>
+                    {whiteContrast.aa.normalText ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                        <X className="h-3.5 w-3.5 text-red-500" />
+                    )}
                 </div>
             </div>
-
-            <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg">
-                <p><strong>AA стандарт:</strong> Текст дор хаяж 4.5:1 ratio шаардлагатай</p>
-                <p><strong>AAA стандарт:</strong> Текст дор хаяж 7:1 ratio шаардлагатай</p>
+            <div className="p-3 rounded-lg border bg-slate-900">
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="w-5 h-5 rounded" style={{ backgroundColor: primaryColor.hex }} />
+                    <span className="text-xs font-medium text-white">Хар дэвсгэр</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                    <Badge variant={blackContrast.aa.normalText ? 'default' : 'destructive'} className="text-[10px]">
+                        {blackContrast.ratio}:1
+                    </Badge>
+                    <span className="text-slate-300">AA:</span>
+                    {blackContrast.aa.normalText ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                        <X className="h-3.5 w-3.5 text-red-500" />
+                    )}
+                </div>
             </div>
         </div>
     );
 }
 
-// Preview component with light/dark mode tabs
 function BrandingPreview({ colors, mapping, isDark }: { colors: BrandColor[]; mapping: ThemeMapping; isDark: boolean }) {
-    const previewStyle = React.useMemo(() => {
-        const primaryColor = colors.find(c => c.id === mapping.primary);
-        const secondaryColor = colors.find(c => c.id === mapping.secondary);
-        const accentColor = colors.find(c => c.id === mapping.accent);
-        const destructiveColor = colors.find(c => c.id === mapping.destructive);
-        const mutedColor = colors.find(c => c.id === mapping.muted);
+    const primaryColor = colors.find(c => c.id === mapping.primary);
+    const secondaryColor = colors.find(c => c.id === mapping.secondary);
+    const accentColor = colors.find(c => c.id === mapping.accent);
+    const destructiveColor = colors.find(c => c.id === mapping.destructive);
+    const mutedColor = colors.find(c => c.id === mapping.muted);
 
-        return {
-            '--primary': primaryColor ? hexToHsl(primaryColor.hex) : undefined,
-            '--secondary': secondaryColor ? hexToHsl(secondaryColor.hex) : undefined,
-            '--accent': accentColor ? hexToHsl(accentColor.hex) : undefined,
-            '--destructive': destructiveColor ? hexToHsl(destructiveColor.hex) : undefined,
-            '--muted': mutedColor ? hexToHsl(mutedColor.hex) : undefined,
-        } as React.CSSProperties;
-    }, [colors, mapping]);
+    const pHex = primaryColor?.hex || '#3b82f6';
+    const sHex = secondaryColor?.hex || '#64748b';
+    const aHex = accentColor?.hex || '#8b5cf6';
+    const dHex = destructiveColor?.hex || '#ef4444';
+    const mHex = mutedColor?.hex || '#f1f5f9';
+
+    const pText = getContrastTextColor(pHex);
+    const sText = getContrastTextColor(sHex);
+    const dText = getContrastTextColor(dHex);
 
     return (
-        <div 
-            className={cn(
-                "rounded-xl border shadow-sm p-6 space-y-6 transition-colors",
-                isDark ? "bg-slate-900 text-white" : "bg-white text-slate-900"
-            )} 
-            style={previewStyle as any}
-        >
-            {/* Header Preview */}
-            <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Navigation</div>
-                <div className="bg-primary text-primary-foreground p-4 rounded-lg flex justify-between items-center shadow-md">
-                    <span className="font-semibold">Logo</span>
-                    <div className="flex gap-4 text-sm font-medium opacity-90">
-                        <span>Нүүр</span>
-                        <span>Ажилчид</span>
-                        <span>Тохиргоо</span>
-                    </div>
+        <div className={cn(
+            "rounded-xl border shadow-sm p-5 space-y-5 transition-colors",
+            isDark ? "bg-slate-900 text-white" : "bg-white text-slate-900"
+        )}>
+            <div className="rounded-lg p-4 flex justify-between items-center" style={{ backgroundColor: pHex, color: pText }}>
+                <span className="font-semibold text-sm">Logo</span>
+                <div className="flex gap-4 text-sm font-medium opacity-90">
+                    <span>Нүүр</span>
+                    <span>Ажилчид</span>
+                    <span>Тохиргоо</span>
                 </div>
             </div>
 
-            {/* Buttons Preview */}
-            <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Товчлуурууд</div>
-                <div className="flex flex-wrap gap-2">
-                    <Button size="sm">Primary</Button>
-                    <Button size="sm" variant="secondary">Secondary</Button>
-                    <Button size="sm" variant="outline">Outline</Button>
-                    <Button size="sm" variant="destructive">Delete</Button>
-                    <Button size="sm" variant="ghost">Ghost</Button>
+            <div className="flex flex-wrap gap-2">
+                <button className="px-4 py-2 rounded-md text-sm font-medium" style={{ backgroundColor: pHex, color: pText }}>
+                    Хадгалах
+                </button>
+                <button className="px-4 py-2 rounded-md text-sm font-medium" style={{ backgroundColor: sHex, color: sText }}>
+                    Хоёрдогч
+                </button>
+                <button className={cn("px-4 py-2 rounded-md text-sm font-medium border", isDark ? "border-slate-600" : "border-slate-300")}>
+                    Outline
+                </button>
+                <button className="px-4 py-2 rounded-md text-sm font-medium" style={{ backgroundColor: dHex, color: dText }}>
+                    Устгах
+                </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+                <div className={cn("p-4 rounded-lg border", isDark ? "bg-slate-800" : "bg-card")}>
+                    <p className="font-semibold text-sm mb-2">Жишээ карт</p>
+                    <div className="flex gap-2">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: pHex, color: pText }}>Primary</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: sHex, color: sText }}>Secondary</span>
+                    </div>
+                </div>
+                <div className="p-4 rounded-lg border" style={{ backgroundColor: aHex + '20', borderColor: aHex + '40' }}>
+                    <p className="font-semibold text-sm mb-2">Accent</p>
+                    <p className="text-xs text-muted-foreground">Тодотгол өнгө</p>
                 </div>
             </div>
 
-            {/* Cards Preview */}
-            <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Карт & Badge</div>
-                <div className="grid grid-cols-2 gap-3">
-                    <div className={cn("p-4 rounded-lg border", isDark ? "bg-slate-800" : "bg-card")}>
-                        <p className="font-semibold text-sm mb-2">Жишээ карт</p>
-                        <div className="flex gap-2">
-                            <Badge>Primary</Badge>
-                            <Badge variant="secondary">Secondary</Badge>
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-accent/20 border border-accent/30">
-                        <p className="font-semibold text-sm mb-2">Accent карт</p>
-                        <p className="text-xs text-muted-foreground">Тодотгол өнгө ашигласан</p>
-                    </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg border" style={{ borderColor: dHex + '60', backgroundColor: dHex + '10' }}>
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: dHex }} />
+                <div>
+                    <p className="text-sm font-medium" style={{ color: dHex }}>Алдаа!</p>
+                    <p className="text-xs text-muted-foreground">Алдааны мессежний жишээ.</p>
                 </div>
             </div>
 
-            {/* Alert Preview */}
-            <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Мэдэгдэл</div>
-                <Alert variant="destructive" className="py-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle className="text-sm">Алдаа!</AlertTitle>
-                    <AlertDescription className="text-xs">
-                        Энэ бол алдааны мессежний жишээ.
-                    </AlertDescription>
-                </Alert>
+            <div className={cn("p-4 rounded-lg border space-y-3", isDark ? "bg-slate-800" : "bg-card")}>
+                <div className="space-y-1">
+                    <label className="text-xs font-medium">Нэр</label>
+                    <div className={cn("h-8 rounded-md border px-3 flex items-center text-sm text-muted-foreground", isDark ? "bg-slate-700 border-slate-600" : "bg-white")}>
+                        Жишээ текст
+                    </div>
+                </div>
+                <button className="w-full py-2 rounded-md text-sm font-medium" style={{ backgroundColor: pHex, color: pText }}>
+                    Илгээх
+                </button>
             </div>
 
-            {/* Form Preview */}
-            <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Форм</div>
-                <div className={cn("p-4 rounded-lg border space-y-3", isDark ? "bg-slate-800" : "bg-card")}>
-                    <div className="space-y-1">
-                        <Label className="text-xs">Нэр</Label>
-                        <Input placeholder="Жишээ текст" className="h-8" />
-                    </div>
-                    <Button size="sm" className="w-full">Илгээх</Button>
-                </div>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: mHex }}>
+                <p className="text-xs text-muted-foreground">Бүдэг дэвсгэр хэсэг (Muted)</p>
             </div>
         </div>
     );
@@ -449,39 +481,31 @@ export default function BrandingPage() {
     const [isSaving, setIsSaving] = React.useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
     const [previewMode, setPreviewMode] = React.useState<'light' | 'dark'>('light');
-    
-    // Edit state
     const [editingColorId, setEditingColorId] = React.useState<string | null>(null);
     const [editName, setEditName] = React.useState('');
     const [editHex, setEditHex] = React.useState('');
 
-    // Using useDoc for real-time sync
-    const brandingRef = React.useMemo(() => firestore ? doc(firestore, 'company', 'branding') : null, [firestore]);
-    const { data: branding, isLoading } = useFetchDoc<CompanyBranding>(brandingRef as any);
+    const brandingRef = useMemoFirebase(
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'branding') : null),
+        []
+    );
+    const { data: branding, isLoading, refetch } = useFetchDoc<CompanyBranding>(brandingRef as any);
 
-    // Track original data for unsaved changes detection
     const originalDataRef = React.useRef<{ colors: BrandColor[]; mapping: ThemeMapping } | null>(null);
     const didInitRef = React.useRef(false);
 
     React.useEffect(() => {
         if (isLoading) return;
 
-        // If the doc doesn't exist yet, we still need a baseline so "Save" can enable on edits.
         const brandColors = branding?.brandColors ?? [];
         const themeMapping = branding?.themeMapping ?? DEFAULT_MAPPING;
 
-        // Sanitize mapping: if an id no longer exists in brandColors, fall back to default.
         const validIds = new Set(brandColors.map((c) => c.id));
-        const nextMapping: ThemeMapping = {
-            ...DEFAULT_MAPPING,
-            ...themeMapping,
-        };
+        const nextMapping: ThemeMapping = { ...DEFAULT_MAPPING, ...themeMapping };
         (Object.keys(nextMapping) as Array<keyof ThemeMapping>).forEach((key) => {
-            const val = nextMapping[key];
-            if (val && !validIds.has(val)) nextMapping[key] = '';
+            if (nextMapping[key] && !validIds.has(nextMapping[key])) nextMapping[key] = '';
         });
 
-        // First non-loading render: initialize baseline (even if branding is undefined).
         if (!didInitRef.current) {
             didInitRef.current = true;
             setColors(brandColors);
@@ -491,7 +515,6 @@ export default function BrandingPage() {
             return;
         }
 
-        // Subsequent updates: keep in sync only when user has no local edits.
         if (!hasUnsavedChanges && !isSaving) {
             setColors(brandColors);
             setMapping(nextMapping);
@@ -500,7 +523,6 @@ export default function BrandingPage() {
         }
     }, [branding, isLoading, hasUnsavedChanges, isSaving]);
 
-    // Track unsaved changes
     React.useEffect(() => {
         if (originalDataRef.current) {
             const hasChanges = JSON.stringify({ colors, mapping }) !== JSON.stringify(originalDataRef.current);
@@ -508,7 +530,6 @@ export default function BrandingPage() {
         }
     }, [colors, mapping]);
 
-    // Warn on tab close/refresh if there are unsaved changes
     React.useEffect(() => {
         if (!hasUnsavedChanges) return;
         const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -557,14 +578,10 @@ export default function BrandingPage() {
             prev.map((c) => (c.id === editingColorId ? { ...c, name: editName.trim(), hex: editHex } : c))
         );
         setEditingColorId(null);
-        setEditName('');
-        setEditHex('');
     };
 
     const handleCancelEdit = () => {
         setEditingColorId(null);
-        setEditName('');
-        setEditHex('');
     };
 
     const handleApplyPreset = (presetId: string) => {
@@ -576,21 +593,26 @@ export default function BrandingPage() {
             name: c.name,
             hex: c.hex,
         }));
-        setColors((prev) => [...prev, ...newColors]);
-        toast({ title: `"${preset.name}" палетт нэмэгдлээ` });
+
+        setColors(newColors);
+
+        const newMapping: ThemeMapping = { ...DEFAULT_MAPPING };
+        THEME_SLOTS.forEach(slot => {
+            if (newColors[slot.defaultIndex]) {
+                newMapping[slot.key] = newColors[slot.defaultIndex].id;
+            }
+        });
+        setMapping(newMapping);
+        toast({ title: `"${preset.name}" палетт ашиглагдлаа` });
     };
 
     const handleReset = () => {
         const brandColors = branding?.brandColors ?? [];
         const themeMapping = branding?.themeMapping ?? DEFAULT_MAPPING;
         const validIds = new Set(brandColors.map((c) => c.id));
-        const nextMapping: ThemeMapping = {
-            ...DEFAULT_MAPPING,
-            ...themeMapping,
-        };
+        const nextMapping: ThemeMapping = { ...DEFAULT_MAPPING, ...themeMapping };
         (Object.keys(nextMapping) as Array<keyof ThemeMapping>).forEach((key) => {
-            const val = nextMapping[key];
-            if (val && !validIds.has(val)) nextMapping[key] = '';
+            if (nextMapping[key] && !validIds.has(nextMapping[key])) nextMapping[key] = '';
         });
         setColors(brandColors);
         setMapping(nextMapping);
@@ -604,15 +626,13 @@ export default function BrandingPage() {
         try {
             await setDoc(
                 tDoc('company', 'branding'),
-                {
-                    brandColors: colors,
-                    themeMapping: mapping,
-                },
+                { brandColors: colors, themeMapping: mapping },
                 { merge: true }
             );
             originalDataRef.current = { colors, mapping };
             setHasUnsavedChanges(false);
             toast({ title: "Амжилттай хадгалагдлаа" });
+            refetch();
         } catch (error: any) {
             toast({ title: "Алдаа гарлаа", description: error.message, variant: "destructive" });
         } finally {
@@ -626,17 +646,20 @@ export default function BrandingPage() {
                 <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-0 md:pt-0 space-y-8 pb-32">
                     <PageHeader
                         title="Брэндинг тохиргоо"
-                        showBackButton={true}
-                        hideBreadcrumbs={true}
-                        backHref="/dashboard/company"
+                        description="Системийн өнгө, төрхийг компанийн брэндийн дагуу тохируулах"
+                        showBackButton
+                        hideBreadcrumbs
+                        backButtonPlacement="inline"
+                        backBehavior="history"
+                        fallbackBackHref="/dashboard/company"
                     />
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div className="lg:col-span-5 space-y-4">
-                            <Skeleton className="h-[400px] rounded-xl" />
+                            <Skeleton className="h-[200px] rounded-xl" />
                             <Skeleton className="h-[300px] rounded-xl" />
                         </div>
                         <div className="lg:col-span-7">
-                            <Skeleton className="h-[700px] rounded-xl" />
+                            <Skeleton className="h-[500px] rounded-xl" />
                         </div>
                     </div>
                 </div>
@@ -649,10 +672,12 @@ export default function BrandingPage() {
             <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-0 md:pt-0 space-y-6 pb-32">
                 <PageHeader
                     title="Брэндинг тохиргоо"
-                    description="Системийн өнгө төрхийг өөрийн брэндийн дагуу өөрчлөх."
-                    showBackButton={true}
-                    hideBreadcrumbs={true}
-                    backHref="/dashboard/company"
+                    description="Системийн өнгө, төрхийг компанийн брэндийн дагуу тохируулах"
+                    showBackButton
+                    hideBreadcrumbs
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard/company"
                     actions={
                         <div className="flex items-center gap-2">
                             {hasUnsavedChanges && (
@@ -660,206 +685,165 @@ export default function BrandingPage() {
                                     Хадгалаагүй өөрчлөлт
                                 </Badge>
                             )}
-                            <Button variant="outline" size="sm" onClick={handleReset} disabled={isLoading || isSaving || !hasUnsavedChanges}>
+                            <Button variant="outline" size="sm" onClick={handleReset} disabled={isSaving || !hasUnsavedChanges}>
                                 <RotateCcw className="mr-2 h-4 w-4" /> Буцаах
                             </Button>
-                            <Button size="sm" onClick={handleSave} disabled={isLoading || isSaving || !hasUnsavedChanges}>
-                                <Save className="mr-2 h-4 w-4" /> Хадгалах
+                            <Button size="sm" onClick={handleSave} disabled={isSaving || !hasUnsavedChanges}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Хадгалах
                             </Button>
                         </div>
                     }
                 />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    {/* Left Column: Color Management */}
-                    <div className="lg:col-span-5 space-y-6">
-                        <Tabs defaultValue="colors" className="w-full">
-                            <VerticalTabMenu
-                                orientation="horizontal"
-                                items={[
-                                    { value: 'colors', label: 'Өнгөнүүд' },
-                                    { value: 'mapping', label: 'Mapping' },
-                                    { value: 'contrast', label: 'Contrast' },
-                                ]}
-                            />
-
-                            <TabsContent value="colors" className="mt-4 space-y-4">
-                                {/* Preset Palettes */}
-                                <Card>
-                                    <CardHeader className="pb-3">
-                                        <CardTitle className="text-base flex items-center gap-2">
-                                            <Sparkles className="h-4 w-4" />
-                                            Бэлэн палеттууд
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {PRESET_PALETTES.map(preset => (
-                                                <button
-                                                    key={preset.id}
-                                                    onClick={() => handleApplyPreset(preset.id)}
-                                                    className="p-3 rounded-lg border hover:border-primary/50 hover:bg-muted/50 transition-all text-left group"
-                                                >
-                                                    <div className="flex gap-1 mb-2">
-                                                        {preset.colors.slice(0, 4).map((c, i) => (
-                                                            <div 
-                                                                key={i}
-                                                                className="h-4 w-4 rounded-full border shadow-sm"
-                                                                style={{ backgroundColor: c.hex }}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                    <p className="text-xs font-medium group-hover:text-primary transition-colors">{preset.name}</p>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Custom Colors */}
-                                <Card>
-                                    <CardHeader className="pb-3">
-                                        <CardTitle className="text-base">Өнгө нэмэх</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="flex gap-2 items-end">
-                                            <div className="flex-1 space-y-1.5">
-                                                <Label className="text-xs">Нэр</Label>
-                                                <Input
-                                                    placeholder="Жишээ: Brand Blue"
-                                                    value={newColorName}
-                                                    onChange={(e) => setNewColorName(e.target.value)}
-                                                    onKeyDown={(e) => e.key === 'Enter' && handleAddColor()}
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-xs">Өнгө</Label>
-                                                <div className="relative h-10 w-12 rounded-md border shadow-sm overflow-hidden cursor-pointer">
-                                                    <div className="absolute inset-0" style={{ backgroundColor: newColorHex }} />
-                                                    <input
-                                                        type="color"
-                                                        value={newColorHex}
-                                                        onChange={(e) => setNewColorHex(e.target.value)}
-                                                        className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer opacity-0"
+                    {/* Left Column */}
+                    <div className="lg:col-span-5 space-y-5">
+                        {/* Step 1: Quick Start with Presets */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Sparkles className="h-4 w-4 text-amber-500" />
+                                    Бэлэн палетт сонгох
+                                </CardTitle>
+                                <CardDescription>Нэг дарахад бүх өнгө автомат тохируулагдана</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                    {PRESET_PALETTES.map(preset => (
+                                        <button
+                                            key={preset.id}
+                                            onClick={() => handleApplyPreset(preset.id)}
+                                            className="p-3 rounded-lg border hover:border-primary hover:shadow-sm transition-all text-left group"
+                                        >
+                                            <div className="flex gap-1 mb-2">
+                                                {preset.colors.slice(0, 5).map((c, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="h-5 flex-1 first:rounded-l-md last:rounded-r-md border"
+                                                        style={{ backgroundColor: c.hex }}
                                                     />
-                                                </div>
+                                                ))}
                                             </div>
-                                            <Button onClick={handleAddColor} size="icon" className="shrink-0">
-                                                <Plus className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                            <p className="text-xs font-medium group-hover:text-primary transition-colors">{preset.name}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
 
-                                {/* Color List */}
-                                <Card>
-                                    <CardHeader className="pb-3">
-                                        <div className="flex items-center justify-between">
-                                            <CardTitle className="text-base">Миний өнгөнүүд</CardTitle>
-                                            <Badge variant="secondary">{colors.length}</Badge>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                                            {colors.length === 0 ? (
-                                                <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
-                                                    <Palette className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                                    <p className="text-sm">Өнгө оруулаагүй байна</p>
-                                                </div>
-                                            ) : (
-                                                colors.map(color => (
-                                                    <ColorItem
-                                                        key={color.id}
-                                                        color={color}
-                                                        isEditing={editingColorId === color.id}
-                                                        onEdit={() => handleStartEdit(color)}
-                                                        onSaveEdit={handleSaveEdit}
-                                                        onCancelEdit={handleCancelEdit}
-                                                        onDelete={() => handleDeleteColor(color.id)}
-                                                        editName={editName}
-                                                        editHex={editHex}
-                                                        onEditNameChange={setEditName}
-                                                        onEditHexChange={setEditHex}
-                                                    />
-                                                ))
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
+                        {/* Step 2: Theme Role Assignment */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Paintbrush className="h-4 w-4 text-primary" />
+                                    Системийн өнгө оноох
+                                </CardTitle>
+                                <CardDescription>Өнгө бүрийн зориулалтыг тодорхойлно</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {colors.length === 0 ? (
+                                    <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg">
+                                        <Info className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm">Дээрх палеттаас сонгох эсвэл доорх хэсэгт өнгө нэмнэ үү</p>
+                                    </div>
+                                ) : (
+                                    THEME_SLOTS.map(slot => (
+                                        <ThemeColorPicker
+                                            key={slot.key}
+                                            label={slot.label}
+                                            description={slot.description}
+                                            colorId={mapping[slot.key]}
+                                            colors={colors}
+                                            onChange={(id) => setMapping(prev => ({ ...prev, [slot.key]: id }))}
+                                        />
+                                    ))
+                                )}
 
-                            <TabsContent value="mapping" className="mt-4">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-base">Системийн өнгө оноох</CardTitle>
-                                        <CardDescription>
-                                            Бүртгэсэн өнгөнүүдээс системийн хэсгүүдэд оноох.
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        {THEME_SLOTS.map(slot => (
-                                            <div key={slot.key} className="space-y-2">
-                                                <Label className="flex items-center gap-2 text-sm">
-                                                    <div 
-                                                        className={cn("w-4 h-4 rounded-full border", slot.previewClass)}
-                                                        style={
-                                                            mapping[slot.key] && colors.find(c => c.id === mapping[slot.key])
-                                                                ? { backgroundColor: colors.find(c => c.id === mapping[slot.key])?.hex }
-                                                                : undefined
-                                                        }
-                                                    />
-                                                    {slot.label}
-                                                </Label>
-                                                <Select
-                                                    value={mapping[slot.key] || '__default__'}
-                                                    onValueChange={(val) => setMapping(prev => ({ ...prev, [slot.key]: val === '__default__' ? '' : val }))}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Өнгө сонгох..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__default__">
-                                                            <span className="text-muted-foreground">Анхдагч</span>
-                                                        </SelectItem>
-                                                        {colors.map(c => (
-                                                            <SelectItem key={c.id} value={c.id}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: c.hex }} />
-                                                                    {c.name}
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <p className="text-xs text-muted-foreground">{slot.description}</p>
-                                            </div>
-                                        ))}
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
+                                {mapping.primary && (
+                                    <div className="pt-2">
+                                        <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                                            <CheckCircle2 className="h-3 w-3" /> WCAG Contrast шалгалт
+                                        </p>
+                                        <ContrastInfo colors={colors} mapping={mapping} />
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
 
-                            <TabsContent value="contrast" className="mt-4">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-base flex items-center gap-2">
-                                            <CheckCircle2 className="h-4 w-4" />
-                                            WCAG Contrast шалгалт
-                                        </CardTitle>
-                                        <CardDescription>
-                                            Өнгөний харагдах байдал, хүртээмжийн шалгалт.
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <ContrastChecker colors={colors} mapping={mapping} />
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-                        </Tabs>
+                        {/* Step 3: Custom Brand Colors */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Palette className="h-4 w-4 text-violet-500" />
+                                        Миний өнгөнүүд
+                                    </CardTitle>
+                                    <Badge variant="secondary">{colors.length}</Badge>
+                                </div>
+                                <CardDescription>Өнгө нэмэх, засах, устгах</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {/* Add color */}
+                                <div className="flex gap-2 items-end">
+                                    <div className="flex-1 space-y-1.5">
+                                        <Label className="text-xs">Нэр</Label>
+                                        <Input
+                                            placeholder="Жишээ: Brand Blue"
+                                            value={newColorName}
+                                            onChange={(e) => setNewColorName(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleAddColor()}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">Өнгө</Label>
+                                        <div className="relative h-10 w-12 rounded-md border shadow-sm overflow-hidden cursor-pointer">
+                                            <div className="absolute inset-0" style={{ backgroundColor: newColorHex }} />
+                                            <input
+                                                type="color"
+                                                value={newColorHex}
+                                                onChange={(e) => setNewColorHex(e.target.value)}
+                                                className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer opacity-0"
+                                            />
+                                        </div>
+                                    </div>
+                                    <Button onClick={handleAddColor} size="icon" className="shrink-0">
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                {/* Color list */}
+                                <div className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+                                    {colors.length === 0 ? (
+                                        <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg">
+                                            <Palette className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                                            <p className="text-sm">Өнгө оруулаагүй байна</p>
+                                        </div>
+                                    ) : (
+                                        colors.map(color => (
+                                            <ColorItem
+                                                key={color.id}
+                                                color={color}
+                                                isEditing={editingColorId === color.id}
+                                                onEdit={() => handleStartEdit(color)}
+                                                onSaveEdit={handleSaveEdit}
+                                                onCancelEdit={handleCancelEdit}
+                                                onDelete={() => handleDeleteColor(color.id)}
+                                                editName={editName}
+                                                editHex={editHex}
+                                                onEditNameChange={setEditName}
+                                                onEditHexChange={setEditHex}
+                                            />
+                                        ))
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
                     {/* Right Column: Preview */}
                     <div className="lg:col-span-7 lg:sticky lg:top-4">
-                        <Card className="border-2 border-dashed overflow-hidden">
+                        <Card className="overflow-hidden">
                             <CardHeader className="pb-3 border-b bg-muted/30">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-base flex items-center gap-2">
@@ -888,14 +872,23 @@ export default function BrandingPage() {
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-4 bg-slate-100">
-                                <BrandingPreview 
-                                    colors={colors} 
-                                    mapping={mapping} 
-                                    isDark={previewMode === 'dark'} 
+                            <CardContent className="p-4 bg-slate-50">
+                                <BrandingPreview
+                                    colors={colors}
+                                    mapping={mapping}
+                                    isDark={previewMode === 'dark'}
                                 />
                             </CardContent>
                         </Card>
+
+                        {hasUnsavedChanges && (
+                            <Alert className="mt-4 border-amber-200 bg-amber-50">
+                                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                <AlertDescription className="text-amber-700 text-sm">
+                                    Хадгалаагүй өөрчлөлт байна. <button onClick={handleSave} className="font-semibold underline">Хадгалах</button>
+                                </AlertDescription>
+                            </Alert>
+                        )}
                     </div>
                 </div>
             </div>

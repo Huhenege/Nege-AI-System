@@ -33,7 +33,7 @@ export default function SurveyPage() {
         ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'survey_templates') : null,
         [firestore]
     );
-    const { data: firestoreTemplates, isLoading: templatesLoading } = useFetchCollection<SurveyTemplate>(templatesQuery);
+    const { data: firestoreTemplates, isLoading: templatesLoading, refetch: refetchTemplates } = useFetchCollection<SurveyTemplate>(templatesQuery);
 
     const allTemplates = useMemo(() => {
         const system = SYSTEM_TEMPLATES.map((t, idx) => ({
@@ -109,11 +109,12 @@ export default function SurveyPage() {
         try {
             await deleteDoc(tDoc('survey_templates', templateId));
             toast({ title: 'Загвар устгагдлаа' });
+            refetchTemplates();
         } catch (error) {
             console.error('Failed to delete template:', error);
             toast({ title: 'Устгахад алдаа гарлаа', variant: 'destructive' });
         }
-    }, [firestore, toast]);
+    }, [firestore, toast, refetchTemplates]);
 
     return (
         <div className="flex flex-col h-full w-full py-6 px-page overflow-hidden">

@@ -63,7 +63,7 @@ export default function MeetingRoomsPage() {
         firestore ? query(collection(firestore, 'meeting_rooms'), orderBy('name', 'asc')) : null,
         [firestore]
     );
-    const { data: rooms, isLoading } = useFetchCollection<MeetingRoom>(roomsQuery);
+    const { data: rooms, isLoading, refetch: refetchRooms } = useFetchCollection<MeetingRoom>(roomsQuery);
 
     const resetForm = () => {
         setName('');
@@ -117,6 +117,7 @@ export default function MeetingRoomsPage() {
             }
             setIsDialogOpen(false);
             resetForm();
+            refetchRooms();
         } catch {
             toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
         }
@@ -128,6 +129,7 @@ export default function MeetingRoomsPage() {
             await deleteDoc(tDoc('meeting_rooms', deleteRoom.id));
             toast({ title: 'Өрөө устгагдлаа' });
             setDeleteRoom(null);
+            refetchRooms();
         } catch {
             toast({ title: 'Устгахад алдаа гарлаа', variant: 'destructive' });
         }
@@ -135,10 +137,15 @@ export default function MeetingRoomsPage() {
 
     const toggleActive = async (room: MeetingRoom) => {
         if (!firestore) return;
-        await updateDoc(tDoc('meeting_rooms', room.id), {
-            isActive: !room.isActive,
-        });
-        toast({ title: room.isActive ? 'Өрөө идэвхгүй болголоо' : 'Өрөө идэвхжүүллээ' });
+        try {
+            await updateDoc(tDoc('meeting_rooms', room.id), {
+                isActive: !room.isActive,
+            });
+            toast({ title: room.isActive ? 'Өрөө идэвхгүй болголоо' : 'Өрөө идэвхжүүллээ' });
+            refetchRooms();
+        } catch {
+            toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
+        }
     };
 
     const toggleAmenity = (a: string) => {

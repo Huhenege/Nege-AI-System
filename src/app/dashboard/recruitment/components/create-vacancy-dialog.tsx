@@ -32,8 +32,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { PlusCircle, Loader2 } from 'lucide-react';
-import { useFirebase, addDocumentNonBlocking, useTenantWrite } from '@/firebase';
-import { getDoc, query, where, getDocs } from 'firebase/firestore';
+import { useFirebase, useTenantWrite } from '@/firebase';
+import { getDoc, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Vacancy, RecruitmentStage, VacancyStatus } from '@/types/recruitment';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -84,6 +84,7 @@ export function CreateVacancyDialog({
     open: controlledOpen,
     onOpenChange,
     hideTrigger = false,
+    onSuccess,
 }: {
     children?: React.ReactNode;
     departments: any[];
@@ -93,6 +94,8 @@ export function CreateVacancyDialog({
     onOpenChange?: (open: boolean) => void;
     /** Hide the built-in trigger button (use external AddActionButton, etc.) */
     hideTrigger?: boolean;
+    /** Called after vacancy is created successfully. */
+    onSuccess?: () => void;
 }) {
     const [internalOpen, setInternalOpen] = useState(false);
     const { firestore } = useFirebase();
@@ -232,7 +235,7 @@ export function CreateVacancyDialog({
                 updatedAt: new Date().toISOString(),
             };
 
-            await addDocumentNonBlocking(tCollection('vacancies'), newVacancy);
+            await addDoc(tCollection('vacancies'), newVacancy);
 
             toast({
                 title: 'Ажлын байр үүсгэгдлээ',
@@ -242,6 +245,7 @@ export function CreateVacancyDialog({
             form.reset();
             setSelectedStageIds(new Set(allStages.map(s => s.id)));
             setSelectedEmploymentTypeId(undefined);
+            onSuccess?.();
         } catch (error) {
             console.error(error);
             toast({
