@@ -49,7 +49,6 @@ import {
   useFirebase,
   useMemoFirebase,
   useDoc,
-  deleteDocumentNonBlocking,
   useCollection,
   tenantCollection,
   tenantDoc,
@@ -59,7 +58,8 @@ import { addDepartmentHistoryEvent } from './department-history-log';
 import {
   collection, doc, query, where, getDocs,
   updateDoc,
-  addDoc
+  addDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { Loader2, Trash2, PlusCircle, Sparkles, Wand2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -120,6 +120,8 @@ interface AddPositionDialogProps {
   preselectedDepartmentId?: string;
   parentPositionId?: string;
   initialMode?: 'quick' | 'full';
+  /** Дуусахад жагсаалт шинэчлэх зэрэгт дуудагдана */
+  onSuccess?: () => void;
 }
 
 export function AddPositionDialog({
@@ -135,6 +137,7 @@ export function AddPositionDialog({
   preselectedDepartmentId,
   parentPositionId,
   initialMode = 'full',
+  onSuccess,
 }: AddPositionDialogProps) {
   const { firestore, user } = useFirebase();
   const { tDoc, tCollection, companyPath } = useTenantWrite();
@@ -404,6 +407,7 @@ export function AddPositionDialog({
       }
 
       toast({ title: isEditMode ? 'Амжилттай шинэчлэгдлээ' : 'Амжилттай нэмэгдлээ' });
+      onSuccess?.();
       onOpenChange(false);
     } catch (error) {
       console.error("Save error:", error);
@@ -415,7 +419,7 @@ export function AddPositionDialog({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!firestore || !editingPosition) return;
 
     if (editingPosition.isApproved) {
@@ -427,32 +431,38 @@ export function AddPositionDialog({
       return;
     }
 
-
     const docRef = tDoc('positions', editingPosition.id);
     const deptId = editingPosition.departmentId;
     const title = editingPosition.title || '';
 
-    deleteDocumentNonBlocking(docRef);
-    if (deptId && performedBy) {
-      addDepartmentHistoryEvent({
-        firestore,
-        companyPath,
-        departmentId: deptId,
-        eventType: 'position_deleted',
-        positionId: editingPosition.id,
-        positionTitle: title,
-        performedBy,
-        performedByName,
-      }).catch(() => {});
+    try {
+      await deleteDoc(docRef);
+      if (deptId && performedBy) {
+        addDepartmentHistoryEvent({
+          firestore,
+          companyPath,
+          departmentId: deptId,
+          eventType: 'position_deleted',
+          positionId: editingPosition.id,
+          positionTitle: title,
+          performedBy,
+          performedByName,
+        }).catch(() => {});
+      }
+      toast({
+        title: 'Амжилттай устгагдлаа',
+        description: `"${title}" ажлын байр устгагдлаа.`,
+      });
+      onSuccess?.();
+      onOpenChange(false);
+    } catch (e) {
+      console.error('Delete position error:', e);
+      toast({
+        variant: 'destructive',
+        title: 'Устгахад алдаа гарлаа',
+        description: e instanceof Error ? e.message : 'Дахин оролдоно уу.',
+      });
     }
-
-    toast({
-      variant: 'destructive',
-      title: 'Амжилттай устгагдлаа',
-      description: `"${title}" ажлын байр устгагдлаа.`,
-    });
-
-    onOpenChange(false);
   }
 
   return (

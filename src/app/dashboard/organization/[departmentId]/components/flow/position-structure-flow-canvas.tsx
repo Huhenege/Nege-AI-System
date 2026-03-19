@@ -202,7 +202,7 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
     }, [positions, employees, lookups, onPositionClick, onAddChild, onDuplicate]);
 
     return (
-        <div className="w-full h-full min-h-[500px] bg-background border-none rounded-xl overflow-hidden relative group">
+        <div className="w-full h-full min-h-[500px] bg-background border-none rounded-xl overflow-visible relative group">
             <ReactFlowProvider>
                 <FlowInner
                     {...props}

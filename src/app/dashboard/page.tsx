@@ -25,6 +25,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import {
     useFetchCollection,
@@ -40,7 +41,7 @@ import { query, where, collectionGroup, writeBatch, getDoc, getDocs, increment }
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { User, Users, Briefcase, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Layout, LayoutTemplate, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag, ExternalLink, Calendar } from 'lucide-react';
+import { User, Users, Briefcase, CalendarCheck2, LogIn, LogOut, MoreHorizontal, Layout, LayoutTemplate, Loader2, MinusCircle, UserCheck, Newspaper, Building, Settings, UserMinus, UserPlus, ArrowLeft, Home, Palmtree, Sparkles, Rocket, Network, ScrollText, Handshake, Flag, ExternalLink, Calendar, MoreVertical } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
     Tooltip,
@@ -49,6 +50,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { AppointEmployeeDialog } from './organization/[departmentId]/components/flow/appoint-employee-dialog';
+import { ReleaseEmployeeDialog } from './organization/[departmentId]/components/flow/release-employee-dialog';
 import { UnassignedEmployeesDialog } from './organization/unassigned-employees-dialog';
 import { AddEmployeeDialog } from './employees/add-employee-dialog';
 import { isWithinInterval, format, startOfToday, endOfToday, isToday, startOfDay, endOfDay, parseISO } from 'date-fns';
@@ -104,6 +106,9 @@ interface JobPositionNodeData {
     employees: Employee[];
     workScheduleName?: string;
     attendanceStatus?: AttendanceStatus;
+    onOpenDetails?: () => void;
+    onAppoint?: () => void;
+    onRelease?: () => void;
 }
 
 interface EmployeeNodeData {
@@ -181,30 +186,109 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
     )
 }
 
+const RADIUS = 44;
 const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const menuRef = React.useRef<HTMLDivElement>(null);
+    const leaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const employee = data.employees[0]
         ? ({ ...(data.employees[0] as any), attendanceStatus: data.attendanceStatus } as any)
         : undefined;
+    const hasEmployee = (data.filled ?? 0) >= 1;
+    const openMenu = () => {
+        if (leaveTimerRef.current) {
+            clearTimeout(leaveTimerRef.current);
+            leaveTimerRef.current = null;
+        }
+        setMenuOpen(true);
+    };
+    const closeMenu = () => {
+        leaveTimerRef.current = setTimeout(() => setMenuOpen(false), 250);
+    };
+    React.useEffect(() => () => { if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current); }, []);
+
+    const actionsList = hasEmployee
+        ? [
+            { key: 'release' as const, angle: 90, Icon: UserMinus, label: 'Чөлөөлөх', run: data.onRelease },
+            { key: 'details' as const, angle: 150, Icon: ExternalLink, label: 'Дэлгэрэнгүй', run: data.onOpenDetails },
+        ]
+        : [
+            { key: 'appoint' as const, angle: 90, Icon: UserPlus, label: 'Ажилтан томилох', run: data.onAppoint },
+            { key: 'details' as const, angle: 150, Icon: ExternalLink, label: 'Дэлгэрэнгүй', run: data.onOpenDetails },
+        ];
+
     return (
-        <div className="relative group">
+        <div className="relative group overflow-visible">
             <Handle type="target" position={Position.Top} className="!bg-primary opacity-0" />
-            <PositionStructureCard
-                positionId={data.id}
-                positionTitle={data.title}
-                departmentName={data.department}
-                departmentColor={data.departmentColor}
-                employee={employee as any}
-                actions={
-                    <Link href={`/dashboard/organization/positions/${data.id}`} className="block">
-                        <div className={cn(
-                            "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
-                            "bg-white/20 hover:bg-white/30 text-white"
-                        )}>
-                            <ExternalLink className="h-4 w-4" />
-                        </div>
-                    </Link>
-                }
-            />
+            <div className="relative overflow-visible">
+                <PositionStructureCard
+                    positionId={data.id}
+                    positionTitle={data.title}
+                    departmentName={data.department}
+                    departmentColor={data.departmentColor}
+                    employee={employee as any}
+                    actions={<div className="w-8 h-8" aria-hidden />}
+                />
+                <TooltipProvider delayDuration={150}>
+                    <div
+                        ref={menuRef}
+                        className={cn(
+                            'absolute right-3 z-[100] overflow-visible transition-all duration-200',
+                            menuOpen ? 'top-0 w-[88px] h-[56px] -mt-11' : 'top-3 w-8 h-8'
+                        )}
+                        onMouseEnter={openMenu}
+                        onMouseLeave={closeMenu}
+                    >
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        'h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-transform',
+                                        menuOpen ? 'absolute right-0 bottom-0 rotate-90' : 'absolute right-0 top-0'
+                                    )}
+                                >
+                                    <MoreVertical className="h-4 w-4" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent><div className="text-xs font-semibold">Үйлдлүүд</div></TooltipContent>
+                        </Tooltip>
+                        {actionsList.map(({ key, angle, Icon, label, run }, i) => {
+                            if (!run) return null;
+                            const rad = (angle * Math.PI) / 180;
+                            const x = Math.cos(rad) * RADIUS;
+                            const y = -Math.sin(rad) * RADIUS;
+                            return (
+                                <Tooltip key={key}>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                'absolute h-9 w-9 rounded-full bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-lg border border-slate-200 transition-all duration-200',
+                                                menuOpen ? 'right-0 bottom-0' : 'right-0 top-0',
+                                                !menuOpen && 'pointer-events-none invisible scale-0'
+                                            )}
+                                            style={{
+                                                transform: menuOpen ? `translate(${x}px, ${y}px)` : 'translate(0, 0) scale(0)',
+                                                transitionDelay: menuOpen ? `${i * 50}ms` : '0ms',
+                                            }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                run();
+                                                setMenuOpen(false);
+                                            }}
+                                        >
+                                            <Icon className="h-4 w-4" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="z-[110]"><div className="text-xs font-semibold">{label}</div></TooltipContent>
+                                </Tooltip>
+                            );
+                        })}
+                    </div>
+                </TooltipProvider>
+            </div>
             <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
         </div>
     );
@@ -366,6 +450,7 @@ function useLayout(positions: JobPosition[] | null) {
 
 // --- Main Component ---
 const OrganizationChart = () => {
+    const router = useRouter();
     const [nodes, setNodes] = useState<CustomNode[]>([]);
     const [edges, setEdges] = useState<Edge[]>([]);
     const [isAppointDialogOpen, setIsAppointDialogOpen] = useState(false);
@@ -373,6 +458,9 @@ const OrganizationChart = () => {
     const [isUnassignedDialogOpen, setIsUnassignedDialogOpen] = React.useState(false);
     const [selectedEmployeeForAppointment, setSelectedEmployeeForAppointment] = React.useState<Employee | null>(null);
     const [isAddEmployeeDialogOpen, setIsAddEmployeeDialogOpen] = React.useState(false);
+    const [isReleaseDialogOpen, setIsReleaseDialogOpen] = React.useState(false);
+    const [positionForRelease, setPositionForRelease] = React.useState<JobPosition | null>(null);
+    const [employeeForRelease, setEmployeeForRelease] = React.useState<Employee | null>(null);
 
     const { toast } = useToast();
     const { company, isModuleEnabled } = useTenant();
@@ -845,8 +933,7 @@ const OrganizationChart = () => {
             const assignedEmployees = posToEmployeeMap.get(pos.id) || [];
             const department = deptMap.get(pos.departmentId);
             const employee = assignedEmployees[0];
-
-
+            const filled = assignedEmployees.length;
 
             const node: Node<JobPositionNodeData> = {
                 id: pos.id,
@@ -858,10 +945,21 @@ const OrganizationChart = () => {
                     title: pos.title,
                     department: department?.name || 'Unknown',
                     departmentColor: department?.color || '', // Color inherited from department
-                    filled: posToEmployeeMap.get(pos.id)?.length || 0,
+                    filled,
                     employees: assignedEmployees,
                     workScheduleName: pos.workScheduleId ? workScheduleMap.get(pos.workScheduleId) : undefined,
                     attendanceStatus: employee ? employeeAttendanceStatus.get(employee.id) : undefined,
+                    onOpenDetails: () => router.push(`/dashboard/organization/positions/${pos.id}`),
+                    onAppoint: filled < 1 ? () => {
+                        setSelectedPosition(pos as JobPosition);
+                        setSelectedEmployeeForAppointment(null);
+                        setIsAppointDialogOpen(true);
+                    } : undefined,
+                    onRelease: filled >= 1 && assignedEmployees[0] ? () => {
+                        setPositionForRelease(pos as JobPosition);
+                        setEmployeeForRelease(assignedEmployees[0]);
+                        setIsReleaseDialogOpen(true);
+                    } : undefined,
                 },
             };
             newNodes.push(node);
@@ -913,7 +1011,7 @@ const OrganizationChart = () => {
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees]);
+    }, [isLoading, departments, positions, employees, workSchedules, nodePositions, attendanceData, timeOffData, onLeaveEmployees, router]);
 
     const onNodesChange: OnNodesChange = useCallback(
         (changes) => {
@@ -1122,6 +1220,18 @@ const OrganizationChart = () => {
                 }}
                 position={selectedPosition}
                 initialEmployee={selectedEmployeeForAppointment}
+            />
+            <ReleaseEmployeeDialog
+                open={isReleaseDialogOpen}
+                onOpenChange={(open) => {
+                    setIsReleaseDialogOpen(open);
+                    if (!open) {
+                        setPositionForRelease(null);
+                        setEmployeeForRelease(null);
+                    }
+                }}
+                position={positionForRelease}
+                employee={employeeForRelease}
             />
         </div >
     );

@@ -1,9 +1,9 @@
 'use client';
 
 import { getJsonAuthHeaders } from '@/lib/api/client-auth';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { collection, doc, query, where, writeBatch, arrayUnion, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, doc, query, where, writeBatch, arrayUnion, orderBy, limit, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
 import { generateNextPositionCode } from '@/lib/code-generator';
 import {
     useFirebase,
@@ -11,8 +11,6 @@ import {
     useDoc,
     useCollection,
     useFetchCollection,
-    addDocumentNonBlocking,
-    deleteDocumentNonBlocking,
     updateDocumentNonBlocking,
     tenantCollection,
     tenantDoc,
@@ -22,7 +20,7 @@ import { addDepartmentHistoryEvent } from '@/app/dashboard/organization/departme
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Users, Network, LayoutDashboard, History as HistoryIcon, Plus, Edit3, Save, X, Trash2, AlertTriangle, Loader2, PlusCircle, LayoutList, CheckCircle, Upload, FileText, ChevronRight, Copy, Sparkles } from 'lucide-react';
+import { ArrowLeft, Users, Network, LayoutDashboard, History as HistoryIcon, Plus, Edit3, Save, X, Trash2, AlertTriangle, Loader2, PlusCircle, LayoutList, CheckCircle, Upload, FileText, ChevronRight, Copy, Sparkles, MoreVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -80,13 +78,31 @@ export default function DepartmentPage() {
     // AI Generation State
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
+    // Урд багны нэгжийн карт — тойрог задрах цэс (хулганаар нээгдэнэ)
+    const [deptCardMenuOpen, setDeptCardMenuOpen] = useState(false);
+    const deptCardMenuRef = useRef<HTMLDivElement>(null);
+    const deptCardLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const openDeptCardMenu = () => {
+        if (deptCardLeaveTimerRef.current) {
+            clearTimeout(deptCardLeaveTimerRef.current);
+            deptCardLeaveTimerRef.current = null;
+        }
+        setDeptCardMenuOpen(true);
+    };
+    const closeDeptCardMenu = () => {
+        deptCardLeaveTimerRef.current = setTimeout(() => setDeptCardMenuOpen(false), 250);
+    };
+    useEffect(() => {
+        return () => { if (deptCardLeaveTimerRef.current) clearTimeout(deptCardLeaveTimerRef.current); };
+    }, []);
+
     // -- Queries --
     const deptDocRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && departmentId ? tenantDoc(firestore, companyPath, 'departments', departmentId) : null), [firestore, departmentId]);
     const { data: department, isLoading: isDeptLoading } = useDoc<Department>(deptDocRef as any);
 
     const positionsColRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), [firestore]);
     const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore && departmentId ? query(tenantCollection(firestore, companyPath, 'positions'), where('departmentId', '==', departmentId)) : null), [firestore, departmentId]);
-    const { data: positions } = useFetchCollection<Position>(positionsQuery as any);
+    const { data: positions, refetch: refetchPositions } = useFetchCollection<Position>(positionsQuery as any);
 
     // Lookups for Edit Form
     const typesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
@@ -235,7 +251,7 @@ export default function DepartmentPage() {
         if (!firestore || !department) return;
         setIsDeptDeleting(true);
         try {
-            await deleteDocumentNonBlocking(tDoc('departments', department.id));
+            await deleteDoc(tDoc('departments', department.id));
             toast({ title: "Нэгж амжилттай устгагдлаа" });
             router.push('/dashboard/organization');
         } catch (error) {
@@ -331,7 +347,7 @@ export default function DepartmentPage() {
     );
 
     const handleDuplicate = async (pos: any) => {
-        if (!firestore || !posCodeConfigRef) return;
+        if (!firestore || !posCodeConfigRef || !department?.id) return;
         const {
             id,
             filled,
@@ -355,6 +371,7 @@ export default function DepartmentPage() {
             const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);
             const newPositionData = {
                 ...cleanData,
+                departmentId: department.id,
                 code: newCode,
                 title: `${pos.title || 'Шинэ ажлын байр'} (Хуулбар)`,
                 filled: 0,
@@ -362,9 +379,10 @@ export default function DepartmentPage() {
                 isApproved: false,
                 createdAt: new Date().toISOString(),
             };
-            const ref = await addDocumentNonBlocking(tCollection('positions'), newPositionData);
+            const colRef = tCollection('positions');
+            const ref = await addDoc(colRef, newPositionData);
             const deptId = newPositionData.departmentId || department?.id;
-            if (ref && deptId && performedBy) {
+            if (deptId && performedBy) {
                 addDepartmentHistoryEvent({
                     firestore,
                     companyPath,
@@ -376,10 +394,11 @@ export default function DepartmentPage() {
                     performedByName,
                 }).catch(() => {});
             }
-            toast({ title: "Амжилттай хувиллаа" });
+            toast({ title: "Амжилттай хувиллаа", description: "Шинэ ажлын байр жагсаалтад нэмэгдлээ." });
+            refetchPositions();
         } catch (e) {
             console.error('Хуулбарлах алдаа:', e);
-            toast({ variant: 'destructive', title: 'Код үүсгэхэд алдаа гарлаа' });
+            toast({ variant: 'destructive', title: 'Хувилах амжилтгүй', description: e instanceof Error ? e.message : 'Дахин оролдоно уу.' });
         }
     };
 
@@ -591,9 +610,9 @@ export default function DepartmentPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                             {/* Left column: Department card */}
                             <div className="lg:col-span-3 space-y-4">
-                                <div className="flex justify-center lg:justify-start">
+                                <div className="flex justify-center lg:justify-start overflow-visible">
                                     <DepartmentStructureCard
-                                        className="w-full"
+                                        className="w-full overflow-visible"
                                         department={{
                                             id: department.id,
                                             name: department.name,
@@ -616,48 +635,70 @@ export default function DepartmentPage() {
                                             }
                                         }}
                                         topActions={
-                                            <>
-                                                <TooltipProvider delayDuration={150}>
+                                            <TooltipProvider delayDuration={150}>
+                                                <div
+                                                    ref={deptCardMenuRef}
+                                                    className={cn(
+                                                        'relative z-[50] overflow-visible transition-all duration-200',
+                                                        deptCardMenuOpen ? 'w-[88px] h-[56px] -mt-7' : 'w-7 h-7'
+                                                    )}
+                                                    onMouseEnter={openDeptCardMenu}
+                                                    onMouseLeave={closeDeptCardMenu}
+                                                >
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 className={cn(
-                                                                    "h-7 w-7 rounded-lg",
-                                                                    department.color ? "hover:bg-white/20 text-current" : "hover:bg-muted text-muted-foreground"
+                                                                    'h-7 w-7 rounded-full shrink-0',
+                                                                    department.color ? 'hover:bg-white/20 text-current' : 'hover:bg-muted text-muted-foreground',
+                                                                    deptCardMenuOpen && 'absolute right-0 bottom-0 rotate-90'
                                                                 )}
-                                                                onClick={handleAddPosition}
-                                                                aria-label="Ажлын байр нэмэх"
+                                                                style={!deptCardMenuOpen ? { position: 'relative' } : undefined}
+                                                                aria-label="Үйлдлүүд"
                                                             >
-                                                                <PlusCircle className="h-3.5 w-3.5" />
+                                                                <MoreVertical className="h-4 w-4" />
                                                             </Button>
                                                         </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <div className="text-xs font-semibold">Ажлын байр нэмэх</div>
-                                                        </TooltipContent>
+                                                        <TooltipContent><div className="text-xs font-semibold">Үйлдлүүд</div></TooltipContent>
                                                     </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className={cn(
-                                                                    "h-7 w-7 rounded-lg",
-                                                                    department.color ? "hover:bg-white/20 text-current" : "hover:bg-muted text-muted-foreground"
-                                                                )}
-                                                                onClick={handleInfoEdit}
-                                                                aria-label="Засах"
-                                                            >
-                                                                <Edit3 className="h-4 w-4" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <div className="text-xs font-semibold">Засах</div>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </>
+                                                    {[
+                                                        { angle: 90, Icon: PlusCircle, label: 'Ажлын байр нэмэх', onClick: handleAddPosition },
+                                                        { angle: 150, Icon: Edit3, label: 'Засах', onClick: handleInfoEdit },
+                                                    ].map(({ angle, Icon, label, onClick }, i) => {
+                                                        const rad = (angle * Math.PI) / 180;
+                                                        const x = Math.cos(rad) * 44;
+                                                        const y = -Math.sin(rad) * 44;
+                                                        return (
+                                                            <Tooltip key={label}>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className={cn(
+                                                                            'absolute h-9 w-9 rounded-full bg-white hover:bg-slate-50 text-slate-700 shadow-lg border border-slate-200 transition-all duration-200',
+                                                                            !deptCardMenuOpen && 'pointer-events-none invisible scale-0'
+                                                                        )}
+                                                                        style={{
+                                                                            right: 0,
+                                                                            bottom: deptCardMenuOpen ? 0 : undefined,
+                                                                            top: deptCardMenuOpen ? undefined : 0,
+                                                                            transform: deptCardMenuOpen ? `translate(${x}px, ${y}px)` : 'translate(0,0) scale(0)',
+                                                                            transitionDelay: deptCardMenuOpen ? `${i * 50}ms` : '0ms',
+                                                                        }}
+                                                                        onClick={(e) => { e.stopPropagation(); onClick(); setDeptCardMenuOpen(false); }}
+                                                                        aria-label={label}
+                                                                    >
+                                                                        <Icon className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="left"><div className="text-xs font-semibold">{label}</div></TooltipContent>
+                                                            </Tooltip>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </TooltipProvider>
                                         }
                                         details={
                                             <div className="space-y-3">
@@ -766,6 +807,7 @@ export default function DepartmentPage() {
                     employmentTypes={empTypes || []}
                     workSchedules={schedules || []}
                     parentPositionId={pendingParentPositionId}
+                    onSuccess={refetchPositions}
                 />
 
                 <AlertDialog open={isDeptDeleteConfirmOpen} onOpenChange={setIsDeptDeleteConfirmOpen}>

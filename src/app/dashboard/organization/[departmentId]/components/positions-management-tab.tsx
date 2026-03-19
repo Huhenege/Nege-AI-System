@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, LayoutList, Network, CheckCircle, CheckCircle2, XCircle, History as HistoryIcon, Loader2, Sparkles, Calendar as CalendarIcon, Info, Briefcase, Trash2, AlertTriangle, Save } from 'lucide-react';
-import { useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useCollection, useMemoFirebase, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
-import { collection, doc, query, where, getDocs, orderBy, limit, writeBatch, getDoc, arrayUnion } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { collection, doc, query, where, getDocs, orderBy, limit, writeBatch, getDoc, arrayUnion, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { addDepartmentHistoryEvent } from '../../department-history-log';
 import {
     Dialog,
@@ -206,10 +206,10 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
         }
 
         try {
-            await deleteDocumentNonBlocking(tDoc('positions', pos.id));
-            toast({ title: "Амжилттай устгалаа" });
+            await deleteDoc(tDoc('positions', pos.id));
+            toast({ title: "Амжилттай устгалаа", description: "Жагсаалт шинэчлэгдлээ." });
         } catch (error) {
-            toast({ title: "Алдаа гарлаа", variant: "destructive" });
+            toast({ title: "Алдаа гарлаа", variant: "destructive", description: error instanceof Error ? error.message : undefined });
         }
     };
 
@@ -219,7 +219,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
     );
 
     const handleDuplicatePosition = async (pos: any) => {
-        if (!firestore || !posCodeConfigRef) return;
+        if (!firestore || !posCodeConfigRef || !department?.id) return;
 
         // Strip UI-specific fields; do not copy code — generate new unique one
         const {
@@ -245,6 +245,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
             const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);
             const newPositionData = {
                 ...cleanData,
+                departmentId: department.id,
                 code: newCode,
                 title: `${pos.title || 'Шинэ ажлын байр'} (Хуулбар)`,
                 filled: 0,
@@ -252,8 +253,9 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                 isApproved: false,
                 createdAt: new Date().toISOString(),
             };
-            const ref = await addDocumentNonBlocking(tCollection('positions'), newPositionData);
-            if (ref && department?.id && user) {
+            const colRef = tCollection('positions');
+            const ref = await addDoc(colRef, newPositionData);
+            if (department?.id && user) {
                 addDepartmentHistoryEvent({
                     firestore,
                     companyPath,
@@ -265,10 +267,10 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                     performedByName: user.displayName || user.email || 'Систем',
                 }).catch(() => {});
             }
-            toast({ title: "Амжилттай хувиллаа" });
+            toast({ title: "Амжилттай хувиллаа", description: "Шинэ ажлын байр жагсаалтад нэмэгдлээ." });
         } catch (e) {
             console.error('Хуулбарлах алдаа:', e);
-            toast({ variant: 'destructive', title: 'Код үүсгэхэд алдаа гарлаа' });
+            toast({ variant: 'destructive', title: 'Хувилах амжилтгүй', description: e instanceof Error ? e.message : 'Дахин оролдоно уу.' });
         }
     };
 
@@ -565,7 +567,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                 note: disbandReason || 'Албан тушаалыг татан буулгав'
             };
 
-            await updateDocumentNonBlocking(tDoc('positions', disbandPosition.id), {
+            await updateDoc(tDoc('positions', disbandPosition.id), {
                 isActive: false,
                 isApproved: false,
                 disbandedAt: timestamp,
@@ -574,7 +576,7 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
                 approvalHistory: arrayUnion(logEntry)
             });
 
-            toast({ title: "Албан тушаал амжилттай татан буугдлаа" });
+            toast({ title: "Албан тушаал амжилттай татан буугдлаа", description: "Жагсаалт шинэчлэгдлээ." });
             setIsPosDisbandConfirmOpen(false);
             setDisbandPosition(null);
             setDisbandReason('');
