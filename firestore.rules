@@ -15,7 +15,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isSignedIn() && request.auth.token.role in ['admin', 'super_admin'];
+      return isSignedIn() && request.auth.token.role in ['company_super_admin', 'admin', 'super_admin'];
     }
 
     // Default deny all
@@ -37,7 +37,7 @@ service cloud.firestore {
     }
 
     function isCompanyAdmin(companyId) {
-      return belongsToCompany(companyId) && request.auth.token.role in ['admin', 'super_admin'];
+      return belongsToCompany(companyId) && request.auth.token.role in ['company_super_admin', 'admin', 'super_admin'];
     }
 
     match /companies/{companyId} {
@@ -149,125 +149,14 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
-    // Анхны админ бүртгэх: signup нээлттэй үед employees тоолох боломжтой
-    // Документ: system/signup_config { open: true|false }
     match /system/signup_config {
       allow read: if true;
       allow create: if !exists(/databases/$(database)/documents/system/signup_config);
       allow update, delete: if isAdmin();
     }
 
-    // employees: нэвтэрсэн эсвэл signup нээлттэй үед унших (анхны админ шалгах).
-    // Консолд "Error loading documents" гарах нь хэвийн: консол request.auth илгээдэггүй тул isSignedIn()=false.
-    // Дэлгэрэнгүй: docs/FIRESTORE_ROLES.md хэсэг 5.
-    match /employees/{employeeId} {
-      allow read: if isSignedIn() ||
-        (exists(/databases/$(database)/documents/system/signup_config) &&
-         get(/databases/$(database)/documents/system/signup_config).data.get('open', false) == true);
-      allow create: if isSignedIn();
-      // Owners can update their profile, but cannot change privileged fields.
-      allow update: if isAdmin() || (
-        isOwner(employeeId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'questionnaireLocked'])
-      );
-    }
-    
-    // Questionnaire subcollection: employees can write only when not locked.
-    match /employees/{employeeId}/questionnaire/{docId} {
-      allow read: if isOwner(employeeId) || isAdmin();
-      allow create, update, delete: if isAdmin() || (isOwner(employeeId) &&
-        !get(/databases/$(database)/documents/employees/$(employeeId)).data.get('questionnaireLocked', false)
-      );
-    }
-
-    // Subcollections of employees
-    match /employees/{employeeId}/{subcollection}/{docId} {
-       allow read: if isOwner(employeeId) || isAdmin();
-       // Avoid over-broad writes for sensitive subcollections that have their own rules.
-       allow write: if (isOwner(employeeId) || isAdmin()) &&
-         !(subcollection in ['questionnaire', 'vacationRequests']);
-    }
-
-    // Onboarding / Offboarding процессууд
-    match /onboarding_processes/{processId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    match /{path=**}/offboarding_processes/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /employees/{employeeId}/point_profile/{docId} {
-       allow read, write: if isSignedIn();
-    }
-
-    // Allow mentors/buddies to update assigned programs (e.g. mark tasks as done)
-    match /employees/{employeeId}/assignedPrograms/{programId} {
-      allow read: if isSignedIn();
-      allow create, delete: if isAdmin();
-      allow update: if isSignedIn();
-    }
-
-    // Points & Social collections → now tenant-scoped under companies/{companyId}/
-    // Handled by catch-all rules in match /companies/{companyId}/{subcollection}/{...}
-
-
-
-    // Vacation requests rules
-    match /employees/{employeeId}/vacationRequests/{requestId} {
-      allow read: if isSignedIn();
-      // Employee creates their own request (pending).
-      allow create: if isOwner(employeeId) &&
-        request.resource.data.employeeId == employeeId &&
-        request.resource.data.status == 'PENDING';
-
-      // Update rules:
-      // - Admin: any
-      // - Owner: cancel only (PENDING -> CANCELLED)
-      // - Approver: approve/reject/return-to-pending with limited fields
-      allow update: if isAdmin() ||
-        (
-          isOwner(employeeId) &&
-          resource.data.status == 'PENDING' &&
-          request.resource.data.status == 'CANCELLED' &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'updatedAt'])
-        ) ||
-        (
-          isSignedIn() &&
-          request.auth.uid == resource.data.approverId &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'approvedAt', 'rejectionReason', 'updatedAt']) &&
-          (
-            // Approve
-            (request.resource.data.status == 'APPROVED' &&
-              request.resource.data.decisionAt is string &&
-              request.resource.data.approvedAt is string &&
-              (
-                !request.resource.data.keys().hasAny(['rejectionReason']) ||
-                request.resource.data.rejectionReason == null
-              )
-            )
-            ||
-            // Reject (reason required)
-            (request.resource.data.status == 'REJECTED' &&
-              request.resource.data.decisionAt is string &&
-              request.resource.data.approvedAt is string &&
-              request.resource.data.rejectionReason is string &&
-              request.resource.data.rejectionReason.size() > 0
-            )
-            ||
-            // Return to pending (clear decision fields)
-            (request.resource.data.status == 'PENDING' &&
-              (request.resource.data.decisionAt == null) &&
-              (request.resource.data.approvedAt == null) &&
-              (request.resource.data.rejectionReason == null)
-            )
-          )
-        );
-
-      // Delete: admin only (use cancel instead of delete)
-      allow delete: if isAdmin();
-    }
+    // All employee data is now tenant-scoped under companies/{companyId}/employees/
+    // Top-level employees collection is deprecated — no reads or writes allowed.
     
     // company, companyPolicies, departments, positions, onboardingPrograms,
     // newHires, organization_actions, settings, companyHistory, company_profile,

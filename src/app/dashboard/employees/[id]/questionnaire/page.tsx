@@ -48,8 +48,8 @@ import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useCollection, useDoc, useFirebase, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking, tenantCollection, tenantDoc } from '@/firebase';
-import { collection, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, addDocumentNonBlocking, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { setDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -113,6 +113,15 @@ const calculateCompletionPercentage = (data: Partial<FullQuestionnaireValues>): 
     return totalFields > 0 ? (filledFields / totalFields) * 100 : 0;
 };
 
+function toDateSafe(val: any): Date | null {
+    if (!val) return null;
+    if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val;
+    if (typeof val === 'object' && 'seconds' in val && typeof val.toDate === 'function') return val.toDate();
+    if (typeof val === 'object' && 'seconds' in val) return new Date(val.seconds * 1000);
+    if (typeof val === 'string') { const d = new Date(val); return Number.isNaN(d.getTime()) ? null : d; }
+    return null;
+}
+
 const transformDates = (data: any) => {
     if (!data) return data;
     const transformedData = { ...data };
@@ -120,8 +129,8 @@ const transformDates = (data: any) => {
     const arrayDateFields = ['entryDate', 'gradDate', 'startDate', 'endDate'];
 
     for (const field of dateFields) {
-        if (transformedData[field] && typeof transformedData[field] === 'object' && 'seconds' in transformedData[field]) {
-            transformedData[field] = transformedData[field].toDate();
+        if (transformedData[field]) {
+            transformedData[field] = toDateSafe(transformedData[field]);
         }
     }
 
@@ -130,8 +139,8 @@ const transformDates = (data: any) => {
             transformedData[arrayKey] = transformedData[arrayKey].map((item: any) => {
                 const newItem = { ...item };
                 for (const field of arrayDateFields) {
-                    if (newItem[field] && typeof newItem[field] === 'object' && 'seconds' in newItem[field]) {
-                        newItem[field] = newItem[field].toDate();
+                    if (newItem[field]) {
+                        newItem[field] = toDateSafe(newItem[field]);
                     }
                 }
                 return newItem;
@@ -139,18 +148,81 @@ const transformDates = (data: any) => {
         }
     });
 
-    // Family members: handle Firestore Timestamp -> Date
     if (Array.isArray(transformedData.familyMembers)) {
         transformedData.familyMembers = transformedData.familyMembers.map((m: any) => {
             const mm = { ...m };
-            if (mm.birthDate && typeof mm.birthDate === 'object' && 'seconds' in mm.birthDate) {
-                mm.birthDate = mm.birthDate.toDate();
-            }
+            if (mm.birthDate) { mm.birthDate = toDateSafe(mm.birthDate); }
             return mm;
         });
     }
 
     return transformedData;
+}
+
+const STRIP = Symbol('strip');
+function sanitizeFirestoreValue(value: any): any {
+    if (value === undefined) return STRIP;
+    if (value === null) return null;
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? STRIP : value;
+    }
+    if (typeof value === 'function') return STRIP;
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => sanitizeFirestoreValue(item))
+            .filter((item) => item !== STRIP);
+    }
+    if (value && typeof value === 'object') {
+        if (typeof value.toDate === 'function') return value;
+        const entries = Object.entries(value)
+            .map(([key, nestedValue]) => [key, sanitizeFirestoreValue(nestedValue)] as const)
+            .filter(([, nestedValue]) => nestedValue !== STRIP);
+        return Object.fromEntries(entries);
+    }
+    return value;
+}
+
+function fuzzyMatchReferenceItem(input: string, items: { id: string; name: string }[]): string | null {
+    if (!input || !items || items.length === 0) return null;
+    const trimmed = input.trim();
+    const lower = trimmed.toLowerCase();
+    const names = items.map(i => i.name);
+
+    const exact = names.find(n => n.toLowerCase() === lower);
+    if (exact) return exact;
+
+    const words = trimmed.split(/\s+/).filter(w => w.length > 0);
+    if (words.length >= 2) {
+        const abbrev = words.map(w => w[0]).join('').toUpperCase();
+        const m = names.find(n => n.toUpperCase() === abbrev);
+        if (m) return m;
+    }
+
+    if (trimmed.length >= 2 && trimmed.length <= 8 && !/\s/.test(trimmed)) {
+        const upper = trimmed.toUpperCase();
+        const rev = names.find(n => {
+            const nw = n.split(/\s+/).filter(w => w.length > 0);
+            return nw.length >= 2 && nw.map(w => w[0]).join('').toUpperCase() === upper;
+        });
+        if (rev) return rev;
+    }
+
+    const contains = names.find(n =>
+        n.toLowerCase().includes(lower) || lower.includes(n.toLowerCase())
+    );
+    if (contains) return contains;
+
+    const wordSet = new Set(lower.split(/\s+/).filter(w => w.length > 1));
+    let best: string | null = null;
+    let bestScore = 0;
+    for (const name of names) {
+        const nSet = new Set(name.toLowerCase().split(/\s+/).filter(w => w.length > 1));
+        const inter = [...wordSet].filter(w => nSet.has(w)).length;
+        const union = new Set([...wordSet, ...nSet]).size;
+        const score = union > 0 ? inter / union : 0;
+        if (score > bestScore && score >= 0.25) { bestScore = score; best = name; }
+    }
+    return best;
 }
 
 // Tab configuration
@@ -266,9 +338,7 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, de
     const onSubmit = async (data: z.infer<T>) => {
         if (!docRef || !employeeDocRef) return;
         const merged = { ...defaultValues, ...data };
-        const currentData = Object.fromEntries(
-            Object.entries(merged).filter(([, v]) => v !== undefined)
-        ) as Record<string, unknown>;
+        const currentData = sanitizeFirestoreValue(merged);
 
         if (beforeSubmit) {
             const err = await beforeSubmit(currentData as z.infer<T>);
@@ -306,10 +376,19 @@ function FormSection<T extends z.ZodType<any, any>>({ docRef, employeeDocRef, de
             }
         }
 
-        setDocumentNonBlocking(docRef, currentData, { merge: true });
-        const newCompletion = calculateCompletionPercentage(currentData);
-        updateDocumentNonBlocking(employeeDocRef, { questionnaireCompletion: newCompletion });
-        toast({ title: 'Амжилттай хадгаллаа' });
+        try {
+            await setDoc(docRef, currentData, { merge: true });
+            const newCompletion = calculateCompletionPercentage(currentData);
+            await updateDoc(employeeDocRef, { questionnaireCompletion: newCompletion });
+            toast({ title: 'Амжилттай хадгаллаа' });
+        } catch (e) {
+            console.warn('Questionnaire save error:', e);
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Мэдээлэл хадгалахад алдаа гарлаа. Дахин оролдоно уу.',
+            });
+        }
     };
 
     return (
@@ -1383,6 +1462,7 @@ export default function QuestionnairePage() {
     const { id } = useParams();
     const employeeId = Array.isArray(id) ? id[0] : id;
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [activeTab, setActiveTab] = React.useState('general');
     const [isCVDialogOpen, setIsCVDialogOpen] = React.useState(false);
@@ -1411,7 +1491,7 @@ export default function QuestionnairePage() {
             workPhone: '', personalPhone: '', workEmail: '', personalEmail: '', homeAddress: '', temporaryAddress: '', facebook: '', instagram: '',
             emergencyContacts: [], education: [], educationNotApplicable: false,
             languages: [], languagesNotApplicable: false, trainings: [], trainingsNotApplicable: false,
-            familyMembers: [], familyMembersNotApplicable: false, maritalStatus: undefined, experiences: [], experienceNotApplicable: false
+            familyMembers: [], familyMembersNotApplicable: false, maritalStatus: '', experiences: [], experienceNotApplicable: false
         };
         const employeeInfo = { ...employeeData, workEmail: employeeData?.email, personalPhone: employeeData?.phoneNumber };
         return transformDates({ ...baseValues, ...employeeInfo, ...questionnaireData });
@@ -1427,9 +1507,7 @@ export default function QuestionnairePage() {
         if (isTogglingLock) return;
         setIsTogglingLock(true);
         try {
-            await updateDocumentNonBlocking(employeeDocRef, {
-                questionnaireLocked: !isLocked,
-            });
+            await updateDoc(employeeDocRef, { questionnaireLocked: !isLocked });
             toast({
                 title: !isLocked ? 'Анкет түгжигдлээ' : 'Анкетийн түгжээ нээгдлээ',
                 description: !isLocked
@@ -1449,51 +1527,43 @@ export default function QuestionnairePage() {
 
     // Handle CV data extraction
     const handleCVDataExtracted = React.useCallback(async (cvData: any) => {
-        if (!questionnaireDocRef || !employeeDocRef) return;
+        if (!questionnaireDocRef || !employeeDocRef) return false;
 
         try {
-            // Transform dates from string to Date objects
             const transformedData: any = { ...cvData };
-            
-            if (cvData.birthDate) {
-                transformedData.birthDate = new Date(cvData.birthDate);
-            }
-            
-            // Transform education dates
+
+            // Use toDateSafe for all date conversions to handle any format safely
+            if (cvData.birthDate) transformedData.birthDate = toDateSafe(cvData.birthDate);
+
             if (cvData.education?.length) {
                 transformedData.education = cvData.education.map((edu: any) => ({
                     ...edu,
-                    entryDate: edu.entryDate ? new Date(edu.entryDate) : null,
-                    gradDate: edu.gradDate ? new Date(edu.gradDate) : null,
+                    entryDate: toDateSafe(edu.entryDate),
+                    gradDate: toDateSafe(edu.gradDate),
                     isCurrent: edu.isCurrent ?? false,
                 }));
             }
-            
-            // Transform training dates
+
             if (cvData.trainings?.length) {
                 transformedData.trainings = cvData.trainings.map((t: any) => ({
                     ...t,
-                    startDate: t.startDate ? new Date(t.startDate) : null,
-                    endDate: t.endDate ? new Date(t.endDate) : null,
+                    startDate: toDateSafe(t.startDate),
+                    endDate: toDateSafe(t.endDate),
                 }));
             }
-            
-            // Transform experience dates, preserve isCurrent
+
             if (cvData.experiences?.length) {
                 transformedData.experiences = cvData.experiences.map((exp: any) => ({
                     ...exp,
-                    startDate: exp.startDate ? new Date(exp.startDate) : null,
-                    endDate: exp.endDate ? new Date(exp.endDate) : null,
+                    startDate: toDateSafe(exp.startDate),
+                    endDate: toDateSafe(exp.endDate),
                     isCurrent: exp.isCurrent ?? false,
                 }));
             }
-            
-            // Validate maritalStatus to match schema enum
+
             if (cvData.maritalStatus) {
                 const validStatuses = ['Гэрлээгүй', 'Гэрлэсэн', 'Салсан', 'Бэлэвсэн'];
-                if (validStatuses.includes(cvData.maritalStatus)) {
-                    transformedData.maritalStatus = cvData.maritalStatus;
-                } else {
+                if (!validStatuses.includes(cvData.maritalStatus)) {
                     delete transformedData.maritalStatus;
                 }
             }
@@ -1501,43 +1571,82 @@ export default function QuestionnairePage() {
             // Merge with existing data (don't overwrite existing values with empty ones)
             const currentData = questionnaireData || {};
             const mergedData: any = { ...currentData };
-            
+
             for (const [key, value] of Object.entries(transformedData)) {
-                if (value !== undefined && value !== null && value !== '') {
-                    // For arrays, always set from CV (overwrite empty or replace)
-                    if (Array.isArray(value) && value.length > 0) {
-                        const currentArray = mergedData[key] || [];
-                        if (currentArray.length === 0) {
-                            mergedData[key] = value;
-                        }
-                        // If current array has data, we don't overwrite
-                    } else {
-                        // For non-arrays, set if current is empty/falsy
-                        if (!mergedData[key]) {
-                            mergedData[key] = value;
-                        }
+                if (value === undefined || value === null || value === '') continue;
+                if (Array.isArray(value) && value.length > 0) {
+                    if (!mergedData[key] || (Array.isArray(mergedData[key]) && mergedData[key].length === 0)) {
+                        mergedData[key] = value;
                     }
+                } else if (!mergedData[key]) {
+                    mergedData[key] = value;
                 }
             }
 
-            // Strip undefined values — Firestore rejects them
-            const cleanedData = Object.fromEntries(
-                Object.entries(mergedData).filter(([, v]) => v !== undefined)
-            );
+            const cleanedData = sanitizeFirestoreValue(mergedData);
 
-            // РД давхардлыг шалгах (CV-ээс хадгалахын өмнө)
+            // Auto-create missing reference items (schools, degrees, countries, languages)
+            try {
+                const refCollections: { key: string; collectionName: string; currentItems: ReferenceItem[] }[] = [
+                    { key: 'school', collectionName: 'questionnaireSchools', currentItems: schools || [] },
+                    { key: 'degree', collectionName: 'questionnaireDegrees', currentItems: degrees || [] },
+                    { key: 'country', collectionName: 'questionnaireCountries', currentItems: countries || [] },
+                    { key: 'academicRank', collectionName: 'questionnaireAcademicRanks', currentItems: academicRanks || [] },
+                ];
+
+                const eduArray = cleanedData.education as Array<Record<string, any>> | undefined;
+                if (eduArray?.length) {
+                    for (const refDef of refCollections) {
+                        const valuesToCheck = eduArray.map((edu: any) => edu[refDef.key]).filter((v: any) => typeof v === 'string' && v.trim());
+                        const unique = [...new Set(valuesToCheck as string[])];
+                        for (const val of unique) {
+                            const match = fuzzyMatchReferenceItem(val, refDef.currentItems);
+                            if (!match) {
+                                const colRef = tCollection(refDef.collectionName);
+                                if (colRef) {
+                                    await addDoc(colRef, { name: val.trim() });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                const langArray = cleanedData.languages as Array<Record<string, any>> | undefined;
+                if (langArray?.length) {
+                    const currentLangs = languages || [];
+                    const langNames = langArray.map((l: any) => l.language).filter((v: any) => typeof v === 'string' && v.trim());
+                    const uniqueLangs = [...new Set(langNames as string[])];
+                    for (const val of uniqueLangs) {
+                        const match = fuzzyMatchReferenceItem(val, currentLangs);
+                        if (!match) {
+                            const colRef = tCollection('questionnaireLanguages');
+                            if (colRef) {
+                                await addDoc(colRef, { name: val.trim() });
+                            }
+                        }
+                    }
+                }
+            } catch (refError) {
+                console.warn('Auto-create reference items error (non-blocking):', refError);
+            }
+
+            // РД давхардлыг шалгах (CV-ээс хадгалахын өмнө) - алдаа гарвал алгасаад хадгалалтыг үргэлжлүүлнэ
             const regNo = cleanedData.registrationNumber as string | undefined;
             if (regNo && employeeId) {
                 const normalized = normalizeRegistrationNumber(regNo);
                 cleanedData.registrationNumber = normalized;
-                const duplicate = await checkRegistrationNumberDuplicate(normalized, employeeId);
-                if (duplicate) {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Регистрийн дугаар давхардсан',
-                        description: 'Энэ регистрийн дугаар өөр ажилтанд бүртгэгдсэн байна. CV-ийн мэдээллийг засаад дахин оролдоно уу.',
-                    });
-                    return;
+                try {
+                    const duplicate = await checkRegistrationNumberDuplicate(normalized, employeeId);
+                    if (duplicate.duplicate) {
+                        toast({
+                            variant: 'destructive',
+                            title: 'Регистрийн дугаар давхардсан',
+                            description: 'Энэ регистрийн дугаар өөр ажилтанд бүртгэгдсэн байна. CV-ийн мэдээллийг засаад дахин оролдоно уу.',
+                        });
+                        return false;
+                    }
+                } catch {
+                    // РД шалгалтын алдааг алгасна (индекс байхгүй гэх мэт) — хадгалалтыг үргэлжлүүлнэ
                 }
             }
 
@@ -1553,17 +1662,17 @@ export default function QuestionnairePage() {
                 description: 'CV-ийн мэдээлэл анкетэд амжилттай хадгалагдлаа.',
             });
 
-            // Refresh the page to show updated data (write is confirmed at this point)
-            window.location.reload();
+            return true;
         } catch (error) {
-            console.error('Error saving CV data:', error);
+            console.warn('Error saving CV data:', error);
             toast({
                 variant: 'destructive',
                 title: 'Алдаа',
-                description: 'Мэдээлэл хадгалахад алдаа гарлаа. Дахин оролдоно уу.',
+                description: error instanceof Error ? error.message : 'Мэдээлэл хадгалахад алдаа гарлаа. Дахин оролдоно уу.',
             });
+            return false;
         }
-    }, [questionnaireDocRef, employeeDocRef, questionnaireData, toast, employeeId]);
+    }, [questionnaireDocRef, employeeDocRef, questionnaireData, toast, employeeId, tCollection, schools, degrees, countries, academicRanks, languages]);
 
     if (isLoading) {
         return (

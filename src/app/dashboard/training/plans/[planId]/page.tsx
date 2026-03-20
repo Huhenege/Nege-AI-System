@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { collection, deleteDoc, doc, getDoc, query, Timestamp, where } from 'firebase/firestore';
-import { useFetchCollection, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { useFetchCollection, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking, useTenantWrite, useMemoFirebase, tenantCollection } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -110,9 +110,9 @@ export default function TrainingPlanDetailPage() {
     const [creatingSurveyId, setCreatingSurveyId] = useState<string | null>(null);
     const publishCardRef = useRef<HTMLDivElement>(null);
 
-    const coursesQuery = useMemo(() => (firestore ? collection(firestore, 'training_courses') : null), [firestore]);
-    const employeesQuery = useMemo(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
-    const categoriesQuery = useMemo(() => (firestore ? collection(firestore, 'training_categories') : null), [firestore]);
+    const coursesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'training_courses') : null), []);
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employees') : null), []);
+    const categoriesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'training_categories') : null), []);
     const linkedSurveysQuery = useMemo(
         () => (firestore && planId ? query(collection(firestore, 'surveys'), where('trainingPlanId', '==', planId)) : null),
         [firestore, planId]

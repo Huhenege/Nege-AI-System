@@ -90,10 +90,10 @@ export async function POST(request: NextRequest) {
     const employeeData = {
       id: decoded.uid,
       email: decoded.email || '',
-      role: 'admin',
+      role: 'company_super_admin',
       firstName: 'Admin',
       lastName: 'User',
-      jobTitle: 'Системийн Админ',
+      jobTitle: 'Байгууллагын ерөнхий админ',
       status: 'active',
       hireDate: new Date().toISOString(),
       companyId,
@@ -105,11 +105,9 @@ export async function POST(request: NextRequest) {
       db.collection('companies').doc(companyId).collection('employees').doc(decoded.uid),
       employeeData
     );
-    // Also keep a top-level employee doc for backward compatibility during migration
-    batch.set(db.collection('employees').doc(decoded.uid), { ...employeeData }, { merge: true });
     await batch.commit();
 
-    const claims: TenantClaims = { role: 'admin', companyId };
+    const claims: TenantClaims = { role: 'company_super_admin', companyId };
     await adminAuth.setCustomUserClaims(decoded.uid, claims);
 
     return NextResponse.json({

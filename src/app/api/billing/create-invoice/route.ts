@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No company' }, { status: 400 });
     }
 
-    if (claims.role !== 'admin' && claims.role !== 'super_admin') {
+    if (claims.role !== 'company_super_admin' && claims.role !== 'admin' && claims.role !== 'super_admin') {
       return NextResponse.json({ error: 'Admin required' }, { status: 403 });
     }
 

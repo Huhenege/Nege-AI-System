@@ -35,6 +35,9 @@ class UserScreen extends ConsumerWidget {
                       final lastName = data?['lastName'] ?? '';
                       final jobTitle = data?['jobTitle'];
                       final photoURL = data?['photoURL'];
+                      final qCompletion =
+                          ((data?['questionnaireCompletion'] ?? 0) as num)
+                              .round();
 
                       return Card(
                         child: Padding(
@@ -89,6 +92,43 @@ class UserScreen extends ConsumerWidget {
                                     ?.copyWith(
                                         color: AppColors.textMuted),
                               ),
+                              if (qCompletion > 0) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 120,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: LinearProgressIndicator(
+                                          value: qCompletion / 100,
+                                          minHeight: 6,
+                                          backgroundColor: AppColors.border,
+                                          valueColor:
+                                              AlwaysStoppedAnimation(
+                                            qCompletion >= 90
+                                                ? AppColors.success
+                                                : qCompletion >= 50
+                                                    ? AppColors.warning
+                                                    : AppColors.error,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Анкет $qCompletion%',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                              color: AppColors.textMuted,
+                                              fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -101,6 +141,12 @@ class UserScreen extends ConsumerWidget {
                   Card(
                     child: Column(
                       children: [
+                        _MenuItem(
+                          icon: Icons.assignment_outlined,
+                          label: 'Миний анкет',
+                          onTap: () => context.go('/user/questionnaire'),
+                        ),
+                        const Divider(height: 1),
                         _MenuItem(
                           icon: Icons.edit_outlined,
                           label: 'Профайл засах',

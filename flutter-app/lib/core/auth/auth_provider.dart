@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../firebase/firebase_providers.dart';
+import '../config/app_config.dart';
 import 'auth_service.dart';
 import 'tenant_state.dart';
 
@@ -47,7 +48,7 @@ class TenantNotifier extends StateNotifier<TenantState> {
       // Claims not set — try ensure-claims API
       final authService = AuthService(auth: _auth);
       final result = await authService.ensureClaims(
-        apiBaseUrl: 'https://nege-ai-system.web.app',
+        apiBaseUrl: AppConfig.apiBaseUrl,
       );
 
       if (result != null) {

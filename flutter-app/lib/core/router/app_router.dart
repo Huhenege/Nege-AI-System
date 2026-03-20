@@ -19,6 +19,7 @@ import '../../features/points/points_screen.dart';
 import '../../features/survey/survey_screen.dart';
 import '../../features/document_review/document_review_screen.dart';
 import '../../features/profile/profile_edit_screen.dart';
+import '../../features/questionnaire/questionnaire_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _homeTabKey = GlobalKey<NavigatorState>();
@@ -140,6 +141,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'profile-edit',
                     builder: (context, state) => const ProfileEditScreen(),
+                  ),
+                  GoRoute(
+                    path: 'questionnaire',
+                    builder: (context, state) =>
+                        const QuestionnaireScreen(),
                   ),
                 ],
               ),

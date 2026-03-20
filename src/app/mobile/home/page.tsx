@@ -396,19 +396,17 @@ function EmployeeCarousel() {
     const employeesQuery = useMemoFirebase(({ companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null, [firestore]);
     const { data: employees, isLoading } = useCollection<Employee>(employeesQuery);
 
-    const isViewerAdmin = employeeProfile?.role === 'admin';
+    const isViewerAdmin = employeeProfile?.role === 'company_super_admin' || employeeProfile?.role === 'admin';
     const visibleEmployees = React.useMemo(() => {
         if (!employees) return [];
         if (isViewerAdmin) return employees;
 
         // Hide the initial system admin account from non-admin employees.
-        // This matches the seeded values written in `src/app/signup/page.tsx`.
         return employees.filter((e) => {
             const isInitialAdmin =
-                e.role === 'admin' &&
+                (e.role === 'company_super_admin' || e.role === 'admin') &&
                 e.firstName === 'Admin' &&
-                e.lastName === 'User' &&
-                e.jobTitle === 'Системийн Админ';
+                e.lastName === 'User';
             return !isInitialAdmin;
         });
     }, [employees, isViewerAdmin]);

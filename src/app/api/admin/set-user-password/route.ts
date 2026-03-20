@@ -1,39 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+import type { TenantRole } from '@/types/company';
+import { requireAuth } from '@/lib/api/auth-middleware';
 
 type Body = {
   uid?: string;
   newPassword?: string;
 };
 
-function getBearerToken(req: Request): string | null {
-  const header = req.headers.get('authorization') || req.headers.get('Authorization') || '';
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] || null;
-}
+const ADMIN_ROLES: TenantRole[] = ['super_admin', 'company_super_admin', 'admin'];
 
 export async function POST(request: Request) {
   try {
-    const token = getBearerToken(request);
-    if (!token) {
-      return NextResponse.json({ error: 'Missing Authorization bearer token' }, { status: 401 });
-    }
+    const result = await requireAuth(request);
+    if (result.response) return result.response;
+    const caller = result.auth;
 
-    const adminAuth = getFirebaseAdminAuth();
-    const adminDb = getFirebaseAdminFirestore();
-
-    let decoded: { uid: string };
-    try {
-      decoded = (await adminAuth.verifyIdToken(token)) as any;
-    } catch (e) {
-      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
-    }
-
-    // Verify requester is an admin (employees/{uid}.role === 'admin')
-    const requesterSnap = await adminDb.doc(`employees/${decoded.uid}`).get();
-    const requesterRole = requesterSnap.exists ? (requesterSnap.data() as any)?.role : null;
-    if (requesterRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!ADMIN_ROLES.includes(caller.role as TenantRole)) {
+      return NextResponse.json({ error: 'Forbidden: admin or super_admin required' }, { status: 403 });
     }
 
     const body = (await request.json()) as Body;
@@ -47,14 +31,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
     }
 
+    // Cross-tenant protection: non-super_admin can only reset passwords within their own company
+    if (caller.role !== 'super_admin') {
+      const db = getFirebaseAdminFirestore();
+      const empDoc = await db.doc(`companies/${caller.companyId}/employees/${uid}`).get();
+      if (!empDoc.exists) {
+        return NextResponse.json({ error: 'Target user is not an employee of your company' }, { status: 403 });
+      }
+    }
+
+    const adminAuth = getFirebaseAdminAuth();
     await adminAuth.updateUser(uid, { password: newPassword });
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || 'Internal Server Error' },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

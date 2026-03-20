@@ -114,7 +114,7 @@ export interface Employee {
     loginDisabled?: boolean;
     /** Анкет засах эрхийг түгжих (ажилтан засах боломжгүй). */
     questionnaireLocked?: boolean;
-    role?: 'admin' | 'employee';
+    role?: 'company_super_admin' | 'admin' | 'manager' | 'employee';
 }
 
 /**

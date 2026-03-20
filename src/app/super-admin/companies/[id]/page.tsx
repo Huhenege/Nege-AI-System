@@ -537,7 +537,7 @@ function UsersTab({
   onChangeRole: (uid: string, role: TenantRole) => Promise<void>;
   onToggleDisabled: (uid: string, disabled: boolean) => Promise<void>;
 }) {
-  const validRoles: TenantRole[] = ['admin', 'manager', 'employee'];
+  const validRoles: TenantRole[] = ['company_super_admin', 'admin', 'manager', 'employee'];
 
   return (
     <Card>

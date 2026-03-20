@@ -6,7 +6,7 @@ import { doc } from 'firebase/firestore';
 import { Employee } from '@/types';
 
 export type EmployeeProfile = Employee & {
-  role: 'admin' | 'employee';
+  role: 'company_super_admin' | 'admin' | 'manager' | 'employee';
 };
 
 export const useEmployeeProfile = () => {

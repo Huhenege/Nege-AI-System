@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useFirebase, useDoc, useCollection, useFetchCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useFetchCollection, useTenantWrite, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
 import { doc, Timestamp, updateDoc, collection, query, where, getDoc, deleteDoc, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ERDocument, DOCUMENT_STATUSES, DocumentStatus, ProcessActivity } from '../types';
@@ -63,18 +63,18 @@ export default function DocumentDetailPage() {
     const [isReviewRequired, setIsReviewRequired] = useState(true);
     const [customInputValues, setCustomInputValues] = useState<Record<string, any>>({});
 
-    const departmentsQuery = useMemo(() => firestore ? collection(firestore, 'departments') : null, [firestore]);
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'departments') : null, []);
     const { data: departments } = useFetchCollection<any>(departmentsQuery);
 
-    const positionsQuery = useMemo(() =>
-        firestore && selectedDept ? query(collection(firestore, 'positions'), where('departmentId', '==', selectedDept)) : null
-        , [firestore, selectedDept]);
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore && selectedDept ? query(tenantCollection(firestore, companyPath, 'positions'), where('departmentId', '==', selectedDept)) : null
+        , [selectedDept]);
     const { data: positions } = useFetchCollection<any>(positionsQuery);
 
-    const employeesQuery = useMemo(() => firestore ? collection(firestore, 'employees') : null, [firestore]);
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'employees') : null, []);
     const { data: employeesList } = useCollection<any>(employeesQuery);
 
-    const allPositionsListQuery = useMemo(() => firestore ? collection(firestore, 'positions') : null, [firestore]);
+    const allPositionsListQuery = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'positions') : null, []);
     const { data: allPositions } = useFetchCollection<any>(allPositionsListQuery);
 
     const occupiedPositions = useMemo(() => {
@@ -91,7 +91,7 @@ export default function DocumentDetailPage() {
     const [companyProfile, setCompanyProfile] = useState<any>(null);
     useEffect(() => {
         if (!firestore) return;
-        getDocs(collection(firestore, 'company_profile')).then(snap => {
+        getDocs(tCollection('company_profile')).then(snap => {
             if (!snap.empty) setCompanyProfile(snap.docs[0].data());
         });
     }, [firestore]);
@@ -126,7 +126,7 @@ export default function DocumentDetailPage() {
             }
 
             if (document.employeeId && !selectedEmployee) {
-                getDoc(doc(firestore!, 'employees', document.employeeId)).then(snap => {
+                getDoc(tDoc('employees', document.employeeId)).then(snap => {
                     if (snap.exists()) setSelectedEmployee({ id: snap.id, ...snap.data() });
                 });
             }
@@ -134,13 +134,13 @@ export default function DocumentDetailPage() {
     }, [document, firestore]);
 
     // Fetch current user's employee profile for position-based checks
-    const { data: currentUserProfile } = useDoc<any>(
-        useMemo(() => firestore && currentUser ? doc(firestore, 'employees', currentUser.uid) : null, [firestore, currentUser])
-    );
+    const currentUserProfileRef = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore && currentUser ? tenantDoc(firestore, companyPath, 'employees', currentUser.uid) : null, [currentUser]);
+    const { data: currentUserProfile } = useDoc<any>(currentUserProfileRef);
 
     const isAdmin = useMemo(() => {
         const role = String(currentUserProfile?.role || '').toLowerCase();
-        return role === 'admin' || role === 'hr' || role === 'hr_manager' || role === 'director';
+        return role === 'company_super_admin' || role === 'admin' || role === 'hr' || role === 'hr_manager' || role === 'director';
     }, [currentUserProfile]);
 
     const isApprover = useMemo(() => {

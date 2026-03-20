@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { collection, doc, query, where } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, updateDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { useFirebase, useCollection, useDoc, updateDocumentNonBlocking, useTenantWrite, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,10 +67,9 @@ export default function SkillDetailPage() {
     const { tDoc } = useTenantWrite();
 
     // ── Queries ──
-    const skillRef = useMemo(() =>
-        firestore && skillId ? doc(firestore, 'skills_inventory', skillId) : null,
-        [firestore, skillId]
-    );
+    const skillRef = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore && skillId ? tenantDoc(firestore, companyPath, 'skills_inventory', skillId) : null,
+        [skillId]);
     const { data: skill, isLoading: skillLoading } = useDoc<SkillInventoryItem>(skillRef);
 
     const skillTypesQuery = useMemo(() =>
@@ -79,28 +78,24 @@ export default function SkillDetailPage() {
     );
     const { data: skillTypes } = useCollection<SkillTypeItem>(skillTypesQuery);
 
-    const assessmentsQuery = useMemo(() =>
-        firestore && skill ? query(collection(firestore, 'skill_assessments'), where('skillName', '==', skill.name)) : null,
-        [firestore, skill]
-    );
+    const assessmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore && skill ? query(tenantCollection(firestore, companyPath, 'skill_assessments'), where('skillName', '==', skill.name)) : null,
+        [skill]);
     const { data: allAssessments, isLoading: assessmentsLoading } = useCollection<SkillAssessment>(assessmentsQuery);
 
-    const employeesQuery = useMemo(() =>
-        firestore ? collection(firestore, 'employees') : null,
-        [firestore]
-    );
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
+        []);
     const { data: employees } = useCollection<Employee>(employeesQuery);
 
-    const positionsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'positions') : null,
-        [firestore]
-    );
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'positions') : null,
+        []);
     const { data: positions } = useCollection<Position>(positionsQuery);
 
-    const departmentsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'departments') : null,
-        [firestore]
-    );
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'departments') : null,
+        []);
     const { data: departments } = useCollection<Department>(departmentsQuery);
 
     const isLoading = skillLoading || assessmentsLoading;

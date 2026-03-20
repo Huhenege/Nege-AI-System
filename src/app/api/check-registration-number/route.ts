@@ -73,19 +73,16 @@ export async function POST(request: NextRequest) {
 
     for (const empDoc of empSnap.docs) {
       if (empDoc.id === currentEmployeeId) continue;
-      for (const variant of variants) {
-        const qSnap = await db
-          .collection(`companies/${companyId}/employees/${empDoc.id}/questionnaire`)
-          .where('registrationNumber', '==', variant)
-          .limit(1)
-          .get();
-        if (!qSnap.empty) {
-          return NextResponse.json({
-            duplicate: true,
-            message: 'Энэ регистрийн дугаар өөр ажилтанд бүртгэгдсэн байна.',
-            existingEmployeeId: empDoc.id,
-          });
-        }
+      const qDoc = await db.doc(`companies/${companyId}/employees/${empDoc.id}/questionnaire/data`).get();
+      const savedRegNo = normalizeRegistrationNumber(String(qDoc.data()?.registrationNumber || ''));
+      if (!savedRegNo) continue;
+
+      if (variants.includes(savedRegNo)) {
+        return NextResponse.json({
+          duplicate: true,
+          message: 'Энэ регистрийн дугаар өөр ажилтанд бүртгэгдсэн байна.',
+          existingEmployeeId: empDoc.id,
+        });
       }
     }
 

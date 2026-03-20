@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   if (authResult.response) return authResult.response;
   const { companyId, role } = authResult.auth;
 
-  if (role !== 'admin' && role !== 'super_admin') {
+  if (role !== 'company_super_admin' && role !== 'admin' && role !== 'super_admin') {
     return NextResponse.json({ error: 'Admin required' }, { status: 403 });
   }
 

@@ -135,7 +135,7 @@ export function AddEmployeeDialog({
     const auth = useAuth();
     const { user: currentUser } = useUser();
     const { toast } = useToast();
-    const { company, isWithinLimit } = useTenant();
+    const { company, companyId, isWithinLimit } = useTenant();
     const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
     const [photoFile, setPhotoFile] = React.useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -357,9 +357,39 @@ export function AddEmployeeDialog({
                 lifecycleStage: 'recruitment',
             };
 
-            // Create employee document
+            // Create tenant-scoped employee document (single source of truth)
             const employeeDocRef = tDoc('employees', newUser.uid);
             await setDoc(employeeDocRef, employeeData);
+
+            // Set custom claims so the employee can log in immediately without relying on ensure-claims
+            try {
+                const claimsRes = await fetch('/api/admin/set-tenant-claims', {
+                    method: 'POST',
+                    headers: await getJsonAuthHeaders(),
+                    body: JSON.stringify({
+                        targetUid: newUser.uid,
+                        role: 'employee',
+                        companyId,
+                    }),
+                });
+                if (!claimsRes.ok) {
+                    const errText = await claimsRes.text().catch(() => '');
+                    console.warn('[Claims] set-tenant-claims failed:', errText);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Анхааруулга',
+                        description: 'Ажилтан үүссэн ч нэвтрэх эрх тохируулахад алдаа гарлаа. Ажилтан дахин нэвтрэхэд автоматаар засагдана.',
+                    });
+                }
+            } catch (claimsErr: unknown) {
+                const msg = claimsErr instanceof Error ? claimsErr.message : String(claimsErr);
+                console.warn('[Claims] set-tenant-claims error:', msg);
+                toast({
+                    variant: 'destructive',
+                    title: 'Анхааруулга',
+                    description: 'Ажилтан үүссэн ч нэвтрэх эрх тохируулахад алдаа гарлаа. Ажилтан дахин нэвтрэхэд автоматаар засагдана.',
+                });
+            }
 
             // Email илгээх - нэвтрэх мэдээлэл (алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй)
             try {

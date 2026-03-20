@@ -188,11 +188,12 @@ export function getPlanDefinition(plan: CompanyPlan): PlanDefinition {
 
 // ─── Roles ─────────────────────────────────────────────────────────
 
-export type TenantRole = 'super_admin' | 'admin' | 'manager' | 'employee';
+export type TenantRole = 'super_admin' | 'company_super_admin' | 'admin' | 'manager' | 'employee';
 
 export const TENANT_ROLE_LABELS: Record<TenantRole, string> = {
   super_admin: 'Системийн админ',
-  admin: 'Компанийн админ',
+  company_super_admin: 'Байгууллагын ерөнхий админ',
+  admin: 'Админ',
   manager: 'Менежер',
   employee: 'Ажилтан',
 };

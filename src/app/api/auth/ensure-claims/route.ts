@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import type { TenantClaims } from '@/types/company';
 import { checkRateLimit } from '@/lib/api/rate-limiter';
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 function getBearerToken(req: Request): string | null {
   const header = req.headers.get('authorization') || req.headers.get('Authorization') || '';
@@ -12,12 +13,14 @@ function getBearerToken(req: Request): string | null {
 /**
  * POST /api/auth/ensure-claims
  *
- * For existing users who don't yet have custom claims (pre-SaaS migration).
- * Looks up the user's employee doc to find their companyId and role,
+ * For users who don't yet have custom claims.
+ * Finds the user's tenant-scoped employee doc to determine companyId and role,
  * then sets custom claims accordingly.
  *
- * If no companyId is found, tries to find/create a default company
- * from the legacy company/profile doc.
+ * Strategy order:
+ *   1. Check if user owns a company (companies.ownerId == uid)
+ *   2. Collection group query on employees (requires COLLECTION_GROUP index on 'id')
+ *   3. Direct doc lookup — scan companies for employee doc by uid
  */
 export async function POST(request: NextRequest) {
   try {
@@ -42,7 +45,6 @@ export async function POST(request: NextRequest) {
     const existingUser = await adminAuth.getUser(decoded.uid);
     const existingClaims = existingUser.customClaims as TenantClaims | undefined;
 
-    // super_admin has no companyId — never overwrite
     if (existingClaims?.role === 'super_admin') {
       return NextResponse.json({
         status: 'already_set',
@@ -57,86 +59,84 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check top-level employees doc for legacy data
-    const empSnap = await db.doc(`employees/${decoded.uid}`).get();
-    const empData = empSnap.exists ? (empSnap.data() as { role?: string; companyId?: string; positionId?: string }) : null;
+    // Strategy 1: Check if the user owns a company
+    const ownedSnap = await db.collection('companies')
+      .where('ownerId', '==', decoded.uid)
+      .limit(1)
+      .get();
 
-    const companyId = empData?.companyId || null;
-    let role: 'admin' | 'employee' = empData?.role === 'admin' ? 'admin' : 'employee';
-
-    // If employee doc doesn't say admin, check if the user owns the company
-    if (companyId && role !== 'admin') {
-      const companyDoc = await db.doc(`companies/${companyId}`).get();
-      if (companyDoc.exists && companyDoc.data()?.ownerId === decoded.uid) {
-        role = 'admin';
-      }
+    if (!ownedSnap.empty) {
+      const ownedCompanyId = ownedSnap.docs[0].id;
+      const claims: TenantClaims = { role: 'company_super_admin', companyId: ownedCompanyId };
+      await adminAuth.setCustomUserClaims(decoded.uid, claims);
+      return NextResponse.json({ status: 'claims_set', claims, companyId: ownedCompanyId });
     }
 
-    // If no companyId found, the user has no company association.
-    // They need to register a new company via /signup first.
-    if (!companyId) {
-      // Check if the user owns a company (by ownerId)
-      const ownedSnap = await db.collection('companies')
-        .where('ownerId', '==', decoded.uid)
-        .limit(1)
-        .get();
-
-      if (!ownedSnap.empty) {
-        const ownedCompanyId = ownedSnap.docs[0].id;
-        const claims: TenantClaims = { role: 'admin', companyId: ownedCompanyId };
-        await adminAuth.setCustomUserClaims(decoded.uid, claims);
-
-        // Also update the employee doc
-        if (empSnap.exists) {
-          await db.doc(`employees/${decoded.uid}`).update({ companyId: ownedCompanyId });
-        }
-
-        return NextResponse.json({ status: 'claims_set', claims, companyId: ownedCompanyId });
-      }
-
-      // Also check if the user exists in any company's employees subcollection
+    // Strategy 2: Collection group query (requires COLLECTION_GROUP index on 'id')
+    try {
       const companyEmployeeSnap = await db.collectionGroup('employees')
         .where('id', '==', decoded.uid)
         .limit(1)
         .get();
 
       if (!companyEmployeeSnap.empty) {
-        const empPath = companyEmployeeSnap.docs[0].ref.path;
-        // Path: companies/{companyId}/employees/{uid}
-        const parts = empPath.split('/');
+        const empDoc = companyEmployeeSnap.docs[0];
+        const parts = empDoc.ref.path.split('/');
         const foundCompanyId = parts[1];
-        const foundEmpData = companyEmployeeSnap.docs[0].data();
-        const foundRole = (foundEmpData.role as string) === 'admin' ? 'admin' : 'employee';
+        const foundEmpData = empDoc.data();
+        const preservedRoles = ['company_super_admin', 'admin', 'manager'];
+        const foundRole = preservedRoles.includes(foundEmpData.role) ? foundEmpData.role : 'employee';
 
-        const claims: TenantClaims = { role: foundRole as 'admin' | 'employee', companyId: foundCompanyId };
+        const claims: TenantClaims = { role: foundRole as TenantClaims['role'], companyId: foundCompanyId };
         if (foundEmpData.positionId) {
           claims.positionId = foundEmpData.positionId as string;
         }
         await adminAuth.setCustomUserClaims(decoded.uid, claims);
-
         return NextResponse.json({ status: 'claims_set', claims, companyId: foundCompanyId });
       }
-
-      return NextResponse.json({
-        error: 'No company association found. Please register a company first.',
-      }, { status: 404 });
+    } catch (cgError) {
+      console.warn('[ensure-claims] collectionGroup query failed:', cgError);
     }
 
-    const claims: TenantClaims = {
-      role: role as 'admin' | 'employee',
-      companyId,
-    };
-    if (empData?.positionId) {
-      claims.positionId = empData.positionId;
-    }
+    // Strategy 3: Direct doc lookup — paginated scan of all companies
+    try {
+      let lastDoc: QueryDocumentSnapshot | undefined;
+      const PAGE_SIZE = 100;
 
-    await adminAuth.setCustomUserClaims(decoded.uid, claims);
+      while (true) {
+        let q = db.collection('companies').orderBy('__name__').limit(PAGE_SIZE);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const companiesSnap = await q.get();
+        if (companiesSnap.empty) break;
+
+        for (const companyDoc of companiesSnap.docs) {
+          const directEmpSnap = await db
+            .doc(`companies/${companyDoc.id}/employees/${decoded.uid}`)
+            .get();
+          if (directEmpSnap.exists) {
+            const directEmpData = directEmpSnap.data() as { role?: string; positionId?: string };
+            const preservedRoles = ['company_super_admin', 'admin', 'manager'];
+            const foundRole = preservedRoles.includes(directEmpData?.role || '') ? directEmpData!.role! : 'employee';
+
+            const claims: TenantClaims = { role: foundRole as TenantClaims['role'], companyId: companyDoc.id };
+            if (directEmpData?.positionId) {
+              claims.positionId = directEmpData.positionId;
+            }
+            await adminAuth.setCustomUserClaims(decoded.uid, claims);
+            return NextResponse.json({ status: 'claims_set', claims, companyId: companyDoc.id });
+          }
+        }
+
+        lastDoc = companiesSnap.docs[companiesSnap.docs.length - 1];
+        if (companiesSnap.size < PAGE_SIZE) break;
+      }
+    } catch (fallbackError) {
+      console.warn('[ensure-claims] Company scan fallback failed:', fallbackError);
+    }
 
     return NextResponse.json({
-      status: 'claims_set',
-      claims,
-      companyId,
-    });
+      error: 'Энэ хэрэглэгч ямар нэг байгууллагад бүртгэгдээгүй байна. Бүртгүүлэх хэсгээс шинэ байгууллага үүсгэнэ үү.',
+    }, { status: 404 });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Internal Server Error';
     console.error('[ensure-claims] Error:', message);

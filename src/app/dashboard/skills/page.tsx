@@ -3,7 +3,7 @@
 
 import React, { useMemo } from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { useFirebase, useFetchCollection } from '@/firebase';
+import { useFirebase, useFetchCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
@@ -24,35 +24,30 @@ export default function SkillsPage() {
     const { firestore } = useFirebase();
 
     // ── Queries ──────────────────────────────────────
-    const skillsQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'skills_inventory'), orderBy('name', 'asc')) : null,
-        [firestore]
-    );
+    const skillsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'skills_inventory'), orderBy('name', 'asc')) : null,
+        []);
 
-    const assessmentsQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'skill_assessments'), orderBy('assessedAt', 'desc')) : null,
-        [firestore]
-    );
+    const assessmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'skill_assessments'), orderBy('assessedAt', 'desc')) : null,
+        []);
 
     const skillTypesQuery = useMemo(() =>
         firestore ? collection(firestore, 'skill_types') : null,
         [firestore]
     );
 
-    const employeesQuery = useMemo(() =>
-        firestore ? collection(firestore, 'employees') : null,
-        [firestore]
-    );
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
+        []);
 
-    const positionsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'positions') : null,
-        [firestore]
-    );
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'positions') : null,
+        []);
 
-    const departmentsQuery = useMemo(() =>
-        firestore ? collection(firestore, 'departments') : null,
-        [firestore]
-    );
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? tenantCollection(firestore, companyPath, 'departments') : null,
+        []);
 
     // ── Data ─────────────────────────────────────────
     const { data: skills, isLoading: skillsLoading } = useFetchCollection<SkillInventoryItem>(skillsQuery);

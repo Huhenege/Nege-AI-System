@@ -16,6 +16,8 @@ import { useTenantWrite } from '@/firebase';
 import { updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Employee } from '@/types';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
+import { useTenant } from '@/contexts/tenant-context';
 
 interface MakeAdminDialogProps {
     open: boolean;
@@ -33,14 +35,26 @@ export function MakeAdminDialog({
     onSuccess,
 }: MakeAdminDialogProps) {
     const { firestore, tDoc, tCollection } = useTenantWrite();
+    const { companyId } = useTenant();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = React.useState(false);
 
-    const isCurrentlyAdmin = employee.role === 'admin';
+    const isCurrentlyAdmin = employee.role === 'admin' || employee.role === 'company_super_admin';
+    const isCompanySuperAdmin = employee.role === 'company_super_admin';
     const isSelf = employee.id === currentUserId;
 
     const handleConfirm = async () => {
         if (!firestore) return;
+
+        // company_super_admin role cannot be changed
+        if (isCompanySuperAdmin) {
+            toast({
+                variant: 'destructive',
+                title: 'Үйлдэл хийх боломжгүй',
+                description: 'Байгууллагын ерөнхий админы эрхийг өөрчлөх боломжгүй.',
+            });
+            return;
+        }
 
         setIsLoading(true);
 
@@ -48,7 +62,7 @@ export function MakeAdminDialog({
             // If removing admin, check if this is the last admin
             if (isCurrentlyAdmin) {
                 const employeesRef = tCollection('employees');
-                const adminQuery = query(employeesRef, where('role', '==', 'admin'));
+                const adminQuery = query(employeesRef, where('role', 'in', ['admin', 'company_super_admin']));
                 const adminSnapshot = await getDocs(adminQuery);
                 
                 if (adminSnapshot.size <= 1) {
@@ -62,10 +76,33 @@ export function MakeAdminDialog({
                 }
             }
 
-            const employeeRef = tDoc('employees', employee.id);
-            await updateDoc(employeeRef, {
-                role: isCurrentlyAdmin ? 'employee' : 'admin',
+            const newRole = isCurrentlyAdmin ? 'employee' : 'admin';
+
+            // Set Firebase Custom Claims FIRST (auth gate) — if this fails, don't update Firestore
+            const claimsRes = await fetch('/api/admin/set-tenant-claims', {
+                method: 'POST',
+                headers: await getJsonAuthHeaders(),
+                body: JSON.stringify({
+                    targetUid: employee.id,
+                    role: newRole,
+                    companyId,
+                }),
             });
+
+            if (!claimsRes.ok) {
+                const errText = await claimsRes.text().catch(() => 'Unknown error');
+                toast({
+                    variant: 'destructive',
+                    title: 'Эрх өөрчлөх амжилтгүй',
+                    description: `Firebase эрх шинэчлэхэд алдаа гарлаа: ${errText}`,
+                });
+                setIsLoading(false);
+                return;
+            }
+
+            // Claims succeeded — now update Firestore document
+            const employeeRef = tDoc('employees', employee.id);
+            await updateDoc(employeeRef, { role: newRole });
 
             toast({
                 title: 'Амжилттай',
@@ -107,7 +144,11 @@ export function MakeAdminDialog({
                         </AlertDialogTitle>
                     </div>
                     <AlertDialogDescription className="text-left">
-                        {isSelf ? (
+                        {isCompanySuperAdmin ? (
+                            <span className="text-destructive">
+                                Байгууллагын ерөнхий админы эрхийг өөрчлөх боломжгүй.
+                            </span>
+                        ) : isSelf ? (
                             <span className="text-destructive">
                                 Та өөрийгөө админаас хасах боломжгүй.
                             </span>
@@ -132,7 +173,7 @@ export function MakeAdminDialog({
                     <AlertDialogCancel disabled={isLoading}>Буцах</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={handleConfirm}
-                        disabled={isLoading || isSelf}
+                        disabled={isLoading || isSelf || isCompanySuperAdmin}
                         className={isCurrentlyAdmin ? 'bg-orange-600 hover:bg-orange-700' : ''}
                     >
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

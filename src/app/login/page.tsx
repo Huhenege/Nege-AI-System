@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, useUser, useFirebase } from '@/firebase';
+import { useAuth, useFirebase } from '@/firebase';
 import { setSessionCookie } from '@/lib/session';
 import { NegeLogo } from '@/components/icons/nege-logo';
 import {
@@ -16,9 +16,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Smartphone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getDoc, doc } from 'firebase/firestore';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 
 function isEmail(input: string): boolean {
@@ -45,6 +46,10 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showEmployeeNotice, setShowEmployeeNotice] = useState(false);
+
+  // Handle middleware redirect with ?error=no_company
+  const errorParam = searchParams.get('error');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +57,7 @@ function LoginForm() {
 
     setIsLoading(true);
     setError(null);
+    setShowEmployeeNotice(false);
 
     const email = isEmail(identifier) ? identifier : `${identifier}@example.com`;
 
@@ -59,19 +65,6 @@ function LoginForm() {
       const { signInWithEmailAndPassword, signOut } = await import('firebase/auth');
       const uc = await signInWithEmailAndPassword(auth, email, password);
       const uid = uc.user.uid;
-
-      // loginDisabled шалгах (top-level + tenant)
-      const employeeRef = doc(firestore, 'employees', uid);
-      const empSnap = await getDoc(employeeRef);
-      const employee = empSnap.data() as { loginDisabled?: boolean } | undefined;
-      if (employee?.loginDisabled === true) {
-        await signOut(auth);
-        setIsLoading(false);
-        const errorMessage = 'Нэвтрэх эрх идэвхгүй болсон байна.';
-        setError(errorMessage);
-        toast({ variant: 'destructive', title: 'Нэвтрэхэд алдаа гарлаа', description: errorMessage });
-        return;
-      }
 
       // Force-refresh token to always get latest custom claims
       let tokenResult = await uc.user.getIdTokenResult(true);
@@ -86,7 +79,6 @@ function LoginForm() {
       }
 
       if (!tokenResult.claims.companyId) {
-        // Claims not set yet — call ensure-claims to set them
         const idToken = await uc.user.getIdToken();
         const res = await fetch('/api/auth/ensure-claims', {
           method: 'POST',
@@ -95,22 +87,60 @@ function LoginForm() {
         if (res.ok) {
           tokenResult = await uc.user.getIdTokenResult(true);
         } else {
-          const errData = await res.json().catch(() => ({}));
           if (res.status === 404) {
             await signOut(auth);
             setIsLoading(false);
             setError('Энэ хэрэглэгч ямар нэг байгууллагад бүртгэгдээгүй байна. Бүртгүүлэх хэсгээс шинэ байгууллага үүсгэнэ үү.');
             return;
           }
+          const errData = await res.json().catch(() => ({}));
           console.warn('[ensure-claims] Non-fatal error:', errData);
         }
       }
 
+      // After claims are set, verify companyId exists
+      if (!tokenResult.claims.companyId) {
+        await signOut(auth);
+        setIsLoading(false);
+        setError('Байгууллагын мэдээлэл олдсонгүй. Админтай холбогдоно уу.');
+        return;
+      }
+
+      // loginDisabled check: use tenant-scoped doc (source of truth)
+      const companyId = tokenResult.claims.companyId as string;
+      let loginDisabled = false;
+      try {
+        const tenantSnap = await getDoc(doc(firestore, `companies/${companyId}/employees`, uid));
+        if (tenantSnap.exists() && tenantSnap.data()?.loginDisabled === true) {
+          loginDisabled = true;
+        }
+      } catch (checkErr) {
+        console.warn('[login] loginDisabled check error (continuing):', checkErr);
+      }
+      if (loginDisabled) {
+        await signOut(auth);
+        setIsLoading(false);
+        const errorMessage = 'Нэвтрэх эрх идэвхгүй болсон байна. Админтай холбогдоно уу.';
+        setError(errorMessage);
+        toast({ variant: 'destructive', title: 'Нэвтрэхэд алдаа гарлаа', description: errorMessage });
+        return;
+      }
+
+      const role = tokenResult.claims.role as string;
       const finalToken = await uc.user.getIdToken(true);
       setSessionCookie(finalToken);
 
+      // Employee role — cannot access web dashboard
+      if (role === 'employee') {
+        setIsLoading(false);
+        setShowEmployeeNotice(true);
+        return;
+      }
+
+      // Admin or manager — go to dashboard
       toast({ title: 'Амжилттай нэвтэрлээ', description: 'Хуудас руу шилжиж байна.' });
-      const redirectTo = searchParams.get('redirect') || '/dashboard';
+      const rawRedirect = searchParams.get('redirect') || '/dashboard';
+      const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard';
       router.replace(redirectTo);
 
     } catch (err: any) {
@@ -130,6 +160,44 @@ function LoginForm() {
     }
   };
 
+  // Employee notice screen — no web dashboard access
+  if (showEmployeeNotice) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-8">
+        <Card className="w-full max-w-sm rounded-2xl border-0 shadow-xl">
+          <CardHeader className="text-center space-y-2 pb-2">
+            <div className="mb-2 flex flex-col items-center gap-4">
+              <NegeLogo className="h-12 w-auto" />
+              <CardTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
+                Веб системд нэвтрэх эрхгүй
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert variant="destructive">
+              <AlertDescription>
+                Та админ биш тул веб системд нэвтрэх боломжгүй. Ажилтны мобайл аппликэйшнийг ашиглана уу.
+              </AlertDescription>
+            </Alert>
+            <Alert>
+              <Smartphone className="h-4 w-4" />
+              <AlertDescription>
+                Ажилтны бүх үйлчилгээг мобайл апп-аар дамжуулан авах боломжтой.
+              </AlertDescription>
+            </Alert>
+            <Button variant="outline" className="w-full" onClick={async () => {
+              const { signOut } = await import('firebase/auth');
+              await signOut(auth);
+              setShowEmployeeNotice(false);
+            }}>
+              Гарах
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-8">
       <Card className="w-full max-w-sm rounded-2xl border-0 shadow-xl">
@@ -145,6 +213,20 @@ function LoginForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-2">
+          {errorParam === 'no_company' && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Байгууллагын мэдээлэл олдсонгүй. Дахин нэвтэрнэ үү.
+              </AlertDescription>
+            </Alert>
+          )}
+          {errorParam === 'employee_no_access' && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Та админ биш тул веб системд нэвтрэх боломжгүй. Мобайл апп ашиглана уу.
+              </AlertDescription>
+            </Alert>
+          )}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="identifier">Ажилтны код эсвэл имэйл</Label>

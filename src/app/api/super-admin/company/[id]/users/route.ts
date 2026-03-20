@@ -66,7 +66,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const adminAuth = getFirebaseAdminAuth();
 
   if (role) {
-    const validRoles: TenantRole[] = ['super_admin', 'admin', 'manager', 'employee'];
+    const validRoles: TenantRole[] = ['super_admin', 'company_super_admin', 'admin', 'manager', 'employee'];
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }

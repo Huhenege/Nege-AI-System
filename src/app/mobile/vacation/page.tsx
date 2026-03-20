@@ -230,7 +230,7 @@ export default function MobileVacationPage() {
         if (!allEmployees) return [];
         const isMe = (emp: Employee) => emp.id === employeeProfile?.id;
         const hasVacApproveRole = (emp: Employee) =>
-            emp.role === 'admin' || (!!emp.positionId && approverPosIds.includes(emp.positionId));
+            emp.role === 'company_super_admin' || emp.role === 'admin' || (!!emp.positionId && approverPosIds.includes(emp.positionId));
 
         return allEmployees
             .filter(emp => isActiveStatus(emp.status))

@@ -64,14 +64,21 @@ app.post('/chat', async (req, res) => {
   }
 });
 
-// GET /employees - Fetch employee list from Firestore
-app.get('/employees', async (_req, res) => {
+// GET /employees - Fetch employee list from Firestore (tenant-scoped)
+app.get('/employees', async (req, res) => {
   try {
+    const companyId = req.query.companyId as string;
+    if (!companyId) {
+      res.status(400).json({ error: 'companyId query parameter is required' });
+      return;
+    }
+
     const db = getFirestore();
+    const basePath = `companies/${companyId}`;
 
     const [empSnap, posSnap] = await Promise.all([
-      db.collection('employees').get(),
-      db.collection('positions').get(),
+      db.collection(`${basePath}/employees`).get(),
+      db.collection(`${basePath}/positions`).get(),
     ]);
 
     const posMap = new Map<string, string>();
@@ -92,7 +99,7 @@ app.get('/employees', async (_req, res) => {
       };
     });
 
-    console.log(`[/employees] Returning ${employees.length} employees`);
+    console.log(`[/employees] Returning ${employees.length} employees for company ${companyId}`);
     res.json({ employees });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Failed to fetch employees';

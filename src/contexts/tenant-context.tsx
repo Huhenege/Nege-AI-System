@@ -55,6 +55,18 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
         if (cancelled) return;
 
+        // super_admin doesn't need companyId — skip ensure-claims entirely
+        if (claims.role === 'super_admin') {
+          setState(prev => ({
+            ...prev,
+            companyId: null,
+            role: 'super_admin',
+            isLoading: false,
+            error: null,
+          }));
+          return;
+        }
+
         if (claims.companyId && claims.role) {
           setState(prev => ({
             ...prev,
@@ -67,7 +79,6 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         }
 
         // Token doesn't have claims — call ensure-claims API to set them
-        // This is critical: Firestore rules check TOKEN claims, not employee docs
         const idToken = await user!.getIdToken();
         const res = await fetch('/api/auth/ensure-claims', {
           method: 'POST',
@@ -237,11 +248,11 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
       },
 
       get isAdmin(): boolean {
-        return state.role === 'admin' || state.role === 'super_admin';
+        return state.role === 'company_super_admin' || state.role === 'admin' || state.role === 'super_admin';
       },
 
       get isManager(): boolean {
-        return state.role === 'manager' || state.role === 'admin' || state.role === 'super_admin';
+        return state.role === 'manager' || state.role === 'company_super_admin' || state.role === 'admin' || state.role === 'super_admin';
       },
 
       refreshClaims,

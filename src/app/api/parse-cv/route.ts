@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractCVFromImage, extractCVFromText, extractCVFromPDF, ParsedCVData } from '@/ai/cv-parser';
+import { extractCVFromImage, extractCVFromText, ParsedCVData } from '@/ai/cv-parser';
 import { requireAuth } from '@/lib/api/auth-middleware';
 
 export const maxDuration = 120;
@@ -33,8 +33,44 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
-      result = await extractCVFromImage(imageDataUrl, mimeType);
+
+      if (mimeType === 'application/pdf') {
+        try {
+          const base64 = imageDataUrl.split(',')[1];
+          if (!base64) {
+            return NextResponse.json(
+              { error: 'PDF өгөгдөл буруу байна' },
+              { status: 400 }
+            );
+          }
+
+          const buffer = Buffer.from(base64, 'base64');
+          const pdfParse = (await import('pdf-parse/lib/pdf-parse')).default;
+          const pdfData = await pdfParse(buffer);
+          const text = (pdfData?.text ?? '').trim();
+
+          if (!text) {
+            return NextResponse.json(
+              {
+                error:
+                  'Энэ PDF-ээс текст уншигдсангүй. Хэрэв скан зурагтай PDF бол JPG эсвэл PNG хэлбэрээр оруулаад дахин оролдоно уу.',
+              },
+              { status: 400 }
+            );
+          }
+
+          console.log('[CV Parser] Processing PDF text content...');
+          result = await extractCVFromText(text);
+        } catch (pdfError) {
+          console.error('[CV Parser] PDF processing failed:', pdfError);
+          return NextResponse.json(
+            { error: 'PDF боловсруулахад алдаа гарлаа. Өөр PDF эсвэл зураг оруулаад дахин оролдоно уу.' },
+            { status: 500 }
+          );
+        }
+      } else {
+        result = await extractCVFromImage(imageDataUrl, mimeType);
+      }
     } else {
       return NextResponse.json(
         { error: 'Either imageDataUrl+mimeType or textContent is required' },

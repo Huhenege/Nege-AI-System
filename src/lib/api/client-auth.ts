@@ -1,16 +1,43 @@
 'use client';
 
-import { getAuth } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { initializeFirebase } from '@/firebase';
 
 /**
  * Returns the current user's Firebase ID token, or null if not logged in.
+ * Pass `forceRefresh: true` after role changes to pick up updated claims.
  */
-export async function getIdToken(): Promise<string | null> {
+export async function getIdToken(forceRefresh = false): Promise<string | null> {
   try {
-    const auth = getAuth();
-    const user = auth.currentUser;
+    const { auth } = initializeFirebase();
+    const existingUser = auth.currentUser;
+    if (existingUser) {
+      return await existingUser.getIdToken(forceRefresh);
+    }
+
+    const user = await new Promise<typeof auth.currentUser>((resolve) => {
+      const timeoutId = window.setTimeout(() => {
+        unsubscribe();
+        resolve(null);
+      }, 2000);
+
+      const unsubscribe = onAuthStateChanged(
+        auth,
+        (firebaseUser) => {
+          window.clearTimeout(timeoutId);
+          unsubscribe();
+          resolve(firebaseUser);
+        },
+        () => {
+          window.clearTimeout(timeoutId);
+          unsubscribe();
+          resolve(null);
+        }
+      );
+    });
+
     if (!user) return null;
-    return await user.getIdToken();
+    return await user.getIdToken(forceRefresh);
   } catch {
     return null;
   }

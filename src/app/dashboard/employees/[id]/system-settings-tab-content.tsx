@@ -43,7 +43,7 @@ import {
 export interface SystemSettingsTabContentProps {
     employee: Employee;
     currentUserId: string;
-    currentUserRole?: 'admin' | 'employee';
+    currentUserRole?: 'company_super_admin' | 'admin' | 'manager' | 'employee';
 }
 
 export function SystemSettingsTabContent({
@@ -66,7 +66,7 @@ export function SystemSettingsTabContent({
     const [adminPasswordShow, setAdminPasswordShow] = React.useState(false);
     const [isAdminSettingPassword, setIsAdminSettingPassword] = React.useState(false);
 
-    const isAdmin = currentUserRole === 'admin';
+    const isAdmin = currentUserRole === 'company_super_admin' || currentUserRole === 'admin';
     const isSelf = employee.id === currentUserId;
     const loginDisabled = !!employee.loginDisabled;
     const authEmail = `${employee.employeeCode || ''}@example.com`;

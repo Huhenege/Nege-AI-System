@@ -37,7 +37,7 @@ export async function notifyByRole(
   const db = getFirebaseAdminFirestore();
   const employees = await db
     .collection(`companies/${companyId}/employees`)
-    .where('role', 'in', role === 'admin' ? ['admin', 'super_admin'] : [role])
+    .where('role', 'in', role === 'admin' ? ['company_super_admin', 'admin', 'super_admin'] : [role])
     .get();
 
   const promises = employees.docs.map((doc) =>

@@ -55,12 +55,9 @@ export async function POST(request: NextRequest) {
     const empSnap = await db.collection(`companies/${companyId}/employees`).get();
     for (const empDoc of empSnap.docs) {
       if (empDoc.id === currentEmployeeId) continue;
-      const qSnap = await db
-        .collection(`companies/${companyId}/employees/${empDoc.id}/questionnaire`)
-        .where('idCardNumber', '==', normalized)
-        .limit(1)
-        .get();
-      if (!qSnap.empty) {
+      const qDoc = await db.doc(`companies/${companyId}/employees/${empDoc.id}/questionnaire/data`).get();
+      const savedIdCardNumber = normalizeValue(String(qDoc.data()?.idCardNumber || ''));
+      if (savedIdCardNumber && savedIdCardNumber === normalized) {
         return NextResponse.json({
           duplicate: true,
           message: 'Энэ ТТД өөр ажилтанд бүртгэгдсэн байна.',

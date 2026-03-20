@@ -58,6 +58,13 @@ const _tenantScoped = <String>{
   'timeOffRequests',
   'departmentHistory',
   'organization_settings',
+  'questionnaireCountries',
+  'questionnaireSchools',
+  'questionnaireDegrees',
+  'questionnaireAcademicRanks',
+  'questionnaireLanguages',
+  'questionnaireFamilyRelationships',
+  'questionnaireEmergencyRelationships',
 };
 
 bool isTenantScoped(String collectionName) =>

@@ -115,7 +115,7 @@ interface ReferenceData {
 interface CVUploadDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onDataExtracted: (data: ParsedCVData) => void;
+    onDataExtracted: (data: ParsedCVData) => Promise<boolean> | boolean;
     references: ReferenceData;
 }
 
@@ -316,6 +316,7 @@ export function CVUploadDialog({ open, onOpenChange, onDataExtracted, references
     const [step, setStep] = React.useState<ProcessingStep>('idle');
     const [progress, setProgress] = React.useState(0);
     const [error, setError] = React.useState<string | null>(null);
+    const [isApplying, setIsApplying] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Wizard state
@@ -331,6 +332,7 @@ export function CVUploadDialog({ open, onOpenChange, onDataExtracted, references
         setWizardData({});
         setCurrentStepIndex(0);
         setActiveSteps([]);
+        setIsApplying(false);
     };
 
     const handleClose = () => {
@@ -399,8 +401,14 @@ export function CVUploadDialog({ open, onOpenChange, onDataExtracted, references
             setStep('extracting');
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'CV задлахад алдаа гарлаа');
+                let errorMessage = 'CV задлахад алдаа гарлаа';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch {
+                    // Ignore invalid error response body and use fallback text.
+                }
+                throw new Error(errorMessage);
             }
 
             const result = await response.json();
@@ -421,7 +429,7 @@ export function CVUploadDialog({ open, onOpenChange, onDataExtracted, references
             setProgress(100);
             setStep('wizard');
         } catch (err) {
-            console.error('CV processing error:', err);
+            console.warn('CV processing error:', err);
             setStep('error');
             setError(err instanceof Error ? err.message : 'CV задлахад алдаа гарлаа');
         }
@@ -463,7 +471,7 @@ export function CVUploadDialog({ open, onOpenChange, onDataExtracted, references
 
     // ── Apply / Save ──
 
-    const handleApply = () => {
+    const handleApply = async () => {
         // Strip internal _original* keys before sending
         const cleanData: ParsedCVData = { ...wizardData };
         if (cleanData.education) {
@@ -473,7 +481,12 @@ export function CVUploadDialog({ open, onOpenChange, onDataExtracted, references
             cleanData.languages = cleanData.languages.map(({ _originalLanguage, ...rest }) => rest);
         }
 
-        onDataExtracted(cleanData);
+        setIsApplying(true);
+        const saved = await onDataExtracted(cleanData);
+        setIsApplying(false);
+
+        if (!saved) return;
+
         setStep('complete');
         toast({ title: 'CV амжилттай задлагдлаа!', description: 'Мэдээлэл анкетэд оруулагдлаа' });
         setTimeout(() => handleClose(), 1200);
@@ -969,10 +982,12 @@ export function CVUploadDialog({ open, onOpenChange, onDataExtracted, references
                         {isLastStep ? (
                             <Button
                                 onClick={handleApply}
+                                disabled={isApplying}
                                 size="sm"
                                 className="h-9 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700"
                             >
-                                <Check className="h-4 w-4 mr-1" /> Хадгалах
+                                {isApplying ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                                {isApplying ? 'Хадгалж байна...' : 'Хадгалах'}
                             </Button>
                         ) : (
                             <Button onClick={goNext} size="sm" className="h-9">

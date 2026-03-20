@@ -1030,11 +1030,11 @@ export default function EmployeeProfilePage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className={cn("h-8", employee.role === 'admin' && "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100")}
+                                className={cn("h-8", (employee.role === 'company_super_admin' || employee.role === 'admin') && "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100")}
                                 onClick={() => setShowAdminDialog(true)}
                             >
                                 <Shield className="h-3.5 w-3.5 mr-1.5" />
-                                {employee.role === 'admin' ? 'Админ' : 'Админ болгох'}
+                                {employee.role === 'company_super_admin' ? 'Ерөнхий админ' : employee.role === 'admin' ? 'Админ' : 'Админ болгох'}
                             </Button>
                             <Button variant="outline" size="sm" className="h-8" asChild>
                                 <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
