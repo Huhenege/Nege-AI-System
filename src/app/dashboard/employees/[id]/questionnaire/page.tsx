@@ -1491,7 +1491,7 @@ export default function QuestionnairePage() {
             workPhone: '', personalPhone: '', workEmail: '', personalEmail: '', homeAddress: '', temporaryAddress: '', facebook: '', instagram: '',
             emergencyContacts: [], education: [], educationNotApplicable: false,
             languages: [], languagesNotApplicable: false, trainings: [], trainingsNotApplicable: false,
-            familyMembers: [], familyMembersNotApplicable: false, maritalStatus: '', experiences: [], experienceNotApplicable: false
+            familyMembers: [], familyMembersNotApplicable: false, maritalStatus: undefined, experiences: [], experienceNotApplicable: false
         };
         const employeeInfo = { ...employeeData, workEmail: employeeData?.email, personalPhone: employeeData?.phoneNumber };
         return transformDates({ ...baseValues, ...employeeInfo, ...questionnaireData });
