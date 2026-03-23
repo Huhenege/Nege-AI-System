@@ -231,8 +231,7 @@ export default function CompanyPage() {
     const valuesQuery = useMemoFirebase(
         ({ firestore, companyPath }) => {
             if (!firestore || !companyPath) return null;
-            const pathSegments = [...companyPath.split('/'), 'company', 'branding', 'values'];
-            return query(collection(firestore, ...pathSegments), orderBy('createdAt', 'asc'));
+            return query(collection(firestore, `${companyPath}/company/branding/values`), orderBy('createdAt', 'asc'));
         },
         []
     );

@@ -42,7 +42,11 @@ service cloud.firestore {
 
     match /companies/{companyId} {
       allow read: if belongsToCompany(companyId) || isSuperAdmin();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200;
       allow update: if isCompanyAdmin(companyId) || isSuperAdmin();
       allow delete: if isSuperAdmin();
 
@@ -125,15 +129,29 @@ service cloud.firestore {
         allow write: if isCompanyAdmin(companyId);
       }
 
+      // Evaluation requests — explicit rules so non-admin employees can create/update
+      match /evaluation_requests/{requestId} {
+        allow read: if belongsToCompany(companyId);
+        allow create: if belongsToCompany(companyId)
+          && request.resource.data.requestedBy == request.auth.uid
+          && request.resource.data.status == 'pending';
+        allow update: if belongsToCompany(companyId) && (
+          isCompanyAdmin(companyId) ||
+          request.auth.uid == resource.data.get('assignedTo', '') ||
+          request.auth.uid == resource.data.get('requestedBy', '')
+        );
+        allow delete: if isCompanyAdmin(companyId);
+      }
+
       // Catch-all for other tenant subcollections (single level)
       match /{subcollection}/{docId} {
-        allow read: if belongsToCompany(companyId);
+        allow read: if isCompanyAdmin(companyId);
         allow write: if isCompanyAdmin(companyId);
       }
 
       // Catch-all recursive for deeply nested paths
       match /{subcollection}/{allPaths=**} {
-        allow read: if belongsToCompany(companyId);
+        allow read: if isCompanyAdmin(companyId);
         allow write: if isCompanyAdmin(companyId);
       }
     }
@@ -166,12 +184,6 @@ service cloud.firestore {
     // The following comment is a special instruction for the backend to create an index.
     // Please do not modify or remove it.
     // FIRESTORE_INDEX: COLLECTION_GROUP(timeOffRequests) ASC(status)
-
-    // Collection Group rules
-    match /{path=**}/assignedPrograms/{docId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
-    }
 
     // timeOffRequests — handled by tenant-scoped catch-all rules
     // (companies/{companyId}/{subcollection}/{allPaths=**})
@@ -249,8 +261,10 @@ service cloud.firestore {
         request.auth.token.get('positionId', '') in resource.data.get('reviewers', [])
       );
       
-      // Create: Any signed-in user can create documents
-      allow create: if isSignedIn();
+      // Create: signed-in user, must be the listed creator, initial status DRAFT
+      allow create: if isSignedIn()
+        && request.resource.data.creatorId == request.auth.uid
+        && request.resource.data.status == 'DRAFT';
       
       // Update access:
       // - Creator can update their own DRAFT documents
@@ -347,19 +361,47 @@ service cloud.firestore {
     }
     
     match /candidates/{candidateId} {
-        allow create: if true; // Public application submission
+        allow create: if true
+          && request.resource.data.keys().hasAll(['firstName', 'lastName', 'email'])
+          && request.resource.data.firstName is string
+          && request.resource.data.firstName.size() > 0
+          && request.resource.data.firstName.size() <= 200
+          && request.resource.data.lastName is string
+          && request.resource.data.lastName.size() > 0
+          && request.resource.data.lastName.size() <= 200
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0
+          && request.resource.data.email.size() <= 320
+          && request.resource.data.keys().size() <= 20;
         allow read, update, delete: if isAdmin();
     }
     
     match /applications/{applicationId} {
-        allow create: if true; // Public application submission
+        allow create: if true
+          && request.resource.data.keys().hasAll(['vacancyId', 'candidateId', 'status'])
+          && request.resource.data.vacancyId is string
+          && request.resource.data.vacancyId.size() > 0
+          && request.resource.data.candidateId is string
+          && request.resource.data.candidateId.size() > 0
+          && request.resource.data.status is string
+          && request.resource.data.keys().size() <= 25;
         allow read, update, delete: if isAdmin();
     }
 
     match /evaluation_requests/{requestId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
+        allow read: if isSignedIn() && (
+          isAdmin() ||
+          request.auth.uid == resource.data.get('requestedBy', '') ||
+          request.auth.uid == resource.data.get('assignedTo', '')
+        );
+        allow create: if isSignedIn()
+          && request.resource.data.requestedBy == request.auth.uid
+          && request.resource.data.status == 'pending';
+        allow update: if isSignedIn() && (
+          isAdmin() ||
+          request.auth.uid == resource.data.get('assignedTo', '') ||
+          request.auth.uid == resource.data.get('requestedBy', '')
+        );
         allow delete: if isAdmin();
     }
     
