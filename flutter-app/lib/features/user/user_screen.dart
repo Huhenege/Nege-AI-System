@@ -154,6 +154,18 @@ class UserScreen extends ConsumerWidget {
                         ),
                         const Divider(height: 1),
                         _MenuItem(
+                          icon: Icons.work_outline,
+                          label: 'Миний АБТ',
+                          onTap: () => context.go('/user/my-abt'),
+                        ),
+                        const Divider(height: 1),
+                        _MenuItem(
+                          icon: Icons.account_tree_outlined,
+                          label: 'Манай алба',
+                          onTap: () => context.go('/user/my-department'),
+                        ),
+                        const Divider(height: 1),
+                        _MenuItem(
                           icon: Icons.description_outlined,
                           label: 'Баримт бичиг шалгах',
                           onTap: () =>

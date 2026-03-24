@@ -83,6 +83,7 @@ export const AppDialogContent = React.forwardRef<
           'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           className
         )}
+        aria-describedby={undefined}
         {...props}
       >
         {children}

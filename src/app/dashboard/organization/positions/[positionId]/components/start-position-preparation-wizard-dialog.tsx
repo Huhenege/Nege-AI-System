@@ -111,7 +111,8 @@ export function StartPositionPreparationWizardDialog({
   }, [prepConfig]);
 
   const canSubmit = React.useMemo(() => {
-    for (const stage of prepStages) {
+    const activeStages = prepStages.filter((s) => (s.tasks || []).length > 0);
+    for (const stage of activeStages) {
       const stagePlan = taskPlanByStage[stage.id] || {};
       const selected = Object.entries(stagePlan).filter(([, p]) => p.selected);
       const ok = selected.every(([, p]) => isValidDateString(p.dueDate) && !!p.ownerId);
@@ -130,17 +131,19 @@ export function StartPositionPreparationWizardDialog({
   }, [open, resetState]);
 
   const buildOverrides = React.useCallback((): PositionPreparationStageTaskPlan[] => {
-    return prepStages.map((stage) => {
-      const stagePlan = taskPlanByStage[stage.id] || {};
-      const tasks = Object.entries(stagePlan)
-        .filter(([, p]) => p.selected)
-        .map(([templateTaskId, p]) => ({
-          templateTaskId,
-          dueDate: p.dueDate!,
-          ownerId: p.ownerId!,
-        }));
-      return { stageId: stage.id, tasks };
-    });
+    return prepStages
+      .filter((s) => (s.tasks || []).length > 0)
+      .map((stage) => {
+        const stagePlan = taskPlanByStage[stage.id] || {};
+        const tasks = Object.entries(stagePlan)
+          .filter(([, p]) => p.selected)
+          .map(([templateTaskId, p]) => ({
+            templateTaskId,
+            dueDate: p.dueDate!,
+            ownerId: p.ownerId!,
+          }));
+        return { stageId: stage.id, tasks };
+      });
   }, [prepStages, taskPlanByStage]);
 
   const handleCreate = React.useCallback(async () => {
@@ -386,7 +389,9 @@ export function StartPositionPreparationWizardDialog({
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {prepStages.map((s, idx) => (
+                    {prepStages
+                      .filter((s) => (s.tasks || []).length > 0)
+                      .map((s, idx) => (
                       <div key={s.id} className="pb-6 border-b last:border-b-0 last:pb-0">
                         {renderStageStep(s, idx)}
                       </div>

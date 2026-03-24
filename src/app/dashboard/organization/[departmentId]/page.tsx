@@ -359,6 +359,11 @@ export default function DepartmentPage() {
             levelName,
             departmentColor,
             assignedEmployee,
+            approvalHistory: _history,
+            approvedAt: _approvedAt,
+            approvedBy: _approvedBy,
+            disapprovedAt: _disapprovedAt,
+            disapprovedBy: _disapprovedBy,
             ...clonedData
         } = pos;
 
@@ -366,6 +371,12 @@ export default function DepartmentPage() {
             if (value !== undefined && typeof value !== 'function') acc[key] = value;
             return acc;
         }, {} as any);
+
+        delete cleanData.approvalHistory;
+        delete cleanData.approvedAt;
+        delete cleanData.approvedBy;
+        delete cleanData.disapprovedAt;
+        delete cleanData.disapprovedBy;
 
         try {
             const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);

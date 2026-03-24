@@ -251,7 +251,7 @@ export default function PositionDetailPage() {
             hasBasicInfo: !!position.title?.trim() && !!position.code?.trim(),
             hasReporting: !!position.departmentId && !!position.reportsToId,
             hasAttributes: !!position.levelId && !!position.jobCategoryId && !!position.employmentTypeId && !!position.workScheduleId && !!position.workingCondition,
-            hasSettings: !!position.budget?.yearlyBudget && position.budget.yearlyBudget > 0,
+            hasSettings: true,
         };
         return { ...checks, isComplete: Object.values(checks).every(Boolean) };
     }, [position]);

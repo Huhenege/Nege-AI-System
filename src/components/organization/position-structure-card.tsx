@@ -328,7 +328,7 @@ export function PositionStructureCard({
             {typeof completionPct === 'number' ? (
               <div className="space-y-2">
                 <div className={cn('flex items-center justify-between text-[10px] font-medium', isDarkBg ? 'text-white/70' : 'text-slate-600')}>
-                  <span>Бөглөлт</span>
+                  <span>Шаардлагтай мэдээлэл баталгаажуулалт</span>
                   <span>{Math.max(0, Math.min(100, Math.round(completionPct)))}%</span>
                 </div>
                 <div className={cn('h-1.5 w-full overflow-hidden rounded-full', isDarkBg ? 'bg-white/15' : 'bg-slate-200')}>

@@ -3,7 +3,7 @@
 // src/app/dashboard/page.tsx
 'use client';
 
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import ReactFlow, {
     addEdge,
@@ -335,7 +335,6 @@ const UnassignedEmployeeNode = ({ data }: { data: EmployeeNodeData & { isMore?: 
     );
 }
 
-const nodeTypes = { position: JobPositionNode, unassigned: UnassignedEmployeeNode };
 const SkeletonChart = () => <div className="relative h-[80vh] w-full"><Skeleton className="h-32 w-64 absolute top-10 left-10" /><Skeleton className="h-32 w-64 absolute top-60 left-80" /><Skeleton className="h-32 w-64 absolute top-10 right-10" /></div>
 
 // --- Layouting Logic ---
@@ -449,6 +448,8 @@ function useLayout(positions: JobPosition[] | null) {
 
 
 // --- Main Component ---
+const STABLE_NODE_TYPES = Object.freeze({ position: JobPositionNode, unassigned: UnassignedEmployeeNode });
+
 const OrganizationChart = () => {
     const router = useRouter();
     const [nodes, setNodes] = useState<CustomNode[]>([]);
@@ -1139,7 +1140,7 @@ const OrganizationChart = () => {
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
-                        nodeTypes={nodeTypes}
+                        nodeTypes={STABLE_NODE_TYPES}
                         className="bg-transparent"
                         fitView>
                         <Background />

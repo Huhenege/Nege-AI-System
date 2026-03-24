@@ -515,14 +515,14 @@ export function PositionOverview({
                         }}
                     />
 
-                    {/* Амралт батлах эрх */}
+                    {/* Ээлжийн амралтын хуваарь батлах эсэх */}
                     <FieldCard
                         icon={CalendarCheck}
-                        title="Амралт батлах эрх"
+                        title="Ээлжийн амралтын хуваарь батлах эсэх"
                         value={position.permissions?.canApproveVacation ? 'Тийм' : 'Үгүй'}
                         editContent={
                             <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
-                                <span className="text-sm font-medium">Амралт батлах эрхтэй эсэх</span>
+                                <span className="text-sm font-medium">Ээлжийн амралтын хуваарь батлах эсэх</span>
                                 <Switch
                                     checked={editCanApproveVacation}
                                     onCheckedChange={setEditCanApproveVacation}
@@ -563,10 +563,10 @@ export function PositionOverview({
                         }}
                     />
 
-                    {/* Жилийн төсөв */}
+                    {/* Point онооны төсөв */}
                     <FieldCard
                         icon={Wallet}
-                        title="Жилийн төсөв"
+                        title="Point онооны төсөв"
                         value={
                             position.budget?.yearlyBudget
                                 ? `${position.budget.yearlyBudget.toLocaleString()} ${position.budget.currency === 'MNT' ? '₮' : '$'}`
@@ -574,7 +574,7 @@ export function PositionOverview({
                         }
                         isEmpty={!position.budget?.yearlyBudget}
                         editContent={
-                            <LabeledInput label="Жилийн төсөв">
+                            <LabeledInput label="Point онооны төсөв">
                                 <div className="flex gap-2">
                                     <Input
                                         type="number"

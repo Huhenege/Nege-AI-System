@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef } from 'react';
 import ReactFlow, {
     Background,
     Controls,
@@ -86,6 +86,7 @@ function FlowInner({
     const { fitView } = useReactFlow();
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const nodeTypesRef = useRef(NODE_TYPES);
 
     useEffect(() => {
         setNodes(initialNodes);
@@ -106,7 +107,7 @@ function FlowInner({
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            nodeTypes={NODE_TYPES}
+            nodeTypes={nodeTypesRef.current}
             connectionLineType={ConnectionLineType.SmoothStep}
             fitView
             className="bg-dot-pattern"

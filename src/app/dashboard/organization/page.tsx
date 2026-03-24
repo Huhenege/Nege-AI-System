@@ -26,6 +26,7 @@ import {
 
 // Tab Components
 import { StructureTab } from './components/tabs/structure-tab';
+import { OrganizationDashboard } from './components/organization-dashboard';
 
 // Dialogs
 import { AddDepartmentDialog } from './add-department-dialog';
@@ -58,9 +59,9 @@ export default function OrganizationPage() {
     const jobCategoriesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'jobCategories') : null), [firestore]);
     const workSchedulesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'workSchedules') : null), [firestore]);
 
-    const { data: departments } = useCollection<Department>(departmentsQuery);
+    const { data: departments, isLoading: deptLoading } = useCollection<Department>(departmentsQuery);
     const { data: departmentTypes } = useCollection<DepartmentType>(deptTypesQuery);
-    const { data: positions } = useCollection<Position>(positionsQuery);
+    const { data: positions, isLoading: posLoading } = useCollection<Position>(positionsQuery);
     const { data: levels } = useCollection<PositionLevel>(levelsQuery);
     const { data: employmentTypes } = useCollection<EmploymentType>(empTypesQuery);
     const { data: jobCategories } = useCollection<JobCategory>(jobCategoriesQuery);
@@ -83,6 +84,12 @@ export default function OrganizationPage() {
                     backBehavior="history"
                     fallbackBackHref="/dashboard"
                     backHref="/dashboard"
+                />
+
+                <OrganizationDashboard
+                    departments={departments ?? null}
+                    positions={positions ?? null}
+                    isLoading={deptLoading || posLoading}
                 />
 
                 <div className="flex-1 min-h-0">

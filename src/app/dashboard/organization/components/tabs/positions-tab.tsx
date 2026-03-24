@@ -185,11 +185,27 @@ export const PositionsTab = ({
     const handleDuplicatePosition = async (pos: Position) => {
         if (!firestore || !posCodeConfigRef) return;
 
-        const { id, filled, code: _code, ...clonedData } = pos as any;
+        const {
+            id,
+            filled,
+            code: _code,
+            approvalHistory: _history,
+            approvedAt: _approvedAt,
+            approvedBy: _approvedBy,
+            disapprovedAt: _disapprovedAt,
+            disapprovedBy: _disapprovedBy,
+            ...clonedData
+        } = pos as any;
         const cleanData = Object.entries(clonedData).reduce((acc, [key, value]) => {
             if (value !== undefined && typeof value !== 'function') acc[key] = value;
             return acc;
         }, {} as any);
+
+        delete cleanData.approvalHistory;
+        delete cleanData.approvedAt;
+        delete cleanData.approvedBy;
+        delete cleanData.disapprovedAt;
+        delete cleanData.disapprovedBy;
 
         try {
             const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);
@@ -199,6 +215,8 @@ export const PositionsTab = ({
                 title: `${pos.title} (Хуулбар)`,
                 filled: 0,
                 isActive: true,
+                isApproved: false,
+                createdAt: new Date().toISOString(),
             };
             addDocumentNonBlocking(tCollection('positions'), newPositionData);
             toast({

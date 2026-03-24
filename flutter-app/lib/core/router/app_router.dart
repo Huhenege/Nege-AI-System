@@ -20,6 +20,8 @@ import '../../features/survey/survey_screen.dart';
 import '../../features/document_review/document_review_screen.dart';
 import '../../features/profile/profile_edit_screen.dart';
 import '../../features/questionnaire/questionnaire_screen.dart';
+import '../../features/user/my_abt_screen.dart';
+import '../../features/user/my_department_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _homeTabKey = GlobalKey<NavigatorState>();
@@ -146,6 +148,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     path: 'questionnaire',
                     builder: (context, state) =>
                         const QuestionnaireScreen(),
+                  ),
+                  GoRoute(
+                    path: 'my-abt',
+                    builder: (context, state) => const MyAbtScreen(),
+                  ),
+                  GoRoute(
+                    path: 'my-department',
+                    builder: (context, state) => const MyDepartmentScreen(),
                   ),
                 ],
               ),

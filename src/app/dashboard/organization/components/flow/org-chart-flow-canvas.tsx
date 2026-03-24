@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef } from 'react';
 import ReactFlow, {
     Background,
     Controls,
@@ -71,10 +71,13 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
     return { nodes, edges };
 };
 
+const STABLE_NODE_TYPES = { orgNode: OrgChartFlowNode };
+
 function FlowInner({ data, onDepartmentClick, initialNodes, initialEdges }: OrgChartFlowCanvasProps & { initialNodes: Node[], initialEdges: Edge[] }) {
     const { fitView } = useReactFlow();
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const nodeTypesRef = useRef(STABLE_NODE_TYPES);
 
     useEffect(() => {
         setNodes(initialNodes);
@@ -100,7 +103,7 @@ function FlowInner({ data, onDepartmentClick, initialNodes, initialEdges }: OrgC
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            nodeTypes={NODE_TYPES}
+            nodeTypes={nodeTypesRef.current}
             connectionLineType={ConnectionLineType.SmoothStep}
             fitView
             className="bg-dot-pattern"

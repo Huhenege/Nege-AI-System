@@ -221,7 +221,6 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
     const handleDuplicatePosition = async (pos: any) => {
         if (!firestore || !posCodeConfigRef || !department?.id) return;
 
-        // Strip UI-specific fields; do not copy code — generate new unique one
         const {
             id,
             filled,
@@ -233,6 +232,11 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
             levelName,
             departmentColor,
             assignedEmployee,
+            approvalHistory: _history,
+            approvedAt: _approvedAt,
+            approvedBy: _approvedBy,
+            disapprovedAt: _disapprovedAt,
+            disapprovedBy: _disapprovedBy,
             ...clonedData
         } = pos;
 
@@ -240,6 +244,13 @@ export const PositionsManagementTab = ({ department, hideChart, hideAddButton, h
             if (value !== undefined && typeof value !== 'function') acc[key] = value;
             return acc;
         }, {} as any);
+
+        // Remove any history/approval fields that might have survived destructuring
+        delete cleanData.approvalHistory;
+        delete cleanData.approvedAt;
+        delete cleanData.approvedBy;
+        delete cleanData.disapprovedAt;
+        delete cleanData.disapprovedBy;
 
         try {
             const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);

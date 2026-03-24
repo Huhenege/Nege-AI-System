@@ -658,10 +658,10 @@ export function PositionCompetency({
                     }}
                 />
 
-                {/* Мэргэжлүүд */}
+                {/* Мэргэжил */}
                 <FieldCard
                     icon={BookOpen}
-                    title="Мэргэжлүүд"
+                    title="Мэргэжил"
                     value={
                         position.experience?.professions?.length
                             ? `${position.experience.professions.length} мэргэжил`
