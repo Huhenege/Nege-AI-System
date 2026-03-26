@@ -48,6 +48,7 @@ const STAGE_ORDER: Record<string, number> = {
 
 export interface CreateOnboardingProjectsParams {
     firestore: Firestore;
+    companyPath: string;          // Tenant path: "companies/{companyId}"
     employeeId: string;           // Шинэ ажилтан
     employeeName: string;         // Нэр (төслийн нэрэнд)
     mentorId?: string;            // Ментор (optional)
@@ -80,6 +81,7 @@ export async function createOnboardingProjects(
 ): Promise<OnboardingProjectResult> {
     const {
         firestore,
+        companyPath,
         employeeId,
         employeeName,
         mentorId,
@@ -213,7 +215,7 @@ export async function createOnboardingProjects(
         const teamMemberIds = Array.from(teamMemberSet);
 
         // Create project document
-        const projectRef = doc(collection(firestore, 'projects'));
+        const projectRef = doc(collection(firestore, `${companyPath}/projects`));
         const projectId = projectRef.id;
         projectIds.push(projectId);
         
@@ -248,7 +250,7 @@ export async function createOnboardingProjects(
             const planMap = taskPlanByStageId[s.id];
 
             for (const task of s.tasks) {
-                const taskRef = doc(collection(firestore, 'projects', projectId, 'tasks'));
+                const taskRef = doc(collection(firestore, `${companyPath}/projects`, projectId, 'tasks'));
                 const taskId = taskRef.id;
 
                 const plan = planMap?.[task.id];

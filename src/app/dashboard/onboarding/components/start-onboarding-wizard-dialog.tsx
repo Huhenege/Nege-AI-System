@@ -106,9 +106,12 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
   const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
   const [taskPlanByStage, setTaskPlanByStage] = React.useState<TaskPlanByStage>({});
 
-  const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => {
+  const companyPathRef = React.useRef<string | null>(null);
+
+  const employeesQuery = useMemoFirebase(({ firestore, companyPath: cp }) => {
     if (!firestore) return null;
-    return query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']));
+    companyPathRef.current = cp;
+    return query(tenantCollection(firestore, cp, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']));
   }, [firestore]);
   const { data: employees, isLoading: employeesLoading } = useFetchCollection<Employee>(employeesQuery as any);
 
@@ -302,7 +305,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
   }, [taskPlanByStage]);
 
   const handleCreate = React.useCallback(async () => {
-    if (!firestore || !selectedEmployee || !firebaseUser) return;
+    if (!firestore || !selectedEmployee || !firebaseUser || !companyPathRef.current) return;
     if (employeesWithOnboarding.has(selectedEmployee.id)) {
       toast({
         title: 'Onboarding аль хэдийн үүссэн байна',
@@ -346,6 +349,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
 
       const result = await createOnboardingProjects({
         firestore,
+        companyPath: companyPathRef.current!,
         employeeId: selectedEmployee.id,
         employeeName,
         mentorId: undefined,

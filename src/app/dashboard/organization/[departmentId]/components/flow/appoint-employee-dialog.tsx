@@ -968,6 +968,7 @@ export function AppointEmployeeDialog({
 
                         const result = await createOnboardingProjects({
                             firestore,
+                            companyPath: companyPath!,
                             employeeId: selectedEmployee.id,
                             employeeName: employeeName || 'Шинэ ажилтан',
                             mentorId: undefined, // TODO: Add mentor selection if needed
