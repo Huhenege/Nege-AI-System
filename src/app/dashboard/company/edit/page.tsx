@@ -24,7 +24,8 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useFirebase, useFetchDoc, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, tenantDoc } from '@/firebase';
+import { useFirebase, useFetchDoc, useMemoFirebase, tenantDoc } from '@/firebase';
+import { setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, X, Upload, Building, ArrowLeft, Trash, Image as ImageIcon, FileText, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -220,7 +221,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
         }
     };
 
-    const handleSave = (values: CompanyProfileFormValues) => {
+    const handleSave = async (values: CompanyProfileFormValues) => {
         if (!companyProfileRef) return;
 
         // Sanitize values to remove undefined, as Firestore doesn't support it
@@ -228,17 +229,24 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
             Object.entries(values).filter(([_, v]) => v !== undefined)
         );
 
-        if (docExists) {
-            updateDocumentNonBlocking(companyProfileRef, sanitizedValues as any);
-        } else {
-            setDocumentNonBlocking(companyProfileRef, sanitizedValues as any, { merge: true });
+        try {
+            if (docExists) {
+                await updateDoc(companyProfileRef, sanitizedValues as Record<string, unknown>);
+            } else {
+                await setDoc(companyProfileRef, sanitizedValues as Record<string, unknown>, { merge: true });
+            }
+            toast({
+                title: 'Амжилттай хадгаллаа',
+                description: 'Компанийн мэдээлэл шинэчлэгдлээ.',
+            });
+            router.push('/dashboard/company');
+        } catch (err) {
+            toast({
+                title: 'Алдаа гарлаа',
+                description: err instanceof Error ? err.message : 'Хадгалахад алдаа гарлаа.',
+                variant: 'destructive',
+            });
         }
-
-        toast({
-            title: 'Амжилттай хадгаллаа',
-            description: 'Компанийн мэдээлэл шинэчлэгдлээ.',
-        });
-        router.push('/dashboard/company');
     };
 
     return (

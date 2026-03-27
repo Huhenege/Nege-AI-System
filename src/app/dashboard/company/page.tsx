@@ -321,68 +321,103 @@ export default function CompanyPage() {
         
         setIsSettingUpCEO(true);
         try {
+            // Resolve or create "Удирдлага" department
             let ceoDepartmentId: string;
-            
-            // Step 1: Find or create "Удирдлага" department
             const existingDept = departments?.find(d => d.name === 'Удирдлага');
+
             if (!existingDept) {
-                // Create new department
-                const deptRef = await addDoc(tCollection('departments'), {
+                // Pre-generate IDs for atomic batch write
+                const { doc: fsDoc } = await import('firebase/firestore');
+                const deptDocRef = fsDoc(tCollection('departments'));
+                const posDocRef = fsDoc(tCollection('positions'));
+                ceoDepartmentId = deptDocRef.id;
+
+                // ── Atomic batch: department + position + profile update ────────
+                const batch = writeBatch(firestore);
+
+                batch.set(deptDocRef, {
                     name: 'Удирдлага',
                     type: 'executive',
                     description: 'Байгууллагын удирдлага',
                     createdAt: Timestamp.now(),
-                    updatedAt: Timestamp.now()
+                    updatedAt: Timestamp.now(),
                 });
-                ceoDepartmentId = deptRef.id;
+
+                batch.set(posDocRef, {
+                    title: 'Гүйцэтгэх захирал',
+                    code: 'CEO',
+                    departmentId: ceoDepartmentId,
+                    reportsTo: null,
+                    filled: 0,
+                    headcount: 1,
+                    isApproved: true,
+                    isActive: true,
+                    levelId: ceoSetupData.levelId || null,
+                    employmentTypeId: ceoSetupData.employmentTypeId || null,
+                    salaryRange: ceoSetupData.salaryRange,
+                    salarySteps: ceoSetupData.salarySteps,
+                    incentives: ceoSetupData.incentives,
+                    allowances: ceoSetupData.allowances,
+                    createdAt: Timestamp.now(),
+                    updatedAt: Timestamp.now(),
+                });
+
+                batch.set(tDoc('company', 'profile'), {
+                    ceoDepartmentId,
+                    ceoPositionId: posDocRef.id,
+                    ceoEmployeeId: null,
+                    updatedAt: Timestamp.now(),
+                }, { merge: true });
+
+                await batch.commit();
             } else {
+                // Department exists — create position + update profile atomically
                 ceoDepartmentId = existingDept.id;
+                const { doc: fsDoc } = await import('firebase/firestore');
+                const posDocRef = fsDoc(tCollection('positions'));
+
+                const batch = writeBatch(firestore);
+
+                batch.set(posDocRef, {
+                    title: 'Гүйцэтгэх захирал',
+                    code: 'CEO',
+                    departmentId: ceoDepartmentId,
+                    reportsTo: null,
+                    filled: 0,
+                    headcount: 1,
+                    isApproved: true,
+                    isActive: true,
+                    levelId: ceoSetupData.levelId || null,
+                    employmentTypeId: ceoSetupData.employmentTypeId || null,
+                    salaryRange: ceoSetupData.salaryRange,
+                    salarySteps: ceoSetupData.salarySteps,
+                    incentives: ceoSetupData.incentives,
+                    allowances: ceoSetupData.allowances,
+                    createdAt: Timestamp.now(),
+                    updatedAt: Timestamp.now(),
+                });
+
+                batch.set(tDoc('company', 'profile'), {
+                    ceoDepartmentId,
+                    ceoPositionId: posDocRef.id,
+                    ceoEmployeeId: null,
+                    updatedAt: Timestamp.now(),
+                }, { merge: true });
+
+                await batch.commit();
             }
-
-            // Step 2: Create "Гүйцэтгэх захирал" position with all wizard data
-            const posRef = await addDoc(tCollection('positions'), {
-                title: 'Гүйцэтгэх захирал',
-                code: 'CEO',
-                departmentId: ceoDepartmentId,
-                reportsTo: null,
-                filled: 0,
-                headcount: 1,
-                isApproved: true,
-                isActive: true,
-                // Wizard data
-                levelId: ceoSetupData.levelId || null,
-                employmentTypeId: ceoSetupData.employmentTypeId || null,
-                salaryRange: ceoSetupData.salaryRange,
-                salarySteps: ceoSetupData.salarySteps,
-                incentives: ceoSetupData.incentives,
-                allowances: ceoSetupData.allowances,
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now()
-            });
-
-            // Step 3: Update company profile with CEO IDs
-            await updateDoc(tDoc('company', 'profile'), {
-                ceoDepartmentId: ceoDepartmentId,
-                ceoPositionId: posRef.id,
-                ceoEmployeeId: null
-            });
 
             toast({
                 title: 'Амжилттай',
                 description: 'Гүйцэтгэх захирлын ажлын байр үүслээ. Одоо ажилтан томилно уу.',
             });
-            
-            // Close wizard
             setShowCEOWizard(false);
             setWizardStep(1);
 
-        } catch (error: any) {
-            console.error('CEO setup error:', error);
-            toast({
-                title: 'Алдаа гарлаа',
-                description: error?.message || 'Гүйцэтгэх захирлын ажлын байр үүсгэхэд алдаа гарлаа.',
-                variant: 'destructive'
-            });
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Гүйцэтгэх захирлын ажлын байр үүсгэхэд алдаа гарлаа.';
+            console.error('CEO setup error:', msg);
+            toast({ title: 'Алдаа гарлаа', description: msg, variant: 'destructive' });
         } finally {
             setIsSettingUpCEO(false);
         }
@@ -466,86 +501,64 @@ export default function CompanyPage() {
         }
     };
     
-    // Reset CEO Setup - Delete everything and start fresh
+    // Reset CEO Setup - Delete everything atomically and start fresh
     const handleResetCEO = async () => {
         if (!firestore || !companyProfile) return;
-        
         setIsResettingCEO(true);
         try {
-            const profile = companyProfile as any;
-            
-            // 1. If CEO employee is appointed, release them (use individual update with try-catch)
-            if (profile.ceoEmployeeId && ceoEmployee) {
-                try {
-                    const empRef = tDoc('employees', profile.ceoEmployeeId);
-                    await updateDoc(empRef, {
-                        positionId: null,
-                        jobTitle: null,
-                        departmentId: null,
-                        updatedAt: Timestamp.now()
-                    });
-                } catch (empError) {
-                    console.warn('Employee update skipped:', empError);
-                }
+            const profile = companyProfile as Record<string, unknown>;
+            const batch = writeBatch(firestore);
+
+            // 1. Release CEO employee (clear position/dept references)
+            if (profile.ceoEmployeeId && typeof profile.ceoEmployeeId === 'string') {
+                batch.update(tDoc('employees', profile.ceoEmployeeId), {
+                    positionId: null,
+                    jobTitle: null,
+                    departmentId: null,
+                    updatedAt: Timestamp.now(),
+                });
             }
-            
-            // 2. Delete CEO position if exists
-            if (profile.ceoPositionId) {
-                try {
-                    const posRef = tDoc('positions', profile.ceoPositionId);
-                    await deleteDoc(posRef);
-                } catch (posError) {
-                    console.warn('Position delete skipped:', posError);
-                }
+
+            // 2. Delete CEO position
+            if (profile.ceoPositionId && typeof profile.ceoPositionId === 'string') {
+                batch.delete(tDoc('positions', profile.ceoPositionId));
             }
-            
-            // 3. Delete "Удирдлага" department if it was created for CEO
-            // Only delete if it's the CEO department and has no other positions
-            if (profile.ceoDepartmentId) {
+
+            // 3. Delete "Удирдлага" department only if it has no other positions
+            if (profile.ceoDepartmentId && typeof profile.ceoDepartmentId === 'string') {
                 const dept = departments?.find(d => d.id === profile.ceoDepartmentId);
                 if (dept && dept.name === 'Удирдлага') {
-                    // Check if there are other positions in this department
                     const otherPositions = positions?.filter(
                         p => p.departmentId === profile.ceoDepartmentId && p.id !== profile.ceoPositionId
                     );
                     if (!otherPositions || otherPositions.length === 0) {
-                        try {
-                            const deptRef = tDoc('departments', profile.ceoDepartmentId);
-                            await deleteDoc(deptRef);
-                        } catch (deptError) {
-                            console.warn('Department delete skipped:', deptError);
-                        }
+                        batch.delete(tDoc('departments', profile.ceoDepartmentId));
                     }
                 }
             }
-            
+
             // 4. Clear CEO IDs from company profile
-            const profileRef = tDoc('company', 'profile');
-            await updateDoc(profileRef, {
+            batch.update(tDoc('company', 'profile'), {
                 ceoDepartmentId: null,
                 ceoPositionId: null,
-                ceoEmployeeId: null
+                ceoEmployeeId: null,
+                updatedAt: Timestamp.now(),
             });
-            
+
+            await batch.commit();
+
             toast({
                 title: 'Амжилттай',
                 description: 'Гүйцэтгэх захирлын тохиргоо устгагдлаа. Дахин эхлүүлж болно.',
             });
-            
+
             setShowResetConfirm(false);
-            
-            // Auto-start wizard after reset
-            setTimeout(() => {
-                handleStartCEOWizard();
-            }, 500);
-            
-        } catch (error: any) {
-            console.error('CEO reset error:', error);
-            toast({
-                title: 'Алдаа гарлаа',
-                description: error?.message || 'Тохиргоо устгахад алдаа гарлаа.',
-                variant: 'destructive'
-            });
+            setTimeout(() => handleStartCEOWizard(), 500);
+
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Тохиргоо устгахад алдаа гарлаа.';
+            console.error('CEO reset error:', msg);
+            toast({ title: 'Алдаа гарлаа', description: msg, variant: 'destructive' });
         } finally {
             setIsResettingCEO(false);
         }
