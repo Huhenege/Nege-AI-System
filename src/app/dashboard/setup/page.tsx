@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/tenant-context';
-import { useTenantWrite, useAuth } from '@/firebase';
-import { setDoc, addDoc, updateDoc, doc as firestoreDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +14,6 @@ import {
   Building,
   Network,
   Briefcase,
-  UserPlus,
   Check,
   ChevronRight,
   ChevronLeft,
@@ -35,41 +33,11 @@ export default function SetupWizardPage() {
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
-  const { company, companyId } = useTenant();
-  const { firestore, tDoc, tCollection } = useTenantWrite();
+  const { company } = useTenant();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Force-refresh auth token before Firestore writes to ensure claims are current
-  const ensureFreshToken = async () => {
-    if (auth.currentUser) {
-      await auth.currentUser.getIdToken(true);
-    }
-  };
-
-  const markSetupComplete = async () => {
-    if (!firestore || !companyId) return;
-    try {
-      await ensureFreshToken();
-      await updateDoc(firestoreDoc(firestore, 'companies', companyId), {
-        setupComplete: true,
-      });
-    } catch (err) {
-      console.error('Failed to mark setup complete:', err);
-    }
-  };
-
-  const handleSkipToFinish = async () => {
-    await markSetupComplete();
-    setCurrentStep(3);
-  };
-
-  const handleGoToDashboard = async () => {
-    await markSetupComplete();
-    router.push('/dashboard');
-  };
-
-  // Step data
+  // ── Step data ──────────────────────────────────────────────────────────────
   const [companyData, setCompanyData] = useState({
     phone: '',
     address: '',
@@ -80,82 +48,114 @@ export default function SetupWizardPage() {
   const [positionTitle, setPositionTitle] = useState('');
   const [createdDeptId, setCreatedDeptId] = useState<string | null>(null);
 
+  // ── API helper — uses Admin SDK on backend, bypasses claims race condition ──
+  const callSetupApi = async (body: Record<string, unknown>) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Нэвтрээгүй байна.');
+
+    // Always force-refresh token before calling setup API to get latest claims.
+    // Even if claims are not yet propagated, the API resolves companyId via ownerId.
+    const idToken = await user.getIdToken(true);
+
+    const res = await fetch('/api/setup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Хадгалахад алдаа гарлаа.');
+    }
+    return data as Record<string, unknown>;
+  };
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
   const handleSaveCompany = async () => {
-    if (!firestore || !companyId) return;
     setIsSaving(true);
     try {
-      await ensureFreshToken();
-      await setDoc(
-        tDoc('company', 'profile'),
-        {
-          name: company?.name || '',
+      await callSetupApi({
+        company: {
           phone: companyData.phone,
           address: companyData.address,
           description: companyData.description,
-          updatedAt: serverTimestamp(),
         },
-        { merge: true }
-      );
+      });
       toast({ title: 'Компанийн мэдээлэл хадгалагдлаа' });
       setCurrentStep(1);
     } catch (err) {
-      toast({ title: 'Алдаа', description: String(err), variant: 'destructive' });
+      toast({ title: 'Алдаа', description: String(err instanceof Error ? err.message : err), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleSaveDepartment = async () => {
-    if (!firestore || !deptName.trim()) return;
+    if (!deptName.trim()) return;
     setIsSaving(true);
     try {
-      await ensureFreshToken();
-      const docRef = await addDoc(tCollection('departments'), {
-        name: deptName.trim(),
-        color: deptColor,
-        description: '',
-        isActive: true,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      const result = await callSetupApi({
+        department: { name: deptName.trim(), color: deptColor },
       });
-      setCreatedDeptId(docRef.id);
+      if (result.departmentId) {
+        setCreatedDeptId(result.departmentId as string);
+      }
       toast({ title: `"${deptName}" хэлтэс үүсгэгдлээ` });
       setCurrentStep(2);
     } catch (err) {
-      toast({ title: 'Алдаа', description: String(err), variant: 'destructive' });
+      toast({ title: 'Алдаа', description: String(err instanceof Error ? err.message : err), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleSavePosition = async () => {
-    if (!firestore || !companyId || !positionTitle.trim()) return;
+    if (!positionTitle.trim()) return;
     setIsSaving(true);
     try {
-      await ensureFreshToken();
-      await addDoc(tCollection('positions'), {
-        title: positionTitle.trim(),
-        departmentId: createdDeptId || '',
-        isActive: true,
-        isApproved: true,
-        headcount: 1,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      await callSetupApi({
+        position: {
+          title: positionTitle.trim(),
+          departmentId: createdDeptId || '',
+        },
+        markComplete: true,
       });
-
-      // Mark setup as complete on the main company document
-      await updateDoc(firestoreDoc(firestore, 'companies', companyId), {
-        setupComplete: true,
-      });
-
       toast({ title: `"${positionTitle}" ажлын байр үүсгэгдлээ` });
       setCurrentStep(3);
     } catch (err) {
-      toast({ title: 'Алдаа', description: String(err), variant: 'destructive' });
+      toast({ title: 'Алдаа', description: String(err instanceof Error ? err.message : err), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
+
+  const handleSkipToFinish = async () => {
+    setIsSaving(true);
+    try {
+      await callSetupApi({ markComplete: true });
+    } catch {
+      // Non-critical — continue to finish step regardless
+    } finally {
+      setIsSaving(false);
+    }
+    setCurrentStep(3);
+  };
+
+  const handleGoToDashboard = async () => {
+    // Ensure setup is marked complete even if user lands on done step directly
+    try {
+      await callSetupApi({ markComplete: true });
+    } catch {
+      // Non-critical
+    }
+    router.push('/dashboard');
+  };
+
+  // ── UI ─────────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center px-4">
@@ -167,11 +167,9 @@ export default function SetupWizardPage() {
               <div
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors',
-                  idx < currentStep
+                  idx <= currentStep
                     ? 'bg-primary text-primary-foreground'
-                    : idx === currentStep
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
+                    : 'bg-muted text-muted-foreground'
                 )}
               >
                 {idx < currentStep ? <Check className="h-4 w-4" /> : idx + 1}
@@ -183,7 +181,7 @@ export default function SetupWizardPage() {
           ))}
         </div>
 
-        {/* Step content */}
+        {/* Step 1 — Company info */}
         {currentStep === 0 && (
           <Card>
             <CardHeader className="text-center">
@@ -222,7 +220,7 @@ export default function SetupWizardPage() {
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="ghost" onClick={() => setCurrentStep(1)}>
+                <Button variant="ghost" onClick={() => setCurrentStep(1)} disabled={isSaving}>
                   Алгасах <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
                 <Button onClick={handleSaveCompany} disabled={isSaving}>
@@ -234,6 +232,7 @@ export default function SetupWizardPage() {
           </Card>
         )}
 
+        {/* Step 2 — Department */}
         {currentStep === 1 && (
           <Card>
             <CardHeader className="text-center">
@@ -267,11 +266,11 @@ export default function SetupWizardPage() {
                 </div>
               </div>
               <div className="flex justify-between pt-2">
-                <Button variant="ghost" onClick={() => setCurrentStep(0)}>
+                <Button variant="ghost" onClick={() => setCurrentStep(0)} disabled={isSaving}>
                   <ChevronLeft className="h-4 w-4 mr-1" /> Буцах
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="ghost" onClick={() => setCurrentStep(2)}>
+                  <Button variant="ghost" onClick={() => setCurrentStep(2)} disabled={isSaving}>
                     Алгасах <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                   <Button onClick={handleSaveDepartment} disabled={isSaving || !deptName.trim()}>
@@ -284,6 +283,7 @@ export default function SetupWizardPage() {
           </Card>
         )}
 
+        {/* Step 3 — Position */}
         {currentStep === 2 && (
           <Card>
             <CardHeader className="text-center">
@@ -301,11 +301,11 @@ export default function SetupWizardPage() {
                 />
               </div>
               <div className="flex justify-between pt-2">
-                <Button variant="ghost" onClick={() => setCurrentStep(1)}>
+                <Button variant="ghost" onClick={() => setCurrentStep(1)} disabled={isSaving}>
                   <ChevronLeft className="h-4 w-4 mr-1" /> Буцах
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="ghost" onClick={handleSkipToFinish}>
+                  <Button variant="ghost" onClick={handleSkipToFinish} disabled={isSaving}>
                     Алгасах <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                   <Button onClick={handleSavePosition} disabled={isSaving || !positionTitle.trim()}>
@@ -318,6 +318,7 @@ export default function SetupWizardPage() {
           </Card>
         )}
 
+        {/* Step 4 — Done */}
         {currentStep === 3 && (
           <Card>
             <CardHeader className="text-center">
