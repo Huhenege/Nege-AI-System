@@ -70,6 +70,7 @@ const TENANT_SCOPED = new Set([
   'timeOffRequests',
   'departmentHistory',
   'organization_settings',
+  'workCalendars',
 ]);
 
 /**

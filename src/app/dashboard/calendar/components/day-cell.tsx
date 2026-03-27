@@ -35,7 +35,8 @@ export function DayCell({
             type="button"
             onClick={() => onClick?.(date)}
             className={cn(
-                'relative flex items-center justify-center rounded-md transition-all',
+                // overflow-visible ensures indicator dots are not clipped in compact mode
+                'relative flex items-center justify-center rounded-md transition-all overflow-visible',
                 compact ? 'h-6 w-6 text-xs' : 'h-8 w-8 text-sm',
                 config.bgColor,
                 config.textColor,
