@@ -29,30 +29,44 @@ const CalendarDaySchema = z.object({
 });
 
 const BodySchema = z.discriminatedUnion('action', [
-  // Initialize or get calendar for a year
   z.object({
     action: z.literal('init'),
     year: z.number().int().min(2020).max(2050),
   }),
-  // Upsert a single day
   z.object({
     action: z.literal('upsert_day'),
     year: z.number().int().min(2020).max(2050),
     day: CalendarDaySchema,
   }),
-  // Delete a single day (reset to default)
   z.object({
     action: z.literal('delete_day'),
     year: z.number().int().min(2020).max(2050),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   }),
-  // Move a day config to another date
   z.object({
     action: z.literal('move_day'),
     year: z.number().int().min(2020).max(2050),
     fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     day: CalendarDaySchema,
+  }),
+  z.object({
+    action: z.literal('add_event'),
+    year: z.number().int().min(2020).max(2050),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    event: CalendarEventSchema,
+  }),
+  z.object({
+    action: z.literal('remove_event'),
+    year: z.number().int().min(2020).max(2050),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    eventId: z.string(),
+  }),
+  z.object({
+    action: z.literal('update_event'),
+    year: z.number().int().min(2020).max(2050),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    event: CalendarEventSchema,
   }),
 ]);
 
@@ -228,6 +242,45 @@ export async function POST(request: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     });
     return NextResponse.json({ success: true, fromDate, toDate });
+  }
+
+  if (body.action === 'add_event') {
+    const { date, event } = body;
+    await calendarRef.update({
+      [`days.${date}.events`]: FieldValue.arrayUnion(event),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return NextResponse.json({ success: true, date, eventId: event.id });
+  }
+
+  if (body.action === 'remove_event') {
+    const { date, eventId } = body;
+    const snap = await calendarRef.get();
+    const days = snap.data()?.days || {};
+    const dayData = days[date];
+    if (dayData?.events) {
+      const filtered = dayData.events.filter((e: any) => e.id !== eventId);
+      await calendarRef.update({
+        [`days.${date}.events`]: filtered,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    return NextResponse.json({ success: true, date, eventId });
+  }
+
+  if (body.action === 'update_event') {
+    const { date, event } = body;
+    const snap = await calendarRef.get();
+    const days = snap.data()?.days || {};
+    const dayData = days[date];
+    if (dayData?.events) {
+      const updated = dayData.events.map((e: any) => e.id === event.id ? event : e);
+      await calendarRef.update({
+        [`days.${date}.events`]: updated,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    return NextResponse.json({ success: true, date, eventId: event.id });
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });

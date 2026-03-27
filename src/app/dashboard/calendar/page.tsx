@@ -8,12 +8,16 @@ import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { CalendarDays, ListChecks } from 'lucide-react';
+
 import {
   CalendarStatsDashboard,
   CalendarLegend,
   YearCalendarView,
   DayTypeDialog,
   CalendarTypeSelector,
+  CalendarEventsList,
 } from './components';
 
 import {
@@ -252,8 +256,6 @@ export default function CalendarPage() {
       ...(data.isRecurring !== undefined && { isRecurring: data.isRecurring }),
       ...(data.legalReference !== undefined && { legalReference: data.legalReference }),
       ...(data.note !== undefined && { note: data.note }),
-      // Always include events array (even if empty) so saves correctly
-      events: data.events ?? [],
     };
 
     // Optimistic update — update local state immediately
@@ -355,7 +357,6 @@ export default function CalendarPage() {
       ...(data.isRecurring !== undefined && { isRecurring: data.isRecurring }),
       ...(data.legalReference !== undefined && { legalReference: data.legalReference }),
       ...(data.note !== undefined && { note: data.note }),
-      events: data.events ?? [],
     };
 
     // Optimistic update
@@ -401,6 +402,82 @@ export default function CalendarPage() {
     }
   };
 
+  // ── Add event ──────────────────────────────────────────────────────────
+  const handleAddEvent = async (date: string, event: { id: string; title: string; type: string; description?: string; isRecurring?: boolean }) => {
+    if (!workCalendar) return;
+    setWorkCalendar(prev => {
+      if (!prev) return null;
+      const day = prev.days?.[date] || { date, dayType: 'working' as const };
+      const events = [...(day.events || []), event as any];
+      return { ...prev, days: { ...prev.days, [date]: { ...day, events } } };
+    });
+    try {
+      const token = await getToken();
+      await calendarApi(token, { action: 'add_event', year: selectedYear, date, event });
+      toast({ title: 'Үйл явдал нэмэгдлээ', description: event.title });
+    } catch (err) {
+      setWorkCalendar(prev => {
+        if (!prev) return null;
+        const day = prev.days?.[date];
+        if (!day) return prev;
+        const events = (day.events || []).filter((e: any) => e.id !== event.id);
+        return { ...prev, days: { ...prev.days, [date]: { ...day, events } } };
+      });
+      toast({ title: 'Алдаа', description: err instanceof Error ? err.message : 'Нэмэхэд алдаа гарлаа.', variant: 'destructive' });
+      throw err;
+    }
+  };
+
+  // ── Remove event ────────────────────────────────────────────────────────
+  const handleRemoveEvent = async (date: string, eventId: string) => {
+    if (!workCalendar) return;
+    const prevEvents = workCalendar.days?.[date]?.events || [];
+    setWorkCalendar(prev => {
+      if (!prev) return null;
+      const day = prev.days?.[date];
+      if (!day) return prev;
+      const events = (day.events || []).filter((e: any) => e.id !== eventId);
+      return { ...prev, days: { ...prev.days, [date]: { ...day, events } } };
+    });
+    try {
+      const token = await getToken();
+      await calendarApi(token, { action: 'remove_event', year: selectedYear, date, eventId });
+      toast({ title: 'Үйл явдал устгагдлаа' });
+    } catch (err) {
+      setWorkCalendar(prev => {
+        if (!prev) return null;
+        const day = prev.days?.[date] || { date, dayType: 'working' as const };
+        return { ...prev, days: { ...prev.days, [date]: { ...day, events: prevEvents } } };
+      });
+      toast({ title: 'Алдаа', description: err instanceof Error ? err.message : 'Устгахад алдаа гарлаа.', variant: 'destructive' });
+    }
+  };
+
+  // ── Update event ──────────────────────────────────────────────────────
+  const handleUpdateEvent = async (date: string, event: { id: string; title: string; type: string; description?: string; isRecurring?: boolean }) => {
+    if (!workCalendar) return;
+    const prevEvents = workCalendar.days?.[date]?.events || [];
+    setWorkCalendar(prev => {
+      if (!prev) return null;
+      const day = prev.days?.[date];
+      if (!day) return prev;
+      const events = (day.events || []).map((e: any) => e.id === event.id ? event : e);
+      return { ...prev, days: { ...prev.days, [date]: { ...day, events } } };
+    });
+    try {
+      const token = await getToken();
+      await calendarApi(token, { action: 'update_event', year: selectedYear, date, event });
+      toast({ title: 'Үйл явдал шинэчлэгдлээ', description: event.title });
+    } catch (err) {
+      setWorkCalendar(prev => {
+        if (!prev) return null;
+        const day = prev.days?.[date] || { date, dayType: 'working' as const };
+        return { ...prev, days: { ...prev.days, [date]: { ...day, events: prevEvents } } };
+      });
+      toast({ title: 'Алдаа', description: err instanceof Error ? err.message : 'Шинэчлэхэд алдаа гарлаа.', variant: 'destructive' });
+    }
+  };
+
   // ── Selected day data — always read from latest workCalendar state ───────
   // (Fix: derive from workCalendar.days directly, not from a stale memo)
   const selectedDayData = React.useMemo(() => {
@@ -414,7 +491,7 @@ export default function CalendarPage() {
     <div className="flex flex-col h-full w-full py-6 px-page">
       <div className="shrink-0 pb-6">
         <PageHeader
-          title="Хүний нөөцийн календар"
+          title="Нэгдсэн календар"
           description="Ажлын хуваарь, баярын өдрүүд, нэгтгэл статистик"
           showBackButton={true}
           hideBreadcrumbs={true}
@@ -424,72 +501,91 @@ export default function CalendarPage() {
         />
       </div>
 
-      <div className="flex-1 overflow-auto space-y-6 pb-page">
-        {/* Календар мэдээлэл ба он сонголт */}
-        <CalendarTypeSelector
-          calendar={workCalendar}
-          selectedYear={selectedYear}
-          onYearChange={setSelectedYear}
-          isLoading={isLoading}
-        />
+      <Tabs defaultValue="calendar" className="flex-1 flex flex-col min-h-0">
+        <TabsList className="shrink-0 mb-4 w-fit">
+          <TabsTrigger value="calendar" className="gap-1.5">
+            <CalendarDays className="h-4 w-4" />
+            Нэгдсэн календар
+          </TabsTrigger>
+          <TabsTrigger value="events" className="gap-1.5">
+            <ListChecks className="h-4 w-4" />
+            Үйл явдал
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Нэгтгэл статистик */}
-        {(workCalendar || isLoading) && (
-          <CalendarStatsDashboard
-            stats={stats}
-            isLoading={isLoading}
-            year={selectedYear}
-          />
-        )}
-
-        {/* Тэмдэглэгээ */}
-        {workCalendar && (
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-medium">Тэмдэглэгээ</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0 pb-4">
-              <CalendarLegend />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 12 сарын календар */}
-        {workCalendar && (
-          <YearCalendarView
-            year={selectedYear}
+        {/* ── Нэгдсэн календар таб ──────────────────────────────────────── */}
+        <TabsContent value="calendar" className="flex-1 overflow-auto space-y-6 pb-page mt-0">
+          <CalendarTypeSelector
             calendar={workCalendar}
-            onDayClick={handleDayClick}
-            selectedDate={selectedDate}
+            selectedYear={selectedYear}
+            onYearChange={setSelectedYear}
+            isLoading={isLoading}
           />
-        )}
 
-        {/* Loading skeleton */}
-        {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-4">
-                  <Skeleton className="h-4 w-20 mx-auto mb-4" />
-                  <div className="space-y-2">
-                    {Array.from({ length: 6 }).map((_, j) => (
-                      <Skeleton key={j} className="h-6 w-full" />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+          {(workCalendar || isLoading) && (
+            <CalendarStatsDashboard
+              stats={stats}
+              isLoading={isLoading}
+              year={selectedYear}
+            />
+          )}
+
+          {workCalendar && (
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm font-medium">Тэмдэглэгээ</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 pb-4">
+                <CalendarLegend />
+              </CardContent>
+            </Card>
+          )}
+
+          {workCalendar && (
+            <YearCalendarView
+              year={selectedYear}
+              calendar={workCalendar}
+              onDayClick={handleDayClick}
+              selectedDate={selectedDate}
+            />
+          )}
+
+          {isLoading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <Skeleton className="h-4 w-20 mx-auto mb-4" />
+                    <div className="space-y-2">
+                      {Array.from({ length: 6 }).map((_, j) => (
+                        <Skeleton key={j} className="h-6 w-full" />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Үйл явдал таб ─────────────────────────────────────────────── */}
+        <TabsContent value="events" className="flex-1 overflow-auto pb-page mt-0">
+          <CalendarEventsList
+            calendar={workCalendar}
+            isLoading={isLoading}
+            selectedYear={selectedYear}
+            onAddEvent={handleAddEvent}
+            onRemoveEvent={handleRemoveEvent}
+            onUpdateEvent={handleUpdateEvent}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Өдрийн тохиргооны диалог */}
       <DayTypeDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         date={selectedDate}
-        // KEY trick: force dialog to remount with fresh data when date or
-        // workCalendar.days changes — this fixes the stale event list bug
         key={selectedDate
           ? `${format(selectedDate, 'yyyy-MM-dd')}-${workCalendar?.days?.[format(selectedDate, 'yyyy-MM-dd')]?.events?.length ?? 0}`
           : 'none'}

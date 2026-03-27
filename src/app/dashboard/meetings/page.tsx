@@ -2,15 +2,13 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/patterns/page-layout';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Skeleton } from '@/components/ui/skeleton';
 import { AddActionButton } from '@/components/ui/add-action-button';
 import { useFirebase, useCollection, useFetchCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
-import { query, orderBy, where, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { query, orderBy, where, addDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
     format,
@@ -20,8 +18,6 @@ import {
     subDays,
     startOfWeek,
     endOfWeek,
-    isToday,
-    parseISO,
 } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import {
@@ -29,7 +25,6 @@ import {
     ChevronRight,
     DoorOpen,
     Plus,
-    Calendar,
     Clock,
     Settings,
     Loader2,
@@ -39,13 +34,25 @@ import {
 import type { MeetingRoom, RoomBooking } from '@/types/meeting';
 import type { Employee } from '@/types';
 import { isActiveStatus } from '@/types';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { BookingCalendar } from './components/booking-calendar';
 import { BookingDialog } from './components/booking-dialog';
 
 export default function MeetingsPage() {
+    return (
+        <React.Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+            <MeetingsContent />
+        </React.Suspense>
+    );
+}
+
+function MeetingsContent() {
     const { firestore } = useFirebase();
     const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const { employeeProfile } = useEmployeeProfile();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<'week' | 'day'>('week');
@@ -58,6 +65,21 @@ export default function MeetingsPage() {
     const [defaultDate, setDefaultDate] = useState('');
     const [defaultStartTime, setDefaultStartTime] = useState('');
     const [defaultRoomId, setDefaultRoomId] = useState('');
+    const [defaultTitle, setDefaultTitle] = useState('');
+    const [defaultDescription, setDefaultDescription] = useState('');
+
+    React.useEffect(() => {
+        if (searchParams.get('book') === '1') {
+            setEditBooking(null);
+            setDefaultDate(searchParams.get('date') || format(new Date(), 'yyyy-MM-dd'));
+            setDefaultStartTime(searchParams.get('startTime') || '09:00');
+            setDefaultRoomId('');
+            setDefaultTitle(searchParams.get('title') || '');
+            setDefaultDescription(searchParams.get('description') || '');
+            setIsBookingOpen(true);
+            router.replace('/dashboard/meetings', { scroll: false });
+        }
+    }, [searchParams, router]);
 
     // Fetch rooms
     const roomsQuery = useMemoFirebase(({ firestore, companyPath }) =>
@@ -154,6 +176,8 @@ export default function MeetingsPage() {
         setDefaultDate(date);
         setDefaultStartTime(time);
         setDefaultRoomId('');
+        setDefaultTitle('');
+        setDefaultDescription('');
         setIsBookingOpen(true);
     }, []);
 
@@ -162,6 +186,8 @@ export default function MeetingsPage() {
         setDefaultDate('');
         setDefaultStartTime('');
         setDefaultRoomId('');
+        setDefaultTitle('');
+        setDefaultDescription('');
         setIsBookingOpen(true);
     }, []);
 
@@ -181,8 +207,13 @@ export default function MeetingsPage() {
                 });
                 toast({ title: 'Захиалга амжилттай үүслээ' });
             }
-        } catch {
-            toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
+        } catch (err) {
+            toast({
+                title: 'Захиалга хадгалахад алдаа гарлаа',
+                description: err instanceof Error ? err.message : 'Дахин оролдоно уу.',
+                variant: 'destructive',
+            });
+            throw err;
         }
     };
 
@@ -193,8 +224,12 @@ export default function MeetingsPage() {
                 status: 'cancelled',
             });
             toast({ title: 'Захиалга цуцлагдлаа' });
-        } catch {
-            toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
+        } catch (err) {
+            toast({
+                title: 'Захиалга цуцлахад алдаа гарлаа',
+                description: err instanceof Error ? err.message : 'Дахин оролдоно уу.',
+                variant: 'destructive',
+            });
         }
     };
 
@@ -238,6 +273,8 @@ export default function MeetingsPage() {
                                     setDefaultDate(format(new Date(), 'yyyy-MM-dd'));
                                     setDefaultStartTime('09:00');
                                     setDefaultRoomId('');
+                                    setDefaultTitle('');
+                                    setDefaultDescription('');
                                     setIsBookingOpen(true);
                                 }}
                             />
@@ -404,6 +441,10 @@ export default function MeetingsPage() {
                 defaultDate={defaultDate}
                 defaultStartTime={defaultStartTime}
                 defaultRoomId={defaultRoomId}
+                defaultTitle={defaultTitle}
+                defaultDescription={defaultDescription}
+                defaultOrganizer={employeeProfile?.id}
+                defaultOrganizerName={employeeProfile ? `${employeeProfile.lastName || ''} ${employeeProfile.firstName || ''}`.trim() : undefined}
                 editBooking={editBooking}
                 onDelete={handleDeleteBooking}
             />

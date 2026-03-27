@@ -35,6 +35,10 @@ interface BookingDialogProps {
     defaultDate?: string;
     defaultStartTime?: string;
     defaultRoomId?: string;
+    defaultTitle?: string;
+    defaultDescription?: string;
+    defaultOrganizer?: string;
+    defaultOrganizerName?: string;
     editBooking?: RoomBooking | null;
     onDelete?: (bookingId: string) => Promise<void>;
 }
@@ -49,6 +53,10 @@ export function BookingDialog({
     defaultDate,
     defaultStartTime,
     defaultRoomId,
+    defaultTitle,
+    defaultDescription,
+    defaultOrganizer,
+    defaultOrganizerName,
     editBooking,
     onDelete,
 }: BookingDialogProps) {
@@ -70,13 +78,14 @@ export function BookingDialog({
             setDate(editBooking?.date || defaultDate || '');
             setStartTime(editBooking?.startTime || defaultStartTime || '09:00');
             setEndTime(editBooking?.endTime || '10:00');
-            setTitle(editBooking?.title || '');
-            setDescription(editBooking?.description || '');
-            setOrganizer(editBooking?.organizer || '');
-            setOrganizerName(editBooking?.organizerName || '');
+            setTitle(editBooking?.title || defaultTitle || '');
+            setDescription(editBooking?.description || defaultDescription || '');
+            setOrganizer(editBooking?.organizer || defaultOrganizer || '');
+            setOrganizerName(editBooking?.organizerName || defaultOrganizerName || '');
             setSelectedAttendees(editBooking?.attendees || []);
+            setIsSaving(false);
         }
-    }, [open, editBooking, defaultDate, defaultStartTime, defaultRoomId]);
+    }, [open, editBooking, defaultDate, defaultStartTime, defaultRoomId, defaultTitle, defaultDescription, defaultOrganizer, defaultOrganizerName]);
 
     const selectedRoom = rooms.find(r => r.id === roomId);
 
@@ -137,20 +146,23 @@ export function BookingDialog({
         if (!roomId || !date || !startTime || !endTime || !title.trim() || hasOverlap) return;
         setIsSaving(true);
         try {
-            await onSave({
+            const bookingData: Omit<RoomBooking, 'id' | 'createdAt'> = {
                 roomId,
                 roomName: selectedRoom?.name || '',
                 title: title.trim(),
-                description: description.trim() || undefined,
                 date,
                 startTime,
                 endTime,
                 organizer,
                 organizerName,
-                attendees: selectedAttendees.length > 0 ? selectedAttendees : undefined,
                 status: 'active',
-            });
+            };
+            if (description.trim()) bookingData.description = description.trim();
+            if (selectedAttendees.length > 0) bookingData.attendees = selectedAttendees;
+            await onSave(bookingData);
             onOpenChange(false);
+        } catch {
+            // error re-thrown by parent; dialog stays open for retry
         } finally {
             setIsSaving(false);
         }

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -33,6 +33,7 @@ import {
   Upload,
   Image as ImageIcon,
   Trash2,
+  FileEdit,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
@@ -47,25 +48,83 @@ const postSchema = z.object({
 type PostFormValues = z.infer<typeof postSchema>;
 
 export default function AddPostPage() {
+  return (
+    <React.Suspense fallback={
+      <div className="flex flex-col items-center justify-center py-32 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+        <p className="text-sm text-muted-foreground">Ачаалж байна...</p>
+      </div>
+    }>
+      <AddPostContent />
+    </React.Suspense>
+  );
+}
+
+function AddPostContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { firestore, firebaseApp } = useFirebase();
+  const { user } = useUser();
   const { tCollection } = useTenantWrite();
   const { employeeProfile } = useEmployeeProfile();
   const { toast } = useToast();
   const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
   const [imageFiles, setImageFiles] = React.useState<File[]>([]);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [autoSaving, setAutoSaving] = React.useState(false);
+
+  const isDraftFromEvent = searchParams.get('draft') === '1';
+  const eventTitle = searchParams.get('title') || '';
+  const eventContent = searchParams.get('content') || '';
+  const eventDate = searchParams.get('date') || '';
 
   const form = useForm<PostFormValues>({
     resolver: zodResolver(postSchema),
     defaultValues: {
-      title: '',
-      content: '',
+      title: isDraftFromEvent ? eventTitle : '',
+      content: isDraftFromEvent
+        ? (eventContent ? `📅 ${eventDate}\n\n${eventContent}` : `📅 ${eventDate}\n\n${eventTitle} - дэлгэрэнгүй мэдээлэл энд бичнэ.`)
+        : '',
       imageUrls: [],
     },
   });
 
   const { isSubmitting } = form.formState;
+
+  React.useEffect(() => {
+    if (!isDraftFromEvent || !firestore || !user || !employeeProfile || autoSaving) return;
+    setAutoSaving(true);
+
+    const autoSaveDraft = async () => {
+      const postsCollection = tCollection('posts');
+      const content = eventContent
+        ? `📅 ${eventDate}\n\n${eventContent}`
+        : `📅 ${eventDate}\n\n${eventTitle} - дэлгэрэнгүй мэдээлэл энд бичнэ.`;
+
+      try {
+        const docRef = await addDocumentNonBlocking(postsCollection, {
+          title: eventTitle,
+          content,
+          imageUrls: [],
+          status: 'draft',
+          authorName: `${employeeProfile.firstName} ${employeeProfile.lastName}`,
+          createdAt: new Date().toISOString(),
+          likes: [],
+          sourceEventTitle: eventTitle,
+        });
+
+        if (docRef) {
+          toast({ title: 'Ноорог үүсгэгдлээ', description: 'Үйл явдлын мэдээлэл ноорог болгон хадгалагдлаа.' });
+          router.replace(`/dashboard/posts/edit/${docRef.id}`);
+        }
+      } catch {
+        toast({ title: 'Алдаа', description: 'Ноорог хадгалахад алдаа гарлаа.', variant: 'destructive' });
+        setAutoSaving(false);
+      }
+    };
+
+    autoSaveDraft();
+  }, [isDraftFromEvent, firestore, user, employeeProfile]);
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -82,7 +141,7 @@ export default function AddPostPage() {
     setImagePreviews(previews => previews.filter((_, i) => i !== index));
   }
 
-  const handleSave = async (values: PostFormValues) => {
+  const savePost = async (values: PostFormValues, status: 'published' | 'draft') => {
     if (!firestore || !employeeProfile) return;
 
     setIsUploading(true);
@@ -105,18 +164,41 @@ export default function AddPostPage() {
     await addDocumentNonBlocking(postsCollection, {
       ...values,
       imageUrls,
+      status,
       authorName: `${employeeProfile.firstName} ${employeeProfile.lastName}`,
       createdAt: new Date().toISOString(),
       likes: [],
     });
 
     toast({
-      title: 'Амжилттай хадгаллаа',
-      description: 'Шинэ нийтлэл самбарт нэмэгдлээ.',
+      title: status === 'draft' ? 'Ноорог хадгалагдлаа' : 'Амжилттай нийтлэгдлээ',
+      description: status === 'draft' ? 'Нийтлэл ноорог байдлаар хадгалагдлаа.' : 'Шинэ нийтлэл самбарт нэмэгдлээ.',
     });
 
     router.push('/dashboard/posts');
   };
+
+  const handleSave = async (values: PostFormValues) => {
+    await savePost(values, 'published');
+  };
+
+  const handleSaveDraft = async () => {
+    const values = form.getValues();
+    if (!values.title?.trim()) {
+      toast({ title: 'Гарчиг шаардлагатай', description: 'Ноорог хадгалахын тулд гарчиг оруулна уу.', variant: 'destructive' });
+      return;
+    }
+    await savePost({ ...values, content: values.content || '' }, 'draft');
+  };
+
+  if (autoSaving) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+        <p className="text-sm text-muted-foreground">Ноорог нийтлэл үүсгэж байна...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="py-8">
@@ -140,6 +222,15 @@ export default function AddPostPage() {
                   >
                     <X className="mr-2 h-4 w-4" />
                     Цуцлах
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={isSubmitting || isUploading}
+                  >
+                    <FileEdit className="mr-2 h-4 w-4" />
+                    Ноорог
                   </Button>
                   <Button type="submit" disabled={isSubmitting || isUploading}>
                     {isSubmitting || isUploading ? (

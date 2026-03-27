@@ -49,6 +49,7 @@ import {
   ThumbsUp,
   Heart,
   Smile,
+  Send,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -69,6 +70,7 @@ type ReactionType = 'like' | 'love' | 'care';
 
 type Post = PostFormValues & {
   id: string;
+  status?: 'published' | 'draft';
   reactions?: { [userId: string]: ReactionType };
 };
 
@@ -305,6 +307,13 @@ export default function EditPostPage() {
     router.push('/dashboard/posts');
   };
 
+  const handlePublish = async () => {
+    if (!postDocRef) return;
+    updateDocumentNonBlocking(postDocRef, { status: 'published' });
+    toast({ title: 'Нийтлэгдлээ', description: 'Нийтлэл амжилттай нийтлэгдлээ.' });
+    router.push('/dashboard/posts');
+  };
+
   const handleDelete = async () => {
     if (!postDocRef || !postId) return;
     setDeleting(true);
@@ -409,6 +418,7 @@ export default function EditPostPage() {
                 type="submit"
                 form="post-edit-form"
                 disabled={isSubmitting || isUploading}
+                variant={post.status === 'draft' ? 'secondary' : 'default'}
               >
                 {isSubmitting || isUploading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -417,6 +427,16 @@ export default function EditPostPage() {
                 )}
                 Хадгалах
               </Button>
+              {post.status === 'draft' && (
+                <Button
+                  type="button"
+                  onClick={handlePublish}
+                  disabled={isSubmitting || isUploading}
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Нийтлэх
+                </Button>
+              )}
             </div>
           }
         />

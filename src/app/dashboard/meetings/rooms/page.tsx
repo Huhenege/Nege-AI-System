@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { AddActionButton } from '@/components/ui/add-action-button';
-import { useFirebase, useFetchCollection, useTenantWrite } from '@/firebase';
-import { collection, query, orderBy, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useFirebase, useFetchCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
+import { query, orderBy, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
     Dialog,
@@ -36,7 +36,6 @@ import {
     Trash2,
     Plus,
     X,
-    Monitor,
     Loader2,
 } from 'lucide-react';
 import type { MeetingRoom } from '@/types/meeting';
@@ -59,8 +58,8 @@ export default function MeetingRoomsPage() {
     const [amenities, setAmenities] = useState<string[]>([]);
     const [customAmenity, setCustomAmenity] = useState('');
 
-    const roomsQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'meeting_rooms'), orderBy('name', 'asc')) : null,
+    const roomsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'meeting_rooms'), orderBy('name', 'asc')) : null,
         [firestore]
     );
     const { data: rooms, isLoading, refetch: refetchRooms } = useFetchCollection<MeetingRoom>(roomsQuery);

@@ -32,7 +32,9 @@ import {
     Settings,
     Check,
     X,
-    Loader2
+    Loader2,
+    CheckCircle2,
+    ShieldCheck,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -51,6 +53,7 @@ import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
 
 import { SystemSettingsTabContent } from './system-settings-tab-content';
 import { CVTabContent } from './cv-tab-content';
+import { VerificationDialog } from './verification-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -655,6 +658,11 @@ export default function EmployeeProfilePage() {
         email: ''
     });
 
+    // Verification dialog state
+    const [verifyDialogOpen, setVerifyDialogOpen] = React.useState(false);
+    const [verifyType, setVerifyType] = React.useState<'email' | 'phone'>('email');
+    const [verifyTarget, setVerifyTarget] = React.useState('');
+
     // Start editing - populate form with current values
     const handleStartEdit = React.useCallback((emp: Employee) => {
         setEditForm({
@@ -708,6 +716,16 @@ export default function EmployeeProfilePage() {
             setIsSaving(false);
         }
     }, [firestore, employeeId, editForm, toast]);
+
+    const handleOpenVerify = React.useCallback((type: 'email' | 'phone', target: string) => {
+        setVerifyType(type);
+        setVerifyTarget(target);
+        setVerifyDialogOpen(true);
+    }, []);
+
+    const handleVerified = React.useCallback(() => {
+        toast({ title: 'Амжилттай', description: 'Баталгаажуулалт амжилттай боллоо' });
+    }, [toast]);
 
     const handlePhotoSelected = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -1183,7 +1201,23 @@ export default function EmployeeProfilePage() {
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Утас</div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-[10px] font-medium text-slate-500 uppercase">Утас</div>
+                                            {employee.phoneVerified ? (
+                                                <div className="flex items-center gap-1 text-emerald-600">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    <span className="text-[10px] font-medium">Баталгаажсан</span>
+                                                </div>
+                                            ) : employee.phoneNumber ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOpenVerify('phone', employee.phoneNumber!)}
+                                                    className="text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                                                >
+                                                    Баталгаажуулах
+                                                </button>
+                                            ) : null}
+                                        </div>
                                         <Input
                                             value={editForm.phoneNumber}
                                             onChange={(e) => setEditForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
@@ -1193,7 +1227,23 @@ export default function EmployeeProfilePage() {
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Имэйл</div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-[10px] font-medium text-slate-500 uppercase">Имэйл</div>
+                                            {employee.emailVerified ? (
+                                                <div className="flex items-center gap-1 text-emerald-600">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    <span className="text-[10px] font-medium">Баталгаажсан</span>
+                                                </div>
+                                            ) : employee.email ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOpenVerify('email', employee.email)}
+                                                    className="text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                                                >
+                                                    Баталгаажуулах
+                                                </button>
+                                            ) : null}
+                                        </div>
                                         <Input
                                             type="email"
                                             value={editForm.email}
@@ -1216,6 +1266,62 @@ export default function EmployeeProfilePage() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
+
+                    {/* Verification Status */}
+                    {(employee.email || employee.phoneNumber) && (
+                        <div className="bg-white rounded-xl border p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-primary" />
+                                <span className="text-sm font-medium">Баталгаажуулалт</span>
+                            </div>
+                            {employee.email && (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-sm text-slate-600 min-w-0">
+                                        <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                        <span className="truncate">{employee.email}</span>
+                                    </div>
+                                    {employee.emailVerified ? (
+                                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] shrink-0">
+                                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                                            Баталгаажсан
+                                        </Badge>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-6 text-[10px] text-amber-600 border-amber-200 hover:bg-amber-50 shrink-0"
+                                            onClick={() => handleOpenVerify('email', employee.email)}
+                                        >
+                                            Баталгаажуулах
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                            {employee.phoneNumber && (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-sm text-slate-600 min-w-0">
+                                        <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                        <span className="truncate">{employee.phoneNumber}</span>
+                                    </div>
+                                    {employee.phoneVerified ? (
+                                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] shrink-0">
+                                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                                            Баталгаажсан
+                                        </Badge>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-6 text-[10px] text-amber-600 border-amber-200 hover:bg-amber-50 shrink-0"
+                                            onClick={() => handleOpenVerify('phone', employee.phoneNumber!)}
+                                        >
+                                            Баталгаажуулах
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Offboarding Progress - Only show if projects exist */}
                     {(offboardingProjects && offboardingProjects.length > 0) && (
@@ -1313,6 +1419,14 @@ export default function EmployeeProfilePage() {
             </div>
         </div>
 
+        <VerificationDialog
+            open={verifyDialogOpen}
+            onOpenChange={setVerifyDialogOpen}
+            type={verifyType}
+            target={verifyTarget}
+            employeeId={employeeId || ''}
+            onVerified={handleVerified}
+        />
 
         </>
     )

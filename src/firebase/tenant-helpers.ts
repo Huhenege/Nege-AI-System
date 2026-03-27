@@ -71,6 +71,7 @@ const TENANT_SCOPED = new Set([
   'departmentHistory',
   'organization_settings',
   'workCalendars',
+  'verification_codes',
 ]);
 
 /**

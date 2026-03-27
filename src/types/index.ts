@@ -115,6 +115,10 @@ export interface Employee {
     /** Анкет засах эрхийг түгжих (ажилтан засах боломжгүй). */
     questionnaireLocked?: boolean;
     role?: 'company_super_admin' | 'admin' | 'manager' | 'employee';
+    emailVerified?: boolean;
+    emailVerifiedAt?: string;
+    phoneVerified?: boolean;
+    phoneVerifiedAt?: string;
 }
 
 /**

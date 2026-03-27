@@ -27,9 +27,8 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
-import { CalendarDay, DayType, HolidayType, DAY_TYPE_CONFIGS, CalendarEvent, EventType, EVENT_TYPE_CONFIGS, getEventTypeConfig } from '../types';
-import { CalendarIcon, Trash2, ArrowRight, Plus, X } from 'lucide-react';
+import { CalendarDay, DayType, HolidayType, DAY_TYPE_CONFIGS } from '../types';
+import { CalendarIcon, Trash2, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DayTypeDialogProps {
@@ -64,14 +63,6 @@ export function DayTypeDialog({
     const [legalReference, setLegalReference] = React.useState('');
     const [note, setNote] = React.useState('');
     
-    // Үйл явдлууд
-    const [events, setEvents] = React.useState<CalendarEvent[]>([]);
-    const [showAddEvent, setShowAddEvent] = React.useState(false);
-    const [newEventTitle, setNewEventTitle] = React.useState('');
-    const [newEventType, setNewEventType] = React.useState<EventType>('other');
-    const [newEventDescription, setNewEventDescription] = React.useState('');
-    const [newEventRecurring, setNewEventRecurring] = React.useState(false);
-    
     // Шилжүүлэх огноо
     const [moveDate, setMoveDate] = React.useState<Date | undefined>(undefined);
     const [isMoveDateOpen, setIsMoveDateOpen] = React.useState(false);
@@ -87,7 +78,6 @@ export function DayTypeDialog({
             setIsRecurring(dayData.isRecurring ?? false);
             setLegalReference(dayData.legalReference ?? '');
             setNote(dayData.note ?? '');
-            setEvents(dayData.events ?? []);
         } else {
             setDayType('working');
             setHolidayName('');
@@ -97,11 +87,8 @@ export function DayTypeDialog({
             setIsRecurring(false);
             setLegalReference('');
             setNote('');
-            setEvents([]);
         }
         setMoveDate(undefined);
-        setShowAddEvent(false);
-        resetNewEvent();
     }, [date, dayData, defaultWorkingHours]);
 
     // Өдрийн төрөл өөрчлөгдөхөд цагийг автоматаар тохируулах
@@ -114,33 +101,6 @@ export function DayTypeDialog({
             setWorkingHours(0);
         }
     }, [dayType, defaultWorkingHours, halfDayHours]);
-
-    const resetNewEvent = () => {
-        setNewEventTitle('');
-        setNewEventType('other');
-        setNewEventDescription('');
-        setNewEventRecurring(false);
-    };
-
-    const handleAddEvent = () => {
-        if (!newEventTitle.trim()) return;
-        
-        const newEvent: CalendarEvent = {
-            id: `event_${Date.now()}`,
-            title: newEventTitle.trim(),
-            type: newEventType,
-            description: newEventDescription.trim() || undefined,
-            isRecurring: newEventRecurring,
-        };
-        
-        setEvents([...events, newEvent]);
-        resetNewEvent();
-        setShowAddEvent(false);
-    };
-
-    const handleRemoveEvent = (eventId: string) => {
-        setEvents(events.filter(e => e.id !== eventId));
-    };
 
     const getCurrentData = (): Partial<CalendarDay> => {
         const isHolidayType = dayType === 'public_holiday' || dayType === 'company_holiday';
@@ -155,7 +115,6 @@ export function DayTypeDialog({
             isRecurring: isHolidayType ? isRecurring : undefined,
             legalReference: isHolidayType && legalReference.trim() ? legalReference : undefined,
             note: note.trim() || undefined,
-            events: events.length > 0 ? events : undefined,
         };
     };
 
@@ -297,147 +256,6 @@ export function DayTypeDialog({
                             </div>
                         </>
                     )}
-
-                    <Separator />
-
-                    {/* Үйл явдлууд */}
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <Label>Үйл явдлууд</Label>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowAddEvent(!showAddEvent)}
-                            >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Нэмэх
-                            </Button>
-                        </div>
-
-                        {/* Үйл явдал нэмэх форм */}
-                        {showAddEvent && (
-                            <div className="p-3 border rounded-lg space-y-3 bg-muted/30">
-                                <div className="space-y-2">
-                                    <Label htmlFor="event-title" className="text-xs">Үйл явдлын нэр</Label>
-                                    <Input
-                                        id="event-title"
-                                        value={newEventTitle}
-                                        onChange={(e) => setNewEventTitle(e.target.value)}
-                                        placeholder="Үйл явдлын нэр"
-                                        className="h-8"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="event-type" className="text-xs">Төрөл</Label>
-                                        <Select value={newEventType} onValueChange={(v) => setNewEventType(v as EventType)}>
-                                            <SelectTrigger id="event-type" className="h-8">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {EVENT_TYPE_CONFIGS.map((config) => (
-                                                    <SelectItem key={config.type} value={config.type}>
-                                                        <span>{config.icon} {config.label}</span>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="flex items-end">
-                                        <div className="flex items-center gap-2">
-                                            <Switch
-                                                id="event-recurring"
-                                                checked={newEventRecurring}
-                                                onCheckedChange={setNewEventRecurring}
-                                            />
-                                            <Label htmlFor="event-recurring" className="text-xs">Жил бүр</Label>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="event-desc" className="text-xs">Тайлбар (заавал биш)</Label>
-                                    <Input
-                                        id="event-desc"
-                                        value={newEventDescription}
-                                        onChange={(e) => setNewEventDescription(e.target.value)}
-                                        placeholder="Нэмэлт тайлбар"
-                                        className="h-8"
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={handleAddEvent}
-                                        disabled={!newEventTitle.trim()}
-                                        className="h-7"
-                                    >
-                                        Нэмэх
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                            setShowAddEvent(false);
-                                            resetNewEvent();
-                                        }}
-                                        className="h-7"
-                                    >
-                                        Цуцлах
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Үйл явдлуудын жагсаалт */}
-                        {events.length > 0 && (
-                            <div className="space-y-2">
-                                {events.map((event) => {
-                                    const config = getEventTypeConfig(event.type);
-                                    return (
-                                        <div
-                                            key={event.id}
-                                            className="flex items-center justify-between p-2 border rounded-md bg-background"
-                                        >
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span className="text-base">{config.icon}</span>
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="text-sm font-medium truncate">{event.title}</span>
-                                                        {event.isRecurring && (
-                                                            <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                                                                Жил бүр
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                    {event.description && (
-                                                        <p className="text-xs text-muted-foreground truncate">{event.description}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 shrink-0"
-                                                onClick={() => handleRemoveEvent(event.id)}
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </Button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {events.length === 0 && !showAddEvent && (
-                            <p className="text-xs text-muted-foreground text-center py-2">
-                                Үйл явдал байхгүй
-                            </p>
-                        )}
-                    </div>
 
                     <Separator />
 
