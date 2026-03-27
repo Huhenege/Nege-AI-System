@@ -68,9 +68,11 @@ export async function POST(request: NextRequest) {
             for (const doc of snapshots.docs) {
                 const data = doc.data();
                 const email = data.email as string | undefined;
-                const verified = data.emailVerified === true;
 
-                if (!email || !verified) continue;
+                // Only require a valid email address — do NOT gate on emailVerified.
+                // emailVerified is a Firebase Auth field and is rarely synced to the
+                // employee Firestore doc. Blocking on it silently drops all invites.
+                if (!email || !email.includes('@')) continue;
 
                 const name = `${data.lastName || ''} ${data.firstName || ''}`.trim() || email;
 

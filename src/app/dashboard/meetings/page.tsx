@@ -156,6 +156,29 @@ function MeetingsContent() {
     );
     const { data: allMyMeetings } = useCollection<Meeting>(myMeetingsQuery);
 
+    // Conflict-check query — fetches meetings for the selected date when the dialog is open.
+    // This ensures overlap detection works even when booking a date outside the current
+    // calendar view range (where calendarMeetings would not contain that date's meetings).
+    const conflictCheckDate = isMeetingOpen ? defaultDate : '';
+    const conflictCheckQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore && conflictCheckDate
+            ? query(
+                tenantCollection(firestore, companyPath, 'meetings'),
+                where('date', '==', conflictCheckDate),
+                orderBy('date', 'asc')
+            )
+            : null,
+        [firestore, conflictCheckDate]
+    );
+    const { data: conflictCheckMeetings } = useCollection<Meeting>(conflictCheckQuery);
+
+    // Merge calendar meetings with conflict-check meetings (deduplicate by id)
+    const meetingsForConflict = useMemo(() => {
+        const all = [...(calendarMeetings || []), ...(conflictCheckMeetings || [])];
+        const seen = new Set<string>();
+        return all.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
+    }, [calendarMeetings, conflictCheckMeetings]);
+
     // Fetch employees
     const employeesQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? query(tenantCollection(firestore, companyPath, 'employees'), orderBy('firstName', 'asc')) : null,
@@ -288,11 +311,18 @@ function MeetingsContent() {
     const handleRsvp = useCallback(async (meetingId: string, response: 'accepted' | 'declined' | 'tentative') => {
         if (!firestore || !currentUserId) return;
         try {
-            const meetingList = [...(allMyMeetings || []), ...(calendarMeetings || [])];
-            const meeting = meetingList.find(m => m.id === meetingId);
-            if (!meeting) return;
+            // Read fresh from Firestore — do NOT rely on potentially stale local state.
+            // This prevents silent failures when the meeting is not in the current
+            // view range or when state has not yet synced after a tab switch.
+            const { getDoc: _getDoc } = await import('firebase/firestore');
+            const freshSnap = await _getDoc(tDoc('meetings', meetingId));
+            if (!freshSnap.exists()) {
+                toast({ title: 'Уулзалт олдсонгүй', variant: 'destructive' });
+                return;
+            }
+            const freshMeeting = { id: freshSnap.id, ...freshSnap.data() } as Meeting;
 
-            const updatedAttendees = meeting.attendees.map(a =>
+            const updatedAttendees = freshMeeting.attendees.map((a: import('@/types/meeting').MeetingAttendee) =>
                 a.employeeId === currentUserId
                     ? { ...a, response, respondedAt: new Date().toISOString() }
                     : a
@@ -311,7 +341,7 @@ function MeetingsContent() {
                 variant: 'destructive',
             });
         }
-    }, [firestore, currentUserId, allMyMeetings, calendarMeetings, tDoc, toast]);
+    }, [firestore, currentUserId, tDoc, toast]);
 
     const handleEditFromDetail = useCallback((meeting: Meeting) => {
         setEditMeeting(meeting);
@@ -519,7 +549,7 @@ function MeetingsContent() {
                 onOpenChange={setIsMeetingOpen}
                 rooms={rooms || []}
                 employees={employees}
-                existingMeetings={calendarMeetings || []}
+                existingMeetings={meetingsForConflict}
                 onSave={handleSaveMeeting}
                 defaultDate={defaultDate}
                 defaultStartTime={defaultStartTime}
