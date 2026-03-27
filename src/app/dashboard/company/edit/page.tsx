@@ -5,7 +5,7 @@ import { getAuthHeaders } from '@/lib/api/client-auth';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { companyProfileSchema, CompanyProfileValues } from '../schemas';
 import {
     Card,
     CardContent,
@@ -36,25 +36,6 @@ import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 
 
-const companyProfileSchema = z.object({
-    name: z.string().min(2, { message: 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.' }),
-    logoUrl: z.string().optional(),
-    certificateFrontUrl: z.string().optional(),
-    certificateBackUrl: z.string().optional(),
-    legalName: z.string().optional(),
-    registrationNumber: z.string().optional(),
-    taxId: z.string().optional(),
-    industry: z.string().optional(),
-    website: z.string().url({ message: 'Вэбсайтын хаяг буруу байна.' }).optional().or(z.literal('')),
-    phoneNumber: z.string().optional(),
-    contactEmail: z.string().email({ message: 'Имэйл хаяг буруу байна.' }).optional().or(z.literal('')),
-    address: z.string().optional(),
-    introduction: z.string().optional(),
-    establishedDate: z.string().optional(),
-    coverUrls: z.array(z.string()).max(5, { message: 'Дээд тал нь 5 зураг оруулах боломжтой.' }).optional(),
-});
-
-type CompanyProfileFormValues = z.infer<typeof companyProfileSchema>;
 
 function FormSkeleton() {
     return (
@@ -105,7 +86,7 @@ function FormSkeleton() {
     );
 }
 
-function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfileFormValues, docExists: boolean }) {
+function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfileValues, docExists: boolean }) {
     const router = useRouter();
     const { firestore, storage } = useFirebase();
     const { toast } = useToast();
@@ -122,7 +103,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
         []
     );
 
-    const form = useForm<CompanyProfileFormValues>({
+    const form = useForm<CompanyProfileValues>({
         resolver: zodResolver(companyProfileSchema),
         defaultValues: initialData,
     });
@@ -188,7 +169,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
             const extractedData = (result.data && typeof result.data === 'object' ? result.data : {}) as Record<string, string>;
             const vals = form.getValues();
 
-            const setIf = (key: keyof CompanyProfileFormValues, v: string | undefined) => {
+            const setIf = (key: keyof CompanyProfileValues, v: string | undefined) => {
                 if (!v) return;
                 if (side === 'front') form.setValue(key, v);
                 else if (!(vals[key] as string)?.trim()) form.setValue(key, v);
@@ -221,7 +202,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
         }
     };
 
-    const handleSave = async (values: CompanyProfileFormValues) => {
+    const handleSave = async (values: CompanyProfileValues) => {
         if (!companyProfileRef) return;
 
         // Sanitize values to remove undefined, as Firestore doesn't support it
@@ -657,7 +638,7 @@ function EditCompanyForm({ initialData, docExists }: { initialData: CompanyProfi
     );
 }
 
-const defaultFormValues: CompanyProfileFormValues = {
+const defaultFormValues: CompanyProfileValues = {
     name: '',
     logoUrl: '',
     certificateFrontUrl: '',
@@ -683,7 +664,7 @@ export default function EditCompanyPage() {
         []
     );
 
-    const { data: companyProfile, isLoading: isLoadingProfile } = useFetchDoc<CompanyProfileFormValues>(companyProfileRef as any);
+    const { data: companyProfile, isLoading: isLoadingProfile } = useFetchDoc<CompanyProfileValues>(companyProfileRef as any);
 
     if (isLoadingProfile) {
         return (

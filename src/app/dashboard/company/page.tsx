@@ -21,7 +21,7 @@ import { useFirebase, useDoc, useMemoFirebase, useFetchCollection, tenantDoc, te
 import { collection, addDoc, updateDoc, Timestamp, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Pencil, Building, Hash, Users, User, Globe, FileText, Rocket, Eye, Shield, Phone, Mail, MapPin, Video, Handshake, Zap, Users2, ScrollText, ChevronLeft, ExternalLink, Calendar, Palette, Building2, Crown, UserPlus, ArrowRight, Loader2, Check, Plus, Trash2, ChevronRight, DollarSign, Gift, Layers, Briefcase, RotateCcw, AlertTriangle, History } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { z } from 'zod';
+import { companyProfileSchema, CompanyProfileValues, videoSchema } from './schemas';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -111,41 +111,6 @@ interface CompanyBranding {
 }
 
 
-const videoSchema = z.object({
-    title: z.string(),
-    description: z.string().optional(),
-    url: z.string(),
-});
-
-const companyProfileSchema = z.object({
-    name: z.string().min(2, { message: 'Нэр дор хаяж 2 тэмдэгттэй байх ёстой.' }),
-    logoUrl: z.string().optional(),
-    legalName: z.string().optional(),
-    registrationNumber: z.string().optional(),
-    taxId: z.string().optional(),
-    industry: z.string().optional(),
-    employeeCount: z.string().optional(),
-    establishedDate: z.string().optional(),
-    ceo: z.string().optional(),
-    website: z.string().url({ message: 'Вэбсайтын хаяг буруу байна.' }).optional().or(z.literal('')),
-    mission: z.string().optional(),
-    vision: z.string().optional(),
-    videos: z.array(videoSchema).optional(),
-    phoneNumber: z.string().optional(),
-    contactEmail: z.string().email().optional().or(z.literal('')),
-    address: z.string().optional(),
-    introduction: z.string().optional(),
-    coverUrls: z.array(z.string()).optional(),
-    subsidiaries: z.array(z.union([
-        z.string(),
-        z.object({
-            name: z.string(),
-            registrationNumber: z.string().optional(),
-        })
-    ])).optional(),
-});
-
-type CompanyProfileValues = z.infer<typeof companyProfileSchema>;
 
 
 const valueIcons: { [key: string]: React.ElementType } = {
