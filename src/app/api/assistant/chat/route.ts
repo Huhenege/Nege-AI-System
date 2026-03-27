@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
-import { buildSystemPrompt, createProjectToolForTenant } from '@/ai/assistant';
+import { buildOrchestratorSystemPrompt, createOrchestratorTools } from '@/ai/orchestrator';
 import { requireTenantAuth } from '@/lib/api/auth-middleware';
 
 export async function POST(req: NextRequest) {
   const authResult = await requireTenantAuth(req, { rateLimit: 'ai' });
   if (authResult.response) return authResult.response;
-  const { companyId } = authResult.auth;
+  const { companyId, uid, role } = authResult.auth;
 
   try {
     const body = await req.json();
@@ -16,16 +16,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
     }
 
-    const systemPrompt = buildSystemPrompt(Array.isArray(employees) ? employees : []);
-    const projectTool = createProjectToolForTenant(companyId);
+    // Context window overflow хамгаалалт: сүүлийн 20 мессежийг л авна
+    const MAX_MESSAGES = 20;
+    const trimmedMessages = messages.length > MAX_MESSAGES
+      ? messages.slice(messages.length - MAX_MESSAGES)
+      : messages;
 
-    console.log('[AI Chat] company:', companyId, 'messages:', messages.length, 'employees:', (employees || []).length);
+    const employeeList = Array.isArray(employees) ? employees : [];
+
+    const systemPrompt = buildOrchestratorSystemPrompt({
+      companyId,
+      userId: uid,
+      userRole: role,
+      employees: employeeList,
+    });
+
+    const tools = createOrchestratorTools({
+      companyId,
+      userId: uid,
+      userRole: role,
+      employees: employeeList,
+    });
+
+    console.log(
+      '[AI Chat] company:', companyId,
+      'role:', role,
+      'messages:', trimmedMessages.length, '(original:', messages.length, ')',
+      'employees:', employeeList.length,
+      'tools:', tools.length
+    );
 
     const result = await ai.generate({
       system: systemPrompt,
-      messages,
-      tools: [projectTool],
-      maxTurns: 3,
+      messages: trimmedMessages,
+      tools,
+      maxTurns: 5,
     });
 
     const text = result.text || '';

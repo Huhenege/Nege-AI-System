@@ -24,7 +24,7 @@ const projectOutputSchema = z.object({
 /**
  * Creates a tenant-scoped createProject tool that writes to companies/{companyId}/projects
  */
-export function createProjectToolForTenant(companyId: string) {
+export function createProjectToolForTenant(companyId: string, userId: string) {
   return ai.defineTool(
     {
       name: 'createProject',
@@ -50,7 +50,7 @@ export function createProjectToolForTenant(companyId: string) {
           priority: input.priority,
           createdAt: new Date(),
           updatedAt: new Date(),
-          createdBy: input.ownerId,
+          createdBy: userId,
         };
 
         if (input.pointBudget && input.pointBudget > 0) {

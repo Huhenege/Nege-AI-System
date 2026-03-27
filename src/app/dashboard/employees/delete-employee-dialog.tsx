@@ -60,7 +60,17 @@ export function DeleteEmployeeDialog({
 
   const form = useForm<DeleteFormValues>({
     resolver: zodResolver(deleteSchema),
+    defaultValues: {
+      reason: undefined,
+    },
   });
+
+  // Dialog хаагдахад form-ийг цэвэрлэх
+  React.useEffect(() => {
+    if (!open) {
+      form.reset();
+    }
+  }, [open, form]);
 
   const onSubmit = async (data: DeleteFormValues) => {
     if (!employee || !firestore) return;

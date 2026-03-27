@@ -12,6 +12,7 @@ import {
   FileText,
   PlusCircle,
   Award,
+  History,
   UserCheck,
   UserPlus,
   UserX,
@@ -82,12 +83,14 @@ function TimelineItem({
           </div>
         </div>
 
-        {event.notes && (
+        {(event.notes || event.documentId || event.documentUrl) && (
           <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm transition-all hover:shadow-md hover:border-indigo-100">
-            <p className="text-xs font-medium text-slate-500 leading-relaxed italic">"{event.notes}"</p>
+            {event.notes && (
+              <p className="text-xs font-medium text-slate-500 leading-relaxed italic">"{event.notes}"</p>
+            )}
 
             {(event.documentId || event.documentUrl) && (
-              <div className="mt-4 pt-4 border-t border-slate-50 flex gap-3">
+              <div className={cn("flex gap-3", event.notes ? "mt-4 pt-4 border-t border-slate-50" : "")}>
                 {event.documentId ? (
                   <Button asChild variant="ghost" className="h-8 px-3 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold text-[10px] uppercase tracking-wider">
                     <Link href={`/dashboard/employee-documents/${event.documentId}`}>
@@ -213,5 +216,4 @@ export function EmploymentHistoryTimeline({ employeeId }: { employeeId: string }
   );
 }
 
-// Helper icons that were not imported but needed for mapping if they change
-import { History } from 'lucide-react';
+

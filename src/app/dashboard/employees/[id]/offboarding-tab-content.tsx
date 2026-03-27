@@ -103,17 +103,21 @@ export function OffboardingTabContent({ employeeId, employee }: { employeeId: st
   const [taskCounts, setTaskCounts] = React.useState<Record<string, { total: number; completed: number }>>({});
 
   React.useEffect(() => {
+    let cancelled = false;
+
     async function fetchCounts() {
       if (!firestore || !projects || projects.length === 0) return;
       const counts: Record<string, { total: number; completed: number }> = {};
       for (const p of projects) {
+        if (cancelled) return;
         const snap = await getDocs(tCollection('projects', p.id, 'tasks'));
         const tasks = snap.docs.map(d => d.data() as Task);
         counts[p.id] = { total: tasks.length, completed: tasks.filter(t => t.status === 'DONE').length };
       }
-      setTaskCounts(counts);
+      if (!cancelled) setTaskCounts(counts);
     }
     fetchCounts();
+    return () => { cancelled = true; };
   }, [firestore, projects]);
 
   const sortedProjects = React.useMemo(() => {

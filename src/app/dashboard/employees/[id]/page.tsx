@@ -29,7 +29,6 @@ import {
     Activity,
     ClipboardCheck,
     LogOut,
-    Shield,
     Settings,
     Check,
     X,
@@ -49,7 +48,7 @@ import { VacationTabContent } from './vacation-tab-content';
 import { OnboardingTabContent } from './onboarding-tab-content';
 import { OffboardingTabContent } from './offboarding-tab-content';
 import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
-import { MakeAdminDialog } from './make-admin-dialog';
+
 import { SystemSettingsTabContent } from './system-settings-tab-content';
 import { CVTabContent } from './cv-tab-content';
 import { useToast } from '@/hooks/use-toast';
@@ -643,7 +642,6 @@ export default function EmployeeProfilePage() {
     const { firestore, tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const { user } = useUser();
-    const [showAdminDialog, setShowAdminDialog] = React.useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
     const photoInputRef = React.useRef<HTMLInputElement>(null);
     
@@ -828,18 +826,23 @@ export default function EmployeeProfilePage() {
     }, [onboardingProcess]);
 
     React.useEffect(() => {
+        let cancelled = false;
+
         async function fetchOffboardingCounts() {
             if (!firestore || !offboardingProjects || offboardingProjects.length === 0) return;
             const counts: Record<string, { total: number; completed: number }> = {};
             for (const p of offboardingProjects) {
+                if (cancelled) return;
                 const snap = await getDocs(tCollection('projects', p.id, 'tasks'));
                 const tasks = snap.docs.map(d => d.data() as Task);
                 counts[p.id] = { total: tasks.length, completed: tasks.filter(t => t.status === 'DONE').length };
             }
-            setOffboardingTaskCounts(counts);
+            if (!cancelled) setOffboardingTaskCounts(counts);
         }
         fetchOffboardingCounts();
-    }, [firestore, offboardingProjects]);
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [firestore, offboardingProjects, tCollection]);
 
     const offboardingProgress = React.useMemo(() => {
         const ps = offboardingProjects || [];
@@ -1027,15 +1030,6 @@ export default function EmployeeProfilePage() {
                     fallbackBackHref="/dashboard/employees"
                     actions={
                         <>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn("h-8", (employee.role === 'company_super_admin' || employee.role === 'admin') && "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100")}
-                                onClick={() => setShowAdminDialog(true)}
-                            >
-                                <Shield className="h-3.5 w-3.5 mr-1.5" />
-                                {employee.role === 'company_super_admin' ? 'Ерөнхий админ' : employee.role === 'admin' ? 'Админ' : 'Админ болгох'}
-                            </Button>
                             <Button variant="outline" size="sm" className="h-8" asChild>
                                 <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
                                     <Activity className="h-3.5 w-3.5 mr-1.5" />
@@ -1319,15 +1313,7 @@ export default function EmployeeProfilePage() {
             </div>
         </div>
 
-            {/* Admin Dialog */}
-            {user && (
-                <MakeAdminDialog
-                    open={showAdminDialog}
-                    onOpenChange={setShowAdminDialog}
-                    employee={employee}
-                    currentUserId={user.uid}
-                />
-            )}
+
         </>
     )
 }

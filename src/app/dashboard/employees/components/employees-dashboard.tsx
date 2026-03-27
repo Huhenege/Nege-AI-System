@@ -149,7 +149,8 @@ export function EmployeesDashboard({
 
     fetchAll();
     return () => { cancelled = true; };
-  }, [firestore, employees]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firestore, employees, tDoc]);
 
   // ── Derived metrics ──────────────────────────────────────────────────────
   const metrics = React.useMemo(() => {

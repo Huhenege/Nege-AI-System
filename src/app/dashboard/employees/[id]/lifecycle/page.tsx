@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams } from 'next/navigation';
 import { useDoc, useCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
-import { arrayUnion, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { arrayUnion, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { Employee } from '@/types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -329,10 +329,13 @@ export default function EmployeeLifecyclePage() {
         await commitIfNeeded();
     }, [firestore, employeeId]);
 
+    const [isSavingStage, setIsSavingStage] = React.useState(false);
+
     const handleMoveToStage = async (stageId: string) => {
         if (!firestore || !employeeId) return;
+        setIsSavingStage(true);
         try {
-            updateDocumentNonBlocking(tDoc('employees', employeeId), {
+            await updateDoc(tDoc('employees', employeeId), {
                 lifecycleStage: stageId
             });
             toast({
@@ -344,8 +347,10 @@ export default function EmployeeLifecyclePage() {
             toast({
                 variant: 'destructive',
                 title: 'Алдаа гарлаа',
-                description: 'Үе шатыг шинэчлэхэд алдаа гарлаа.'
+                description: 'Үе шатыг шинэчлэхэд алдаа гарлаа. Дахин оролдоно уу.'
             });
+        } finally {
+            setIsSavingStage(false);
         }
     };
 
@@ -793,11 +798,21 @@ export default function EmployeeLifecyclePage() {
                                         <div className="pt-8">
                                             <Button
                                                 onClick={() => handleMoveToStage(activeStage.id)}
+                                                disabled={isSavingStage}
                                                 className={cn("w-full h-14 rounded-2xl font-black text-lg shadow-xl transition-all active:scale-95 gap-3 text-white border-none")}
                                                 style={{ backgroundColor: activeStage.hex }}
                                             >
-                                                <ArrowRight className="h-6 w-6" />
-                                                Энэ шат руу шилжүүлэх
+                                                {isSavingStage ? (
+                                                    <>
+                                                        <span className="animate-spin mr-1">⏳</span>
+                                                        Хадгалж байна...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ArrowRight className="h-6 w-6" />
+                                                        Энэ шат руу шилжүүлэх
+                                                    </>
+                                                )}
                                             </Button>
                                             <p className="mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">
                                                 Одоогийн шат: {STAGES.find(s => s.id === employee?.lifecycleStage)?.title || 'Тодорхойгүй'}
@@ -818,9 +833,10 @@ export default function EmployeeLifecyclePage() {
                                             </p>
                                             <Button
                                                 onClick={() => handleMoveToStage('retention')}
+                                                disabled={isSavingStage}
                                                 className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl px-8 font-bold"
                                             >
-                                                Шилжүүлэх
+                                                {isSavingStage ? 'Хадгалж байна...' : 'Шилжүүлэх'}
                                             </Button>
                                         </div>
                                     )}

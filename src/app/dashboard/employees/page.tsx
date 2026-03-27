@@ -188,7 +188,7 @@ export default function EmployeesPage() {
                     <Flag className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground">Чиглүүлэх хөтөлбөр</h3>
+                    <h3 className="font-semibold text-foreground">Чиглүүлэх хөтөлбөр (Onboarding)</h3>
                     <p className="text-sm text-muted-foreground truncate">Шинэ ажилтныг чиглүүлэх</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -208,7 +208,7 @@ export default function EmployeesPage() {
                     <LogOut className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground">Чөлөөлөх хөтөлбөр</h3>
+                    <h3 className="font-semibold text-foreground">Тойрох хуудас (Offboarding)</h3>
                     <p className="text-sm text-muted-foreground truncate">Ажлаас гарах процесс</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -259,8 +259,8 @@ export default function EmployeesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Бүх төлөв</SelectItem>
-                      {Object.keys(statusConfig).map((status) => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
+                      {Object.entries(statusConfig).map(([status, cfg]) => (
+                        <SelectItem key={status} value={status}>{cfg.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -289,7 +289,7 @@ export default function EmployeesPage() {
                   )}
                   {statusFilter !== 'all' && (
                     <Badge variant="secondary" className="text-xs">
-                      {statusFilter}
+                      {statusConfig[statusFilter]?.label || statusFilter}
                     </Badge>
                   )}
                   <span className="text-xs text-muted-foreground ml-auto">

@@ -90,7 +90,9 @@ export function AiGenerateTasksDialog({
         if (open) {
             generateTasks();
         }
-    }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+    // generateTasks нь useCallback-ийн тогтвортой reference тул найдвартай
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     const handleAddAll = async () => {
         if (!generatedTasks.length || !firestore) return;
@@ -98,8 +100,8 @@ export function AiGenerateTasksDialog({
         setIsAdding(true);
         try {
             const tasksRef = tCollection('projects', projectId, 'tasks');
-            for (const t of generatedTasks) {
-                await addDocumentNonBlocking(tasksRef, {
+            await Promise.all(generatedTasks.map(t =>
+                addDocumentNonBlocking(tasksRef, {
                     projectId,
                     title: t.title,
                     dueDate: t.dueDate,
@@ -109,8 +111,8 @@ export function AiGenerateTasksDialog({
                     ownerId: null,
                     createdAt: Timestamp.now(),
                     updatedAt: Timestamp.now(),
-                });
-            }
+                })
+            ));
             toast({
                 title: 'Амжилттай',
                 description: `${generatedTasks.length} таск нэмэгдлээ.`,

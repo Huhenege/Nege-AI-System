@@ -183,9 +183,21 @@ export function AddEmployeeDialog({
         const file = event.target.files?.[0];
         if (!file) return;
 
+        // Хуучин URL-г чөлөөлөх (memory leak запобіганню)
+        setPhotoPreview(prev => {
+            if (prev) URL.revokeObjectURL(prev);
+            return URL.createObjectURL(file);
+        });
         setPhotoFile(file);
-        setPhotoPreview(URL.createObjectURL(file));
     };
+
+    // Component unmount-д object URL чөлөөлөх
+    React.useEffect(() => {
+        return () => {
+            if (photoPreview) URL.revokeObjectURL(photoPreview);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Email илгээх функц
     const sendEmployeeCredentialsEmail = async (
@@ -412,6 +424,7 @@ export function AddEmployeeDialog({
             
             // Form-ийг цэвэрлэх
             form.reset();
+            if (photoPreview) URL.revokeObjectURL(photoPreview);
             setPhotoPreview(null);
             setPhotoFile(null);
             onOpenChange(false);

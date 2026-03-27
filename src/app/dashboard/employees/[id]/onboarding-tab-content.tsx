@@ -53,17 +53,20 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
 
     // Fetch tasks for all projects
     useEffect(() => {
+        let cancelled = false;
+
         async function fetchTasks() {
             if (!firestore || !projects || projects.length === 0) {
-                setProjectsWithTasks([]);
+                if (!cancelled) setProjectsWithTasks([]);
                 return;
             }
 
-            setIsLoadingTasks(true);
+            if (!cancelled) setIsLoadingTasks(true);
             try {
                 const withTasks: ProjectWithTasks[] = [];
 
                 for (const project of projects) {
+                    if (cancelled) return;
                     const tasksSnap = await getDocs(tCollection('projects', project.id, 'tasks'));
                     const tasks = tasksSnap.docs.map(d => ({ ...d.data(), id: d.id } as Task));
                     const completed = tasks.filter(t => t.status === 'DONE').length;
@@ -79,15 +82,16 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
 
                 // Sort by stageOrder
                 withTasks.sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
-                setProjectsWithTasks(withTasks);
+                if (!cancelled) setProjectsWithTasks(withTasks);
             } catch (e) {
                 console.error('Failed to fetch tasks:', e);
             } finally {
-                setIsLoadingTasks(false);
+                if (!cancelled) setIsLoadingTasks(false);
             }
         }
 
         fetchTasks();
+        return () => { cancelled = true; };
     }, [firestore, projects]);
 
     // Calculate overall progress

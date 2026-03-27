@@ -40,7 +40,7 @@ import { Calendar as CalendarIcon, Loader2, Upload, File, X } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useFirebase, addDocumentNonBlocking, useMemoFirebase, tenantCollection } from '@/firebase';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
 const historyEventSchema = z.object({
@@ -77,7 +77,7 @@ export function AddHistoryEventDialog({
   open,
   onOpenChange,
 }: AddHistoryEventDialogProps) {
-  const { firestore } = useFirebase();
+  const { firestore, storage } = useFirebase();
   const { toast } = useToast();
   const [isUploading, setIsUploading] = React.useState(false);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -122,10 +122,9 @@ export function AddHistoryEventDialog({
   };
 
   const uploadDocument = async (): Promise<{ url: string, name: string } | null> => {
-    if (!selectedFile) return null;
+    if (!selectedFile || !storage) return null;
     setIsUploading(true);
 
-    const storage = getStorage();
     const uniqueFileName = `${Date.now()}-${selectedFile.name}`;
     const storageRef = ref(storage, `employees/${employeeId}/history-documents/${uniqueFileName}`);
 

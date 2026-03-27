@@ -16,8 +16,6 @@ import { useTenant } from '@/contexts/tenant-context';
 
 type MessageRole = 'user' | 'model' | 'system';
 
-const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || '';
-
 interface Message {
   id: string;
   role: MessageRole;
@@ -59,6 +57,14 @@ export function FloatingAssistant() {
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Component unmount хийгдэхэд pending request цуцлах
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -171,6 +177,11 @@ export function FloatingAssistant() {
     setSelectedEmployees(new Set());
     setIsLoading(true);
 
+    // Өмнөх pending request байвал цуцла
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const genkitMessages = newMessages
         .filter(m => m.id !== 'welcome')
@@ -179,16 +190,16 @@ export function FloatingAssistant() {
           content: [{ text: m.content }],
         }));
 
-      const chatUrl = '/api/assistant/chat';
       const token = await getAuthToken();
       console.log('[FloatingAssistant] Sending', genkitMessages.length, 'messages,', employees.length, 'employees');
 
-      const res = await fetch(chatUrl, {
+      const res = await fetch('/api/assistant/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: genkitMessages,
           employees: employees.map(e => ({
@@ -214,6 +225,8 @@ export function FloatingAssistant() {
 
       setMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
+      // AbortError: хэрэглэгч шинэ хүсэлт илгээсэн эсвэл component unmount
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('[FloatingAssistant] Chat error:', error);
       const errMsg = error instanceof Error ? error.message : 'Тодорхойгүй алдаа';
       setMessages(prev => [
@@ -337,7 +350,7 @@ export function FloatingAssistant() {
                 >
                   <ReactMarkdown
                     components={{
-                      code({ className, children, ...props }: any) {
+                      code({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
                         const match = /language-(\w+)/.exec(className || '');
                         if (match && match[1] === 'json') {
                           const raw = String(children).replace(/\n$/, '');
