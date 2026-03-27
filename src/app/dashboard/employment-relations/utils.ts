@@ -56,23 +56,6 @@ export function parseDocCode(docCode: string): { prefix: string; year: number; s
     };
 }
 
-/**
- * Дараагийн баримтын дугаарыг тооцоолох
- * @param currentNumber - Одоогийн дугаар
- * @param lastYear - Сүүлд дугаар олгосон жил
- * @returns { nextNumber, currentYear }
- */
-export function calculateNextDocNumber(currentNumber: number = 0, lastYear: number = 0): { nextNumber: number; currentYear: number } {
-    const currentYear = new Date().getFullYear();
-    
-    // Жил солигдсон бол 1-ээс эхэлнэ
-    if (lastYear !== currentYear) {
-        return { nextNumber: 1, currentYear };
-    }
-    
-    // Үргэлжлүүлэн дугаарлах
-    return { nextNumber: currentNumber + 1, currentYear };
-}
 
 // Helper to resolve deep paths like "position.compensation.salaryRange.min"
 function resolvePath(obj: any, path: string): any {

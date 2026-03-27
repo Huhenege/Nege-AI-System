@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useFirebase, useDoc, useCollection, useFetchCollection, useTenantWrite, useMemoFirebase, tenantCollection, tenantDoc } from '@/firebase';
-import { doc, Timestamp, updateDoc, collection, query, where, getDoc, deleteDoc, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, Timestamp, updateDoc, collection, query, where, getDoc, deleteDoc, getDocs, orderBy, onSnapshot, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ERDocument, DOCUMENT_STATUSES, DocumentStatus, ProcessActivity } from '../types';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,70 @@ import { cn } from '@/lib/utils';
 import { useReactToPrint } from 'react-to-print';
 import { PrintLayout } from '../components/print-layout';
 
+
+// ─── Employee lifecycle helper ─────────────────────────────────────────────────
+// Called after a document is SIGNED to update the employee record.
+// Runs as a best-effort operation — failure does NOT roll back the document status.
+
+interface LifecycleParams {
+    actionId: string;
+    employeeId?: string;
+    customInputs?: Record<string, unknown>;
+    tDoc: (col: string, ...segs: string[]) => import('firebase/firestore').DocumentReference;
+    firestore: import('firebase/firestore').Firestore;
+}
+
+async function applyEmployeeLifecycle({
+    actionId,
+    employeeId,
+    customInputs,
+    tDoc,
+    firestore,
+}: LifecycleParams): Promise<void> {
+    if (!employeeId || !actionId) return;
+
+    if (actionId.startsWith('release_')) {
+        const ci = (customInputs || {}) as Record<string, string>;
+        const terminationDate =
+            (typeof ci.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci.releaseDate)
+                ? ci.releaseDate
+                : null) ||
+            (typeof ci['Ажлаас чөлөөлөх огноо'] === 'string' &&
+            /^\d{4}-\d{2}-\d{2}$/.test(ci['Ажлаас чөлөөлөх огноо'])
+                ? ci['Ажлаас чөлөөлөх огноо']
+                : null);
+
+        if (actionId === 'release_temporary') {
+            await updateDoc(tDoc('employees', employeeId), {
+                status: 'on_leave',
+                lifecycleStage: 'retention',
+                updatedAt: Timestamp.now(),
+            });
+        } else {
+            await updateDoc(tDoc('employees', employeeId), {
+                status: 'terminated',
+                lifecycleStage: 'alumni',
+                ...(terminationDate ? { terminationDate } : {}),
+                updatedAt: Timestamp.now(),
+            });
+        }
+        return;
+    }
+
+    if (actionId.startsWith('appointment_')) {
+        const appointmentStatus =
+            actionId === 'appointment_probation'
+                ? 'active_probation'
+                : 'active_permanent';
+        await updateDoc(tDoc('employees', employeeId), {
+            status: appointmentStatus,
+            lifecycleStage: 'active',
+            updatedAt: Timestamp.now(),
+        });
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 export default function DocumentDetailPage() {
     const { firestore, storage, user: currentUser } = useFirebase();
     const { tDoc, tCollection } = useTenantWrite();
@@ -244,21 +308,20 @@ export default function DocumentDetailPage() {
             // If review is not required, jump straight to REVIEWED to allow uploading original document
             const nextStatus = isReviewRequired ? 'IN_REVIEW' : 'REVIEWED';
 
-            await updateDoc(tDoc('er_documents', id!), {
+            const batch1 = writeBatch(firestore!);
+            batch1.update(tDoc('er_documents', id!), {
                 status: nextStatus,
                 reviewers: isReviewRequired ? reviewers : [],
                 approvalStatus: initialApprovalStatus,
                 updatedAt: Timestamp.now()
             });
-
-            // Log activity
-            const { addDoc } = await import('firebase/firestore');
-            await addDoc(tCollection('er_documents', id!, 'activity'), {
+            batch1.set(doc(tCollection('er_documents', id!, 'activity')), {
                 type: 'STATUS_CHANGE',
                 actorId: currentUser?.uid,
                 content: nextStatus === 'REVIEWED' ? 'Хянагдсан төлөвт шилжив' : 'Хянахаар илгээв',
                 createdAt: Timestamp.now()
             });
+            await batch1.commit();
 
             toast({
                 title: nextStatus === 'REVIEWED' ? "Хянагдсан" : "Илгээгдлээ",
@@ -301,20 +364,19 @@ export default function DocumentDetailPage() {
             // Check if all approved (using the keys from the reviewers array)
             const allApproved = reviewers.every(id => newApprovalStatus[id]?.status === 'APPROVED');
 
-            await updateDoc(tDoc('er_documents', id!), {
+            const batch2 = writeBatch(firestore!);
+            batch2.update(tDoc('er_documents', id!), {
                 approvalStatus: newApprovalStatus,
                 status: allApproved ? 'REVIEWED' : 'IN_REVIEW',
                 updatedAt: Timestamp.now()
             });
-
-            // Log activity
-            const { addDoc } = await import('firebase/firestore');
-            await addDoc(tCollection('er_documents', id!, 'activity'), {
+            batch2.set(doc(tCollection('er_documents', id!, 'activity')), {
                 type: 'APPROVE',
                 actorId: currentUser.uid,
                 content: comment?.trim() ? `Батлав: ${comment.trim()}` : 'Баримтыг зөвшөөрөв',
                 createdAt: Timestamp.now()
             });
+            await batch2.commit();
 
             toast({ title: "Зөвшөөрлөө", description: allApproved ? "Бүх хянагчид зөвшөөрсөн. Эцсийн батлалт хүлээж байна." : "Таны зөвшөөрөл бүртгэгдлээ" });
         } catch (e) {
@@ -339,61 +401,29 @@ export default function DocumentDetailPage() {
 
         setIsSaving(true);
         try {
-            await updateDoc(tDoc('er_documents', id!), {
+            // ── Атомик batch: document status + activity log ─────────────────
+            const batch3 = writeBatch(firestore!);
+            batch3.update(tDoc('er_documents', id!), {
                 status: 'SIGNED',
                 updatedAt: Timestamp.now()
             });
-
-            // If this is a release document, finalize employee lifecycle -> alumni (idempotent)
-            try {
-                const actionId = String((document as any)?.metadata?.actionId || '');
-                if (firestore && document?.employeeId && actionId.startsWith('release_')) {
-                    const ci: any = document?.customInputs || {};
-                    const terminationDate =
-                        (typeof ci.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci.releaseDate) ? ci.releaseDate : null) ||
-                        (typeof ci['Ажлаас чөлөөлөх огноо'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci['Ажлаас чөлөөлөх огноо']) ? ci['Ажлаас чөлөөлөх огноо'] : null);
-
-                    if (actionId === 'release_temporary') {
-                        // Temporary leave: employee becomes "Түр эзгүй", stays in retention stage
-                        await updateDoc(tDoc('employees', document.employeeId), {
-                            status: 'on_leave',
-                            lifecycleStage: 'retention',
-                            updatedAt: Timestamp.now()
-                        });
-                    } else {
-                        // Permanent release: employee becomes "Ажлаас гарсан"
-                        await updateDoc(tDoc('employees', document.employeeId), {
-                            status: 'terminated',
-                            lifecycleStage: 'alumni',
-                            ...(terminationDate ? { terminationDate } : {}),
-                            updatedAt: Timestamp.now()
-                        });
-                    }
-                } else if (firestore && document?.employeeId && actionId.startsWith('appointment_')) {
-                    // Appointment documents: map actionId to the correct active sub-status
-                    const appointmentStatus =
-                        actionId === 'appointment_probation' ? 'active_probation' :
-                        actionId === 'appointment_permanent' ? 'active_permanent' :
-                        actionId === 'appointment_reappoint' ? 'active_permanent' :
-                        'active_permanent'; // fallback for any other appointment_ variant
-                    await updateDoc(tDoc('employees', document.employeeId), {
-                        status: appointmentStatus,
-                        lifecycleStage: 'active',
-                        updatedAt: Timestamp.now()
-                    });
-                }
-            } catch (e) {
-                console.warn('Failed to finalize employee after approval:', e);
-            }
-
-            // Log activity
-            const { addDoc } = await import('firebase/firestore');
-            await addDoc(tCollection('er_documents', id!, 'activity'), {
+            batch3.set(doc(tCollection('er_documents', id!, 'activity')), {
                 type: 'STATUS_CHANGE',
                 actorId: currentUser?.uid,
                 content: 'Баримт баталгаажлаа (эх хувь хавсаргав)',
                 createdAt: Timestamp.now()
             });
+            await batch3.commit();
+
+            // ── Employee lifecycle update (best-effort, тусдаа transaction) ──
+            // Амжилтгүй болбол document status-д нөлөөлөхгүй — admin дараа засна.
+            applyEmployeeLifecycle({
+                actionId: String((document as any)?.metadata?.actionId || ''),
+                employeeId: document?.employeeId,
+                customInputs: document?.customInputs,
+                tDoc,
+                firestore: firestore!,
+            }).catch(e => console.warn('[finalApprove] Employee lifecycle update failed:', e));
 
             toast({ title: "Баталгаажлаа", description: "Баримт баталгаажлаа" });
         } catch (e) {
@@ -413,21 +443,21 @@ export default function DocumentDetailPage() {
 
         setIsSaving(true);
         try {
-            await updateDoc(tDoc('er_documents', id!), {
+            const batch4 = writeBatch(firestore!);
+            batch4.update(tDoc('er_documents', id!), {
                 status: 'SENT_TO_EMPLOYEE',
                 employeeAckRequired: true,
                 employeeAckSentAt: Timestamp.now(),
                 employeeAckSentBy: currentUser?.uid || null,
                 updatedAt: Timestamp.now(),
             });
-
-            const { addDoc } = await import('firebase/firestore');
-            await addDoc(tCollection('er_documents', id!, 'activity'), {
+            batch4.set(doc(tCollection('er_documents', id!, 'activity')), {
                 type: 'STATUS_CHANGE',
                 actorId: currentUser?.uid,
                 content: 'Ажилтанд танилцуулахаар илгээлээ',
                 createdAt: Timestamp.now()
             });
+            await batch4.commit();
 
             toast({ title: 'Илгээгдлээ', description: 'Ажилтанд танилцуулахаар илгээлээ.' });
         } catch (e: any) {
