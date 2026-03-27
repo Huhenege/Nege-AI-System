@@ -2,7 +2,7 @@
 import React, { forwardRef } from 'react';
 import { PrintSettings } from '../types';
 import { cn } from '@/lib/utils';
-import DOMPurify from 'isomorphic-dompurify';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface PrintLayoutProps {
     content: string;
@@ -24,7 +24,7 @@ export const PrintLayout = forwardRef<HTMLDivElement, PrintLayoutProps>(({ conte
         showLogo
     } = settings || {};
 
-    const sanitizedContent = DOMPurify.sanitize(content);
+    const sanitizedContent = sanitizeHtml(content);
 
     return (
         <div className="hidden">
@@ -111,7 +111,7 @@ export const PrintLayout = forwardRef<HTMLDivElement, PrintLayoutProps>(({ conte
 
                             {/* Custom or Rich Text Header */}
                             {header && (
-                                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(header) }} />
+                                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(header) }} />
                             )}
                         </div>
                     )}
@@ -125,7 +125,7 @@ export const PrintLayout = forwardRef<HTMLDivElement, PrintLayoutProps>(({ conte
                     {/* Footer */}
                     <div className="footer-section mt-8 pt-4 border-t border-slate-100 flex items-end justify-between">
                         <div className="flex-1 text-xs text-slate-500">
-                            {footer && <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(footer) }} />}
+                            {footer && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(footer) }} />}
                         </div>
 
                         {showQRCode && (

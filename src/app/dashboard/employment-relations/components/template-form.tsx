@@ -1,4 +1,5 @@
 'use client';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -407,7 +408,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         html = html.replace(/\{\{([^}]+)\}\}/g,
             '<span style="background-color: #fee2e2; padding: 0 4px; border-radius: 2px; color: #dc2626;">{{$1}}</span>');
 
-        return html;
+        return sanitizeHtml(html);
     }, [formData.content, formData.customInputs, generateHeaderHtml]);
 
     const handleSubmit = async () => {

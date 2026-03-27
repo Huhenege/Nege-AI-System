@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useParams, useRouter } from 'next/navigation';
 import { formatDateTime, getReplacementMap, generateDocumentContent } from '../utils';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { format } from 'date-fns';
 import { TemplateBuilder } from '../components/template-builder';
 import { Input } from '@/components/ui/input';
@@ -585,7 +586,7 @@ export default function DocumentDetailPage() {
                                     <div
                                         className="bg-white shadow-lg p-8 md:p-12 prose prose-slate max-w-none min-h-[600px] ring-1 ring-slate-200"
                                         dangerouslySetInnerHTML={{
-                                            __html: generateDocumentContent(editContent || document.content, {
+                                            __html: sanitizeHtml(generateDocumentContent(editContent || document.content, {
                                                 employee: selectedEmployee,
                                                 department: departments?.find(d => d.id === selectedDept),
                                                 position: positions?.find(p => p.id === selectedPos),
@@ -598,7 +599,7 @@ export default function DocumentDetailPage() {
                                                     user: currentUser?.displayName || 'Системийн хэрэглэгч'
                                                 },
                                                 customInputs: customInputValues
-                                            }).replace(/\n/g, '<br/>')
+                                            }))
                                         }}
                                     />
                                 </div>

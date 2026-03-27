@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFetchCollection, useFirebase, addDocumentNonBlocking, useDoc, useTenantWrite } from '@/firebase';
 import { useTenant } from '@/contexts/tenant-context';
 import { query, where, Timestamp, getDocs, getDoc, addDoc } from 'firebase/firestore';
@@ -37,6 +37,13 @@ export default function CreateDocumentPage() {
     const [selectedDepartment, setSelectedDepartment] = useState<string>('');
     const [selectedPosition, setSelectedPosition] = useState<string>('');
     const [employeeSearch, setEmployeeSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    // 300ms debounce for employee search — prevents filtering on every keystroke
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(employeeSearch), 300);
+        return () => clearTimeout(timer);
+    }, [employeeSearch]);
     const [customInputValues, setCustomInputValues] = useState<Record<string, any>>({});
 
     const searchParams = useSearchParams();
@@ -88,13 +95,13 @@ export default function CreateDocumentPage() {
     }, [firestore, tCollection]);
 
     const filteredEmployees = useMemo(() => {
-        if (!employees || !employeeSearch) return [];
-        const term = employeeSearch.toLowerCase();
+        if (!employees || !debouncedSearch.trim()) return [];
+        const term = debouncedSearch.toLowerCase();
         return employees.filter(e =>
-            e.firstName.toLowerCase().includes(term) ||
-            e.lastName.toLowerCase().includes(term)
-        ).slice(0, 5);
-    }, [employees, employeeSearch]);
+            e.firstName?.toLowerCase().includes(term) ||
+            e.lastName?.toLowerCase().includes(term)
+        ).slice(0, 8);
+    }, [employees, debouncedSearch]);
 
     const selectedTemplateData = useMemo(() => templates?.find(t => t.id === selectedTemplate), [templates, selectedTemplate]);
 
