@@ -37,71 +37,10 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useReactToPrint } from 'react-to-print';
 import { PrintLayout } from '../components/print-layout';
+import { useERDocumentActions } from '../hooks/use-er-document-actions';
+import { useERPermissions } from '../hooks/use-er-permissions';
 
 
-// ─── Employee lifecycle helper ─────────────────────────────────────────────────
-// Called after a document is SIGNED to update the employee record.
-// Runs as a best-effort operation — failure does NOT roll back the document status.
-
-interface LifecycleParams {
-    actionId: string;
-    employeeId?: string;
-    customInputs?: Record<string, unknown>;
-    tDoc: (col: string, ...segs: string[]) => import('firebase/firestore').DocumentReference;
-    firestore: import('firebase/firestore').Firestore;
-}
-
-async function applyEmployeeLifecycle({
-    actionId,
-    employeeId,
-    customInputs,
-    tDoc,
-    firestore,
-}: LifecycleParams): Promise<void> {
-    if (!employeeId || !actionId) return;
-
-    if (actionId.startsWith('release_')) {
-        const ci = (customInputs || {}) as Record<string, string>;
-        const terminationDate =
-            (typeof ci.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci.releaseDate)
-                ? ci.releaseDate
-                : null) ||
-            (typeof ci['Ажлаас чөлөөлөх огноо'] === 'string' &&
-            /^\d{4}-\d{2}-\d{2}$/.test(ci['Ажлаас чөлөөлөх огноо'])
-                ? ci['Ажлаас чөлөөлөх огноо']
-                : null);
-
-        if (actionId === 'release_temporary') {
-            await updateDoc(tDoc('employees', employeeId), {
-                status: 'on_leave',
-                lifecycleStage: 'retention',
-                updatedAt: Timestamp.now(),
-            });
-        } else {
-            await updateDoc(tDoc('employees', employeeId), {
-                status: 'terminated',
-                lifecycleStage: 'alumni',
-                ...(terminationDate ? { terminationDate } : {}),
-                updatedAt: Timestamp.now(),
-            });
-        }
-        return;
-    }
-
-    if (actionId.startsWith('appointment_')) {
-        const appointmentStatus =
-            actionId === 'appointment_probation'
-                ? 'active_probation'
-                : 'active_permanent';
-        await updateDoc(tDoc('employees', employeeId), {
-            status: appointmentStatus,
-            lifecycleStage: 'active',
-            updatedAt: Timestamp.now(),
-        });
-    }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
 export default function DocumentDetailPage() {
     const { firestore, storage, user: currentUser } = useFirebase();
     const { tDoc, tCollection } = useTenantWrite();
@@ -165,7 +104,7 @@ export default function DocumentDetailPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
 
     // Print Handling
     const printComponentRef = React.useRef<HTMLDivElement>(null);
@@ -202,41 +141,21 @@ export default function DocumentDetailPage() {
         firestore && currentUser ? tenantDoc(firestore, companyPath, 'employees', currentUser.uid) : null, [currentUser]);
     const { data: currentUserProfile } = useDoc<any>(currentUserProfileRef);
 
-    const isAdmin = useMemo(() => {
-        const role = String(currentUserProfile?.role || '').toLowerCase();
-        return role === 'company_super_admin' || role === 'admin' || role === 'hr' || role === 'hr_manager' || role === 'director';
-    }, [currentUserProfile]);
-
-    const isApprover = useMemo(() => {
-        if (!document?.reviewers || !currentUserProfile) return false;
-        // Check if user's position matches any reviewer position
-        return document.reviewers.some(rid =>
-            rid === currentUserProfile.positionId ||
-            rid === currentUserProfile.id // Keep support for direct UID if needed
-        );
-    }, [document?.reviewers, currentUserProfile]);
-
-    const approveKeyForCurrentUser = useMemo(() => {
-        // Reviewers can be either Position IDs or User IDs (legacy/support).
-        const rid = reviewers.find((r) => r === currentUser?.uid || (currentUserProfile?.positionId && r === currentUserProfile.positionId));
-        return rid || currentUser?.uid || null;
-    }, [reviewers, currentUser?.uid, currentUserProfile?.positionId]);
-
-    const canApproveFromCommentBox = useMemo(() => {
-        const status = document?.status;
-        if (status !== 'IN_REVIEW') return false;
-        if (!(isApprover || isAdmin)) return false;
-        const key = approveKeyForCurrentUser;
-        if (!key) return false;
-        return document?.approvalStatus?.[key]?.status !== 'APPROVED';
-    }, [document?.status, isApprover, isAdmin, approveKeyForCurrentUser, document?.approvalStatus]);
+    // ── Permissions (via hook) ────────────────────────────────────────────────
+    const {
+        isOwner: _isOwner,
+        isAdmin,
+        isApprover,
+        approveKeyForCurrentUser,
+        canApproveFromCommentBox,
+    } = useERPermissions({ document, currentUserId, currentUserProfile, reviewers });
 
     if (!id) return <div className="p-10 text-center text-muted-foreground">Баримт олдсонгүй</div>;
     if (isLoading) return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
     if (!document) return <div className="p-8 text-center bg-slate-50 h-screen"><p className="text-muted-foreground">Баримт олдсонгүй</p></div>;
 
     const currentStatus = document.status;
-    const isOwner = document.creatorId === currentUser?.uid;
+    const isOwner = _isOwner;
 
 
 
@@ -249,269 +168,38 @@ export default function DocumentDetailPage() {
         { id: 'ACKNOWLEDGED', label: 'Танилцсан', icon: CheckCircle2, color: 'text-teal-700' },
     ];
 
-    const restoreTemplateContent = () => {
-        if (!template?.content) {
-            toast({ title: "Алдаа", description: "Эх загвар олдсонгүй", variant: "destructive" });
-            return;
-        }
-        setEditContent(template.content);
-        toast({ title: "Сэргээгдлээ", description: "Баримтын агуулгыг анхны эх загвараар сольж сэргээлээ." });
-    };
+    // ── Document action handlers (via hook) ──────────────────────────────────
+    const {
+        fileInputRef,
+        restoreTemplateContent,
+        handleSaveDraft,
+        handleSendForReview,
+        handleApprove: _handleApprove,
+        handleFinalApprove,
+        handleSendToEmployeeForAcknowledgement,
+        handleDelete: _handleDelete,
+        handleFileUpload,
+    } = useERDocumentActions({
+        id: id!,
+        document,
+        currentUserId,
+        editContent,
+        selectedDept,
+        selectedPos,
+        reviewers,
+        isReviewRequired,
+        customInputValues,
+        departments,
+        positions,
+        template,
+        setEditContent,
+        setIsSaving,
+        setIsUploading,
+    });
 
-    const handleSaveDraft = async () => {
-        if (!docRef) return;
-        setIsSaving(true);
-        try {
-            await updateDoc(tDoc('er_documents', id!), {
-                content: editContent,
-                departmentId: selectedDept,
-                positionId: selectedPos,
-                reviewers: reviewers,
-                customInputs: customInputValues, // Added this
-                metadata: {
-                    ...document.metadata,
-                    departmentName: departments?.find(d => d.id === selectedDept)?.name,
-                    positionName: positions?.find(p => p.id === selectedPos)?.title,
-                },
-                updatedAt: Timestamp.now()
-            });
-            toast({ title: "Хадгалагдлаа", description: "Өөрчлөлтүүд амжилттай хадгалагдлаа" });
-        } catch (e) {
-            toast({ title: "Алдаа", description: "Хадгалахад алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleSendForReview = async () => {
-        if (!docRef) return;
-
-        if (isReviewRequired && reviewers.length === 0) {
-            toast({
-                title: "Анхааруулга",
-                description: "Хянуулах шаардлагатай үед заавал хянагч сонгох ёстой.",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            const initialApprovalStatus: Record<string, any> = {};
-
-            if (isReviewRequired && reviewers.length > 0) {
-                reviewers.forEach(uid => {
-                    initialApprovalStatus[uid] = { status: 'PENDING', updatedAt: Timestamp.now() };
-                });
-            }
-
-            // If review is not required, jump straight to REVIEWED to allow uploading original document
-            const nextStatus = isReviewRequired ? 'IN_REVIEW' : 'REVIEWED';
-
-            const batch1 = writeBatch(firestore!);
-            batch1.update(tDoc('er_documents', id!), {
-                status: nextStatus,
-                reviewers: isReviewRequired ? reviewers : [],
-                approvalStatus: initialApprovalStatus,
-                updatedAt: Timestamp.now()
-            });
-            batch1.set(doc(tCollection('er_documents', id!, 'activity')), {
-                type: 'STATUS_CHANGE',
-                actorId: currentUser?.uid,
-                content: nextStatus === 'REVIEWED' ? 'Хянагдсан төлөвт шилжив' : 'Хянахаар илгээв',
-                createdAt: Timestamp.now()
-            });
-            await batch1.commit();
-
-            toast({
-                title: nextStatus === 'REVIEWED' ? "Хянагдсан" : "Илгээгдлээ",
-                description: nextStatus === 'REVIEWED' ? "Хянах шат алгасан хянагдсан төлөвт шилжлээ. Одоо эх хувийг хавсаргана уу." : "Баримт хянах шат руу шилжлээ"
-            });
-        } catch (e) {
-            toast({ title: "Алдаа", description: "Илгээхэд алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleApprove = async (comment?: string) => {
-        if (!docRef || !currentUser) return;
-        setIsSaving(true);
-        try {
-            const newApprovalStatus = { ...document.approvalStatus };
-
-            // Find which reviewer record the current user matches (either by PID or UID)
-            const matchedReviewerKey = reviewers.find(rid =>
-                rid === currentUser.uid || (currentUserProfile && rid === currentUserProfile.positionId)
-            );
-
-            if (matchedReviewerKey) {
-                newApprovalStatus[matchedReviewerKey] = {
-                    status: 'APPROVED',
-                    actorId: currentUser.uid,
-                    ...(comment?.trim() ? { comment: comment.trim() } : {}),
-                    updatedAt: Timestamp.now()
-                };
-            } else {
-                // Fallback for direct UID if not found as PID
-                newApprovalStatus[currentUser.uid] = {
-                    status: 'APPROVED',
-                    ...(comment?.trim() ? { comment: comment.trim() } : {}),
-                    updatedAt: Timestamp.now()
-                };
-            }
-
-            // Check if all approved (using the keys from the reviewers array)
-            const allApproved = reviewers.every(id => newApprovalStatus[id]?.status === 'APPROVED');
-
-            const batch2 = writeBatch(firestore!);
-            batch2.update(tDoc('er_documents', id!), {
-                approvalStatus: newApprovalStatus,
-                status: allApproved ? 'REVIEWED' : 'IN_REVIEW',
-                updatedAt: Timestamp.now()
-            });
-            batch2.set(doc(tCollection('er_documents', id!, 'activity')), {
-                type: 'APPROVE',
-                actorId: currentUser.uid,
-                content: comment?.trim() ? `Батлав: ${comment.trim()}` : 'Баримтыг зөвшөөрөв',
-                createdAt: Timestamp.now()
-            });
-            await batch2.commit();
-
-            toast({ title: "Зөвшөөрлөө", description: allApproved ? "Бүх хянагчид зөвшөөрсөн. Эцсийн батлалт хүлээж байна." : "Таны зөвшөөрөл бүртгэгдлээ" });
-        } catch (e) {
-            toast({ title: "Алдаа", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleFinalApprove = async () => {
-        if (!docRef) return;
-
-        // Enforce original copy check
-        if (!document.signedDocUrl) {
-            toast({
-                title: "Анхааруулга",
-                description: "Баримтыг эцэслэн батлахын тулд эх хувийг (сканнердсан хувилбар) заавал хавсаргасан байх ёстой.",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            // ── Атомик batch: document status + activity log ─────────────────
-            const batch3 = writeBatch(firestore!);
-            batch3.update(tDoc('er_documents', id!), {
-                status: 'SIGNED',
-                updatedAt: Timestamp.now()
-            });
-            batch3.set(doc(tCollection('er_documents', id!, 'activity')), {
-                type: 'STATUS_CHANGE',
-                actorId: currentUser?.uid,
-                content: 'Баримт баталгаажлаа (эх хувь хавсаргав)',
-                createdAt: Timestamp.now()
-            });
-            await batch3.commit();
-
-            // ── Employee lifecycle update (best-effort, тусдаа transaction) ──
-            // Амжилтгүй болбол document status-д нөлөөлөхгүй — admin дараа засна.
-            applyEmployeeLifecycle({
-                actionId: String((document as any)?.metadata?.actionId || ''),
-                employeeId: document?.employeeId,
-                customInputs: document?.customInputs,
-                tDoc,
-                firestore: firestore!,
-            }).catch(e => console.warn('[finalApprove] Employee lifecycle update failed:', e));
-
-            toast({ title: "Баталгаажлаа", description: "Баримт баталгаажлаа" });
-        } catch (e) {
-            toast({ title: "Алдаа", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleSendToEmployeeForAcknowledgement = async () => {
-        if (!docRef) return;
-        if (!document?.employeeId) {
-            toast({ variant: 'destructive', title: 'Алдаа', description: 'Ажилтан сонгогдоогүй байна.' });
-            return;
-        }
-        if (!(currentStatus === 'SIGNED' || currentStatus === 'APPROVED')) return;
-
-        setIsSaving(true);
-        try {
-            const batch4 = writeBatch(firestore!);
-            batch4.update(tDoc('er_documents', id!), {
-                status: 'SENT_TO_EMPLOYEE',
-                employeeAckRequired: true,
-                employeeAckSentAt: Timestamp.now(),
-                employeeAckSentBy: currentUser?.uid || null,
-                updatedAt: Timestamp.now(),
-            });
-            batch4.set(doc(tCollection('er_documents', id!, 'activity')), {
-                type: 'STATUS_CHANGE',
-                actorId: currentUser?.uid,
-                content: 'Ажилтанд танилцуулахаар илгээлээ',
-                createdAt: Timestamp.now()
-            });
-            await batch4.commit();
-
-            toast({ title: 'Илгээгдлээ', description: 'Ажилтанд танилцуулахаар илгээлээ.' });
-        } catch (e: any) {
-            console.error(e);
-            toast({ variant: 'destructive', title: 'Алдаа', description: e?.message || 'Танилцуулахад алдаа гарлаа.' });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!docRef) return;
-        setIsSaving(true);
-        try {
-            await deleteDoc(tDoc('er_documents', id!));
-            toast({ title: "Устгагдлаа", description: "Баримт амжилттай устгагдлаа" });
-            router.push('/dashboard/employment-relations');
-        } catch (e) {
-            toast({ title: "Алдаа", description: "Устгахад алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-            setIsDeleteDialogOpen(false);
-        }
-    };
-
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !docRef || !storage) return;
-
-        setIsUploading(true);
-        try {
-            // Create a reference to 'signed_docs/<docId>/<filename>'
-            const storageRef = ref(storage, `signed_docs/${id}/${Date.now()}_${file.name}`);
-
-            // Upload
-            await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(storageRef);
-
-            // Update document - Only upload file, status change happens on Final Approve
-            await updateDoc(tDoc('er_documents', id!), {
-                signedDocUrl: downloadURL,
-                updatedAt: Timestamp.now()
-            });
-
-            toast({ title: "Амжилттай", description: "Эх хувь хавсрагдлаа" });
-        } catch (error) {
-            console.error(error);
-            toast({ title: "Алдаа", description: "Файл хуулахад алдаа гарлаа", variant: "destructive" });
-        } finally {
-            setIsUploading(false);
-            // Reset input
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    };
+    // Wrap handlers that need local state (isDeleteDialogOpen)
+    const handleApprove = (comment?: string) => _handleApprove(approveKeyForCurrentUser, comment);
+    const handleDelete = () => _handleDelete(() => setIsDeleteDialogOpen(false));
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50 overflow-hidden">
