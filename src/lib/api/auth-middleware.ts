@@ -67,7 +67,7 @@ export async function requireTenantAuth(
 
     if (options?.rateLimit) {
       const route = request instanceof NextRequest ? request.nextUrl.pathname : new URL(request.url).pathname;
-      const rateLimited = checkRateLimit(decoded.uid, route, options.rateLimit);
+      const rateLimited = await checkRateLimit(decoded.uid, route, options.rateLimit);
       if (rateLimited) return { error: 'Rate limited', response: rateLimited };
     }
 
@@ -111,7 +111,7 @@ export async function requireAuth(
 
     if (options?.rateLimit) {
       const route = request instanceof NextRequest ? request.nextUrl.pathname : new URL(request.url).pathname;
-      const rateLimited = checkRateLimit(decoded.uid, route, options.rateLimit);
+      const rateLimited = await checkRateLimit(decoded.uid, route, options.rateLimit);
       if (rateLimited) return { error: 'Rate limited', response: rateLimited };
     }
 

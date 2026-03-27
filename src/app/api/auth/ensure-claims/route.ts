@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 2. Rate limit: 20 req / 60 s per UID ────────────────────────────────
-    const rateLimited = checkRateLimit(decoded.uid, '/api/auth/ensure-claims', 'auth');
+    const rateLimited = await checkRateLimit(decoded.uid, '/api/auth/ensure-claims', 'auth');
     if (rateLimited) return rateLimited;
 
     // ── 3. Short-circuit: claims already present ─────────────────────────────

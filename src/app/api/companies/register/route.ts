@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 2. Rate limit: 5 registrations per UID per minute ───────────────────
-    const rateLimited = checkRateLimit(decoded.uid, '/api/companies/register', {
+    const rateLimited = await checkRateLimit(decoded.uid, '/api/companies/register', {
       limit: 5,
       windowSeconds: 60,
     });

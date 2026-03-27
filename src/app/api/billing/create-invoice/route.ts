@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const adminAuth = getFirebaseAdminAuth();
     const decoded = await adminAuth.verifyIdToken(token);
 
-    const rateLimited = checkRateLimit(decoded.uid, '/api/billing/create-invoice', 'billing');
+    const rateLimited = await checkRateLimit(decoded.uid, '/api/billing/create-invoice', 'billing');
     if (rateLimited) return rateLimited;
     const user = await adminAuth.getUser(decoded.uid);
     const claims = user.customClaims as TenantClaims | undefined;

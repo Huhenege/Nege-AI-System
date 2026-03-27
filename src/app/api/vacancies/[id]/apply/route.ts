@@ -13,7 +13,7 @@ export async function POST(
 ) {
   try {
     const { id: vacancyId } = await params;
-    const rateLimited = checkRateLimit(
+    const rateLimited = await checkRateLimit(
       getCallerIdentifier(request),
       '/api/vacancies/apply',
       { limit: 5, windowSeconds: 300 }

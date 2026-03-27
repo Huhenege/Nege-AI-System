@@ -1,35 +1,37 @@
 import { describe, it, expect } from 'vitest';
 import { checkRateLimit, getCallerIdentifier } from '@/lib/api/rate-limiter';
 
+// Note: tests use in-memory fallback (no UPSTASH env vars in test env)
+
 describe('checkRateLimit', () => {
-  it('allows requests within the limit', () => {
-    const result = checkRateLimit('user-rl-1', '/api/test', { limit: 5, windowSeconds: 60 });
+  it('allows requests within the limit', async () => {
+    const result = await checkRateLimit('user-rl-1', '/api/test', { limit: 5, windowSeconds: 60 });
     expect(result).toBeNull();
   });
 
-  it('blocks requests over the limit', () => {
+  it('blocks requests over the limit', async () => {
     const uid = 'user-rl-block-' + Date.now();
-    const route = '/api/rate-test-block';
+    const route = '/api/rate-test-block-' + Date.now();
     for (let i = 0; i < 3; i++) {
-      checkRateLimit(uid, route, { limit: 3, windowSeconds: 60 });
+      await checkRateLimit(uid, route, { limit: 3, windowSeconds: 60 });
     }
-    const blocked = checkRateLimit(uid, route, { limit: 3, windowSeconds: 60 });
+    const blocked = await checkRateLimit(uid, route, { limit: 3, windowSeconds: 60 });
     expect(blocked).not.toBeNull();
     expect(blocked?.status).toBe(429);
   });
 
-  it('separates limits by route', () => {
+  it('separates limits by route', async () => {
     const uid = 'user-rl-sep-' + Date.now();
     for (let i = 0; i < 3; i++) {
-      checkRateLimit(uid, '/api/a', { limit: 3, windowSeconds: 60 });
+      await checkRateLimit(uid, '/api/a-' + uid, { limit: 3, windowSeconds: 60 });
     }
-    const routeB = checkRateLimit(uid, '/api/b', { limit: 3, windowSeconds: 60 });
+    const routeB = await checkRateLimit(uid, '/api/b-' + uid, { limit: 3, windowSeconds: 60 });
     expect(routeB).toBeNull();
   });
 
-  it('uses preset configs', () => {
+  it('uses preset configs', async () => {
     const uid = 'user-rl-preset-' + Date.now();
-    const result = checkRateLimit(uid, '/api/preset-test', 'standard');
+    const result = await checkRateLimit(uid, '/api/preset-test-' + uid, 'standard');
     expect(result).toBeNull();
   });
 });

@@ -211,7 +211,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   const { uid: superAdminUid } = authResult;
 
   // ── Rate limit ────────────────────────────────────────────────────────────
-  const rateLimited = checkRateLimit(superAdminUid, '/api/super-admin/company/delete', {
+  const rateLimited = await checkRateLimit(superAdminUid, '/api/super-admin/company/delete', {
     limit: 5,
     windowSeconds: 300, // 5 deletions per 5 min per super admin
   });

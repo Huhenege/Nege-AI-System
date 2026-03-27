@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Rate limit ────────────────────────────────────────────────────────────
-  const rateLimited = checkRateLimit(decoded.uid, '/api/setup', {
+  const rateLimited = await checkRateLimit(decoded.uid, '/api/setup', {
     limit: 30,
     windowSeconds: 60,
   });

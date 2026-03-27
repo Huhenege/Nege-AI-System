@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Rate limit ────────────────────────────────────────────────────────────
-  const rateLimited = checkRateLimit(decoded.uid, '/api/calendar', {
+  const rateLimited = await checkRateLimit(decoded.uid, '/api/calendar', {
     limit: 60,
     windowSeconds: 60,
   });
@@ -257,7 +257,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
   }
 
-  const rateLimited = checkRateLimit(decoded.uid, '/api/calendar/get', {
+  const rateLimited = await checkRateLimit(decoded.uid, '/api/calendar/get', {
     limit: 120,
     windowSeconds: 60,
   });
