@@ -46,7 +46,9 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 200;
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.name_lower is string
+        && request.resource.data.name_lower == request.resource.data.name.lower();
       allow update: if isCompanyAdmin(companyId) || isSuperAdmin();
       allow delete: if isSuperAdmin();
 
