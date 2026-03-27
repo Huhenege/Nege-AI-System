@@ -4,7 +4,8 @@ import * as admin from 'firebase-admin';
 import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { writeFileSync, existsSync } from 'fs';
+import { getStorage } from 'firebase-admin/storage';
+import { writeFileSync } from 'fs';
 
 const ADC_TMP_PATH = '/tmp/gcloud-adc.json';
 
@@ -52,5 +53,14 @@ export function getFirebaseAdminAuth() {
 
 export function getFirebaseAdminFirestore() {
   return getFirestore(getFirebaseAdminApp());
+}
+
+export function getFirebaseAdminStorage() {
+  const bucketName =
+    process.env.FIREBASE_STORAGE_BUCKET ||
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  const storageInstance = getStorage(getFirebaseAdminApp());
+  // bucket() with no args uses the default bucket; with a name uses that bucket
+  return bucketName ? storageInstance.bucket(bucketName) : storageInstance.bucket();
 }
 

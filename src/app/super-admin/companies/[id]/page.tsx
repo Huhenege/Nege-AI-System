@@ -53,6 +53,9 @@ import {
   Clock,
   Sparkles,
   CheckCircle,
+  Trash2,
+  AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSuperAdminApi } from '../../components/use-super-admin-api';
@@ -120,7 +123,7 @@ export default function CompanyDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'users' | 'limits' | 'billing'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'users' | 'limits' | 'billing' | 'danger'>('overview');
 
   useEffect(() => {
     fetch('/api/pricing')
@@ -229,6 +232,7 @@ export default function CompanyDetailPage() {
     { id: 'modules' as const, label: 'Модулууд', icon: Package },
     { id: 'users' as const, label: 'Хэрэглэгчид', icon: Users },
     { id: 'limits' as const, label: 'Хязгаарлалт', icon: Settings },
+    { id: 'danger' as const, label: 'Устгах', icon: Trash2 },
   ];
 
   return (
@@ -311,7 +315,11 @@ export default function CompanyDetailPage() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
-              activeTab === tab.id
+              tab.id === 'danger'
+                ? activeTab === 'danger'
+                  ? 'border-destructive text-destructive font-medium'
+                  : 'border-transparent text-destructive/60 hover:text-destructive'
+                : activeTab === tab.id
                 ? 'border-primary text-primary font-medium'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
@@ -343,6 +351,14 @@ export default function CompanyDetailPage() {
       )}
       {activeTab === 'limits' && (
         <LimitsTab company={company} onSave={updateCompany} isSaving={isSaving} />
+      )}
+      {activeTab === 'danger' && (
+        <DangerZoneTab
+          companyId={companyId}
+          company={company}
+          onDeleted={() => router.replace('/super-admin/companies')}
+          onRestored={loadCompany}
+        />
       )}
     </div>
   );
@@ -1070,6 +1086,314 @@ function QuickStat({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border bg-card p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-xl font-bold mt-1">{value}</p>
+    </div>
+  );
+}
+
+/* ───────────────── Danger Zone Tab ───────────────── */
+
+function DangerZoneTab({
+  companyId,
+  company,
+  onDeleted,
+  onRestored,
+}: {
+  companyId: string;
+  company: Company;
+  onDeleted: () => void;
+  onRestored: () => void;
+}) {
+  const { fetchApi } = useSuperAdminApi();
+  const { toast } = useToast();
+
+  const [isActing, setIsActing] = useState(false);
+
+  // Soft delete state
+  const [softReason, setSoftReason] = useState('');
+
+  // Hard delete state
+  const [hardConfirmName, setHardConfirmName] = useState('');
+  const [hardReason, setHardReason] = useState('');
+
+  const isCancelled = company.status === 'cancelled';
+  const deletionDate = (company as unknown as Record<string, string>).deletionScheduledAt;
+
+  const softDelete = async () => {
+    setIsActing(true);
+    try {
+      const res = await fetchApi<{ message: string; deletionScheduledAt: string }>(
+        `/company/${companyId}/delete`,
+        {
+          method: 'DELETE',
+          body: JSON.stringify({ mode: 'soft', reason: softReason }),
+        }
+      );
+      toast({ title: 'Цуцлагдлаа', description: res.message });
+      onRestored(); // reload company
+    } catch (err) {
+      toast({
+        title: 'Алдаа',
+        description: err instanceof Error ? err.message : 'Failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const hardDelete = async () => {
+    setIsActing(true);
+    try {
+      const res = await fetchApi<{ message: string; summary: Record<string, unknown> }>(
+        `/company/${companyId}/delete`,
+        {
+          method: 'DELETE',
+          body: JSON.stringify({
+            mode: 'hard',
+            confirmName: hardConfirmName,
+            reason: hardReason,
+          }),
+        }
+      );
+      toast({ title: '✅ Бүрэн устгагдлаа', description: res.message });
+      onDeleted();
+    } catch (err) {
+      toast({
+        title: 'Алдаа',
+        description: err instanceof Error ? err.message : 'Failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  const restore = async () => {
+    setIsActing(true);
+    try {
+      const res = await fetchApi<{ message: string }>(`/company/${companyId}/delete`, {
+        method: 'POST',
+      });
+      toast({ title: 'Сэргээгдлээ', description: res.message });
+      onRestored();
+    } catch (err) {
+      toast({
+        title: 'Алдаа',
+        description: err instanceof Error ? err.message : 'Failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsActing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* Warning banner */}
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 flex gap-3">
+        <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-semibold text-destructive">Аюулт бүс</p>
+          <p className="text-muted-foreground mt-1">
+            Энэ хэсгийн үйлдлүүд буцаах боломжгүй (hard delete) эсвэл байгууллагын
+            хэрэглэгчдийг системд нэвтрэхгүй болгодог. Маш болгоомжтой ашиглана уу.
+          </p>
+        </div>
+      </div>
+
+      {/* Restore — only when cancelled */}
+      {isCancelled && (
+        <Card className="border-amber-400/40">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-amber-500" />
+              <CardTitle className="text-base text-amber-600">Байгууллага сэргээх</CardTitle>
+            </div>
+            <CardDescription>
+              {deletionDate
+                ? `Бүрэн устгагдах огноо: ${new Date(deletionDate).toLocaleDateString('mn-MN')} — тэр өдрийн өмнө сэргээх боломжтой.`
+                : 'Байгууллага цуцлагдсан байна. Сэргээх боломжтой.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="border-amber-400 text-amber-600 hover:bg-amber-50" disabled={isActing}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Сэргээх
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Байгууллагыг сэргээх үү?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    "{company.name}" байгууллага идэвхтэй болж, хэрэглэгчид дахин нэвтрэх боломжтой болно.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                  <AlertDialogAction onClick={restore} disabled={isActing}>
+                    {isActing && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Сэргээх
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Soft delete */}
+      {!isCancelled && (
+        <Card className="border-orange-400/40">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-orange-500" />
+              <CardTitle className="text-base">Байгууллага цуцлах (Soft delete)</CardTitle>
+            </div>
+            <CardDescription>
+              Байгууллагыг "cancelled" болгож, 30 хоногийн дараа автоматаар бүрэн устгана.
+              Энэ хугацаанд сэргээх боломжтой. Хэрэглэгчид нэвтрэх боломжгүй болно.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Шалтгаан (заавал биш)</Label>
+              <Input
+                placeholder="Цуцлалтын шалтгаан..."
+                value={softReason}
+                onChange={(e) => setSoftReason(e.target.value)}
+                disabled={isActing}
+              />
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="border-orange-400 text-orange-600 hover:bg-orange-50" disabled={isActing}>
+                  <Ban className="h-4 w-4 mr-2" />
+                  Байгууллагыг цуцлах
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Байгууллагыг цуцлах уу?</AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-2">
+                    <span className="block">
+                      "{company.name}" байгууллагыг цуцлахад:
+                    </span>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      <li>Бүх хэрэглэгчийн нэвтрэх эрх хаагдана</li>
+                      <li>30 хоногийн дараа өгөгдөл бүрэн устгагдана</li>
+                      <li>Энэ хугацаанд "Сэргээх" товчоор буцаах боломжтой</li>
+                    </ul>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                    onClick={softDelete}
+                    disabled={isActing}
+                  >
+                    {isActing && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                    Тийм, цуцлах
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Hard delete */}
+      <Card className="border-destructive/60">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-5 w-5 text-destructive" />
+            <CardTitle className="text-base text-destructive">Бүрэн устгах (Hard delete)</CardTitle>
+          </div>
+          <CardDescription>
+            <span className="text-destructive font-semibold">Буцаах боломжгүй.</span>{' '}
+            Бүх Firestore өгөгдөл, файлууд, Firebase Auth хэрэглэгчид устгагдана.
+            Баталгаажуулахын тулд байгууллагын нэрийг доор бичнэ үү.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm space-y-1">
+            <p className="font-medium text-destructive">Устгагдах зүйлс:</p>
+            <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
+              <li>companies/{companyId} + бүх subcollections</li>
+              <li>Холбоотой er_documents, vacancies, candidates г.м.</li>
+              <li>Firebase Storage файлууд (companies/{companyId}/)</li>
+              <li>Firebase Auth хэрэглэгчдийн акаунт</li>
+            </ul>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Баталгаажуулах үүднээс байгууллагын нэрийг бичнэ үү:{' '}
+              <span className="font-mono text-destructive">{company.name}</span>
+            </Label>
+            <Input
+              placeholder={company.name}
+              value={hardConfirmName}
+              onChange={(e) => setHardConfirmName(e.target.value)}
+              disabled={isActing}
+              className="border-destructive/40 focus:border-destructive"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Шалтгаан (заавал биш)</Label>
+            <Input
+              placeholder="Устгалтын шалтгаан..."
+              value={hardReason}
+              onChange={(e) => setHardReason(e.target.value)}
+              disabled={isActing}
+            />
+          </div>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                disabled={isActing || hardConfirmName !== company.name}
+                className="w-full"
+              >
+                {isActing ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Бүрэн устгах — {company.name}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-destructive">
+                  Бүрэн устгах — эцсийн баталгаа
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  <span className="font-semibold text-destructive">"{company.name}"</span>{' '}
+                  байгууллагын бүх өгөгдөл, файлууд болон{' '}
+                  <span className="font-semibold">хэрэглэгчдийн акаунт</span> устгагдана.
+                  Энэ үйлдлийг буцаах боломжгүй. Та итгэлтэй байна уу?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Болих</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive hover:bg-destructive/90 text-white"
+                  onClick={hardDelete}
+                  disabled={isActing}
+                >
+                  {isActing && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Тийм, бүрэн устга
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardContent>
+      </Card>
     </div>
   );
 }

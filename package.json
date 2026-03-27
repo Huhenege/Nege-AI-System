@@ -10,7 +10,7 @@
     "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "rm -f tsconfig.tsbuildinfo && tsc --noEmit",
     "migrate:dry": "npx tsx src/scripts/migrate-to-tenant.ts",
     "migrate:execute": "npx tsx src/scripts/migrate-to-tenant.ts --execute --set-claims",
     "test": "vitest run",
