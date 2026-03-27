@@ -62,7 +62,7 @@ export function AddEmployeeDocumentDialog({
     open,
     onOpenChange,
 }: AddEmployeeDocumentDialogProps) {
-    const { firestore, storage } = useFirebase();
+    const { firestore, storage, auth } = useFirebase();
     const { toast } = useToast();
     const [isUploading, setIsUploading] = React.useState(false);
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -167,7 +167,7 @@ export function AddEmployeeDocumentDialog({
         const uploadedFile = await uploadFile();
         if (!uploadedFile) return;
 
-        await addDocumentNonBlocking(documentsCollectionRef, {
+        const newDocRef = await addDocumentNonBlocking(documentsCollectionRef, {
             title: values.title,
             description: `Ажилтны хувийн баримт бичиг`,
             url: uploadedFile.url,
@@ -177,6 +177,26 @@ export function AddEmployeeDocumentDialog({
                 employeeId: employeeId,
             }
         });
+
+        // Background vectorize — fire-and-forget, алдаа гарсан ч UI-д нөлөөлөхгүй
+        if (newDocRef) {
+            const documentId = newDocRef.id;
+            const currentUser = auth?.currentUser;
+            if (currentUser) {
+                currentUser.getIdToken().then((token) => {
+                    fetch('/api/documents/vectorize', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ documentId, employeeId }),
+                    }).catch((err) => {
+                        console.warn('[AddEmployeeDocumentDialog] Background vectorize failed:', err);
+                    });
+                }).catch(() => { /* token error — vectorize алгасна */ });
+            }
+        }
 
         toast({
             title: 'Амжилттай хадгаллаа',

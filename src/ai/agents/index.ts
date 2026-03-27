@@ -12,3 +12,4 @@ export { createAttendanceAgentTools } from './attendance-agent';
 export { createPointsAgentTools } from './points-agent';
 export { createRecruitmentAgentTools } from './recruitment-agent';
 export { createReportAgentTools } from './report-agent';
+export { createDocumentRagAgentTools } from './document-rag-agent';

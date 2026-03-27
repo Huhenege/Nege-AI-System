@@ -39,6 +39,7 @@ export function VerificationDialog({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [countdown, setCountdown] = React.useState(0);
+  const [simulationNote, setSimulationNote] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -86,6 +87,7 @@ export function VerificationDialog({
         throw new Error(data.error || 'Алдаа гарлаа');
       }
       setVerificationId(data.verificationId);
+      setSimulationNote(data.simulationNote || '');
       setStep('verify');
       setCountdown(60);
     } catch (err: any) {
@@ -178,6 +180,12 @@ export function VerificationDialog({
             </>
           ) : (
             <>
+              {simulationNote && (
+                <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{simulationNote}</span>
+                </div>
+              )}
               <div className="space-y-2">
                 <Input
                   ref={inputRef}

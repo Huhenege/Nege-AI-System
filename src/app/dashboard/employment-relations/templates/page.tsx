@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useFirebase, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirebase, useCollection, useTenantWrite } from '@/firebase';
+
 import { Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { TemplatesTab } from '../components/templates-tab';
@@ -10,10 +10,11 @@ import type { ERDocumentType } from '../types';
 
 export default function TemplatesManagementPage() {
   const { firestore } = useFirebase();
+  const { tCollection } = useTenantWrite();
 
   const docTypesQuery = React.useMemo(
-    () => (firestore ? collection(firestore, 'er_process_document_types') : null),
-    [firestore]
+    () => (firestore ? tCollection('er_process_document_types') : null),
+    [firestore, tCollection]
   );
 
   const { data: docTypes, isLoading } = useCollection<ERDocumentType>(docTypesQuery);

@@ -57,12 +57,12 @@ async function sendEmailOTP(to: string, code: string): Promise<void> {
   }
 }
 
-async function sendSmsOTP(to: string, code: string): Promise<void> {
+async function sendSmsOTP(to: string, code: string): Promise<{ simulated?: boolean }> {
   const token = process.env.MOCEAN_API_TOKEN;
 
   if (!token) {
-    console.log(`[verify/send] SMS SIMULATION: OTP ${code} -> ${to}`);
-    return;
+    console.log(`[verify/send] SMS SIMULATION (no token): OTP ${code} -> ${to}`);
+    return { simulated: true };
   }
 
   const params = new URLSearchParams();
@@ -83,9 +83,20 @@ async function sendSmsOTP(to: string, code: string): Promise<void> {
   const result = await response.json();
   const status = result.messages?.[0]?.status;
   if (status != 0 && status !== '0') {
-    const msg = result.messages?.[0]?.err_msg || 'SMS илгээж чадсангүй';
-    throw new Error(msg);
+    const errMsg = result.messages?.[0]?.err_msg || '';
+    const isWhitelistError = /whitelist/i.test(errMsg);
+
+    if (isWhitelistError) {
+      console.warn(
+        `[verify/send] Mocean whitelist error for ${to}. Falling back to simulation. OTP: ${code}`
+      );
+      return { simulated: true };
+    }
+
+    throw new Error(errMsg || 'SMS илгээж чадсангүй');
   }
+
+  return {};
 }
 
 export async function POST(request: NextRequest) {
@@ -144,17 +155,20 @@ export async function POST(request: NextRequest) {
       createdAt: FieldValue.serverTimestamp(),
     });
 
+    let simulated = false;
     if (type === 'email') {
       await sendEmailOTP(target, otp);
     } else {
-      await sendSmsOTP(target, otp);
+      const smsResult = await sendSmsOTP(target, otp);
+      simulated = !!smsResult.simulated;
     }
 
-    console.log(`[verify/send] OTP sent via ${type} to ${target} (doc: ${verificationRef.id})`);
+    console.log(`[verify/send] OTP sent via ${type} to ${target} (doc: ${verificationRef.id})${simulated ? ' [SIMULATED]' : ''}`);
 
     return NextResponse.json({
       success: true,
       verificationId: verificationRef.id,
+      ...(simulated && { simulated: true, simulationNote: 'SMS илгээгдээгүй (Mocean trial горим). Серверийн console-оос OTP кодыг харна уу.' }),
     });
   } catch (error: any) {
     console.error('[verify/send] Error:', error);

@@ -45,6 +45,7 @@ const TENANT_SCOPED = new Set([
   'skills_inventory',
   'meeting_rooms',
   'room_bookings',
+  'meetings',
   'recognition_posts',
   'point_transactions',
   'points_config',

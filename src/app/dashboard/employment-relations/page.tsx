@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFetchCollection, useFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useFetchCollection, useFirebase, useTenantWrite } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
 import { ERDocument, ERDocumentType } from './types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Button } from '@/components/ui/button';
@@ -20,16 +20,17 @@ import { ERDashboard } from './components/er-dashboard';
 
 export default function DocumentListPage() {
     const { firestore } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<string>('all');
 
     const documentsQuery = React.useMemo(() =>
-        firestore ? query(collection(firestore, 'er_documents'), orderBy('createdAt', 'desc')) : null
-        , [firestore]);
+        firestore ? query(tCollection('er_documents'), orderBy('createdAt', 'desc')) : null
+        , [firestore, tCollection]);
 
-    const docTypesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_process_document_types') : null, [firestore]);
-    const templatesQuery = React.useMemo(() => firestore ? collection(firestore, 'er_templates') : null, [firestore]);
+    const docTypesQuery = React.useMemo(() => firestore ? tCollection('er_process_document_types') : null, [firestore, tCollection]);
+    const templatesQuery = React.useMemo(() => firestore ? tCollection('er_templates') : null, [firestore, tCollection]);
 
     const { data: documents, isLoading, refetch: refetchDocuments } = useFetchCollection<ERDocument>(documentsQuery);
     const { data: docTypes } = useFetchCollection<ERDocumentType>(docTypesQuery);

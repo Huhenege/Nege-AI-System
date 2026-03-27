@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+import { checkRateLimit } from '@/lib/api/rate-limiter';
 
 type Body = {
   documentTypeId?: string;
@@ -16,17 +17,19 @@ type NumberingConfig = {
   resetPeriod?: 'never' | 'yearly' | 'monthly' | 'daily';
 };
 
-const DEFAULT_NUMBERING_CONFIG: Required<Pick<
-  NumberingConfig,
-  | 'includePrefix'
-  | 'includeYear'
-  | 'includeMonth'
-  | 'includeDay'
-  | 'separator'
-  | 'numberPadding'
-  | 'startNumber'
-  | 'resetPeriod'
->> = {
+const DEFAULT_NUMBERING_CONFIG: Required<
+  Pick<
+    NumberingConfig,
+    | 'includePrefix'
+    | 'includeYear'
+    | 'includeMonth'
+    | 'includeDay'
+    | 'separator'
+    | 'numberPadding'
+    | 'startNumber'
+    | 'resetPeriod'
+  >
+> = {
   includePrefix: true,
   includeYear: true,
   includeMonth: false,
@@ -60,20 +63,30 @@ function shouldResetCounter(
     case 'monthly':
       return lastYear !== currentYear || lastMonth !== currentMonth;
     case 'daily':
-      return lastYear !== currentYear || lastMonth !== currentMonth || lastDay !== currentDay;
+      return (
+        lastYear !== currentYear ||
+        lastMonth !== currentMonth ||
+        lastDay !== currentDay
+      );
     case 'never':
     default:
       return false;
   }
 }
 
-function generateDocumentNumber(prefix: string, config: NumberingConfig, sequence: number, date: Date): string {
+function generateDocumentNumber(
+  prefix: string,
+  config: NumberingConfig,
+  sequence: number,
+  date: Date
+): string {
   const parts: string[] = [];
   const sep = config.separator || '-';
 
   if (config.includePrefix && prefix) parts.push(prefix);
   if (config.includeYear) parts.push(date.getFullYear().toString());
-  if (config.includeMonth) parts.push(String(date.getMonth() + 1).padStart(2, '0'));
+  if (config.includeMonth)
+    parts.push(String(date.getMonth() + 1).padStart(2, '0'));
   if (config.includeDay) parts.push(String(date.getDate()).padStart(2, '0'));
 
   const padding = config.numberPadding || 4;
@@ -82,55 +95,136 @@ function generateDocumentNumber(prefix: string, config: NumberingConfig, sequenc
   return parts.join(sep);
 }
 
+/**
+ * POST /api/employment-relations/next-document-number
+ *
+ * Atomically allocates the next document number for a given documentTypeId.
+ * Uses Firestore Admin SDK transaction on the tenant-scoped path:
+ *   companies/{companyId}/er_process_document_types/{documentTypeId}
+ *
+ * Security: verifies ID token, resolves companyId from token claims,
+ * rate-limits per user.
+ */
 export async function POST(request: Request) {
   try {
+    // ── Auth ─────────────────────────────────────────────────────────────
     const token = getBearerToken(request);
     if (!token) {
-      return NextResponse.json({ error: 'Missing Authorization bearer token' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Missing Authorization bearer token' },
+        { status: 401 }
+      );
     }
 
     const adminAuth = getFirebaseAdminAuth();
     const adminDb = getFirebaseAdminFirestore();
 
+    let decoded: { uid: string; companyId?: string; role?: string };
     try {
-      await adminAuth.verifyIdToken(token);
+      decoded = (await adminAuth.verifyIdToken(token)) as {
+        uid: string;
+        companyId?: string;
+        role?: string;
+      };
     } catch {
-      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Invalid or expired token' },
+        { status: 401 }
+      );
     }
 
+    // ── Rate limit ────────────────────────────────────────────────────────
+    const rateLimited = await checkRateLimit(
+      decoded.uid,
+      '/api/employment-relations/next-document-number',
+      { limit: 30, windowSeconds: 60 }
+    );
+    if (rateLimited) return rateLimited;
+
+    // ── Resolve companyId (from token claims; fallback to ownerId query) ──
+    let companyId = decoded.companyId;
+    if (!companyId) {
+      const ownedSnap = await adminDb
+        .collection('companies')
+        .where('ownerId', '==', decoded.uid)
+        .limit(1)
+        .get();
+      if (!ownedSnap.empty) companyId = ownedSnap.docs[0].id;
+    }
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Байгууллага олдсонгүй. Дахин нэвтэрнэ үү.' },
+        { status: 404 }
+      );
+    }
+
+    // ── Validate body ─────────────────────────────────────────────────────
     const body = (await request.json()) as Body;
-    const documentTypeId = typeof body?.documentTypeId === 'string' ? body.documentTypeId.trim() : '';
+    const documentTypeId =
+      typeof body?.documentTypeId === 'string'
+        ? body.documentTypeId.trim()
+        : '';
     if (!documentTypeId) {
-      return NextResponse.json({ error: 'Missing required field: documentTypeId' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing required field: documentTypeId' },
+        { status: 400 }
+      );
     }
 
+    // ── Atomic transaction on tenant-scoped path ──────────────────────────
     const result = await adminDb.runTransaction(async (tx) => {
-      const ref = adminDb.doc(`er_process_document_types/${documentTypeId}`);
+      // Tenant-scoped path: companies/{companyId}/er_process_document_types/{id}
+      const ref = adminDb.doc(
+        `companies/${companyId}/er_process_document_types/${documentTypeId}`
+      );
       const snap = await tx.get(ref);
 
       if (!snap.exists) {
-        const msg = 'Баримтын төрөл олдсонгүй';
-        return { ok: false as const, status: 404, error: msg };
+        return {
+          ok: false as const,
+          status: 404,
+          error: 'Баримтын төрөл олдсонгүй',
+        };
       }
 
-      const data = snap.data() as any;
-      const prefix = typeof data?.prefix === 'string' ? String(data.prefix).toUpperCase().trim() : '';
-      const cfg = { ...DEFAULT_NUMBERING_CONFIG, ...(data?.numberingConfig || {}) } as NumberingConfig;
+      const data = snap.data() as Record<string, unknown>;
+      const prefix =
+        typeof data?.prefix === 'string'
+          ? String(data.prefix).toUpperCase().trim()
+          : '';
+      const cfg = {
+        ...DEFAULT_NUMBERING_CONFIG,
+        ...(data?.numberingConfig || {}),
+      } as NumberingConfig;
 
       if (cfg.includePrefix && !prefix) {
-        const msg = 'Баримтын төрлийн үсгэн код (prefix) тохируулаагүй байна';
-        return { ok: false as const, status: 400, error: msg };
+        return {
+          ok: false as const,
+          status: 400,
+          error: 'Баримтын төрлийн үсгэн код (prefix) тохируулаагүй байна',
+        };
       }
 
       const now = new Date();
-      const shouldReset = shouldResetCounter(cfg, data?.lastNumberYear, data?.lastNumberMonth, data?.lastNumberDay, now);
+      const shouldReset = shouldResetCounter(
+        cfg,
+        data?.lastNumberYear as number | undefined,
+        data?.lastNumberMonth as number | undefined,
+        data?.lastNumberDay as number | undefined,
+        now
+      );
+
+      const startNumber =
+        typeof cfg.startNumber === 'number' && cfg.startNumber > 0
+          ? cfg.startNumber
+          : 1;
 
       let nextNumber: number;
-      const startNumber = typeof cfg.startNumber === 'number' && cfg.startNumber > 0 ? cfg.startNumber : 1;
       if (shouldReset) {
         nextNumber = startNumber;
       } else {
-        const currentNumber = typeof data?.currentNumber === 'number' ? data.currentNumber : 0;
+        const currentNumber =
+          typeof data?.currentNumber === 'number' ? data.currentNumber : 0;
         nextNumber = currentNumber + 1;
         if (nextNumber < startNumber) nextNumber = startNumber;
       }
@@ -148,15 +242,19 @@ export async function POST(request: Request) {
     });
 
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status }
+      );
     }
 
-    return NextResponse.json({ documentNumber: result.documentNumber, nextNumber: result.nextNumber });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || 'Internal Server Error' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      documentNumber: result.documentNumber,
+      nextNumber: result.nextNumber,
+    });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Internal Server Error';
+    console.error('[next-document-number]', message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

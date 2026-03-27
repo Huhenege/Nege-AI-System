@@ -83,6 +83,7 @@
     "isomorphic-dompurify": "^2.35.0",
     "leaflet": "^1.9.4",
     "lucide-react": "0.400.0",
+    "mammoth": "^1.12.0",
     "mocean-sdk": "^2.2.3",
     "next": "15.0.7",
     "pdf-parse": "^1.1.1",

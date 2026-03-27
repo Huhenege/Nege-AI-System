@@ -4,21 +4,21 @@ import React, { useMemo } from 'react';
 import { format, addDays, startOfWeek, isToday } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { MeetingRoom, RoomBooking } from '@/types/meeting';
+import type { MeetingRoom, Meeting } from '@/types/meeting';
 
 interface BookingCalendarProps {
     currentDate: Date;
-    bookings: RoomBooking[];
+    meetings: Meeting[];
     rooms: MeetingRoom[];
     visibleRoomIds: Set<string>;
     onSlotClick: (date: string, time: string) => void;
-    onBookingClick: (booking: RoomBooking) => void;
+    onMeetingClick: (meeting: Meeting) => void;
     view: 'week' | 'day';
 }
 
 const HOUR_START = 8;
 const HOUR_END = 20;
-const SLOT_HEIGHT = 48; // pixels per 30-min slot
+const SLOT_HEIGHT = 48;
 const HOURS = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i);
 
 function timeToMinutes(time: string): number {
@@ -31,9 +31,9 @@ function minutesToOffset(minutes: number): number {
     return ((minutes - startMinutes) / 30) * SLOT_HEIGHT;
 }
 
-function getBookingStyle(booking: RoomBooking, room: MeetingRoom | undefined) {
-    const startMin = timeToMinutes(booking.startTime);
-    const endMin = timeToMinutes(booking.endTime);
+function getMeetingStyle(meeting: Meeting, room: MeetingRoom | undefined) {
+    const startMin = timeToMinutes(meeting.startTime);
+    const endMin = timeToMinutes(meeting.endTime);
     const top = minutesToOffset(startMin);
     const height = ((endMin - startMin) / 30) * SLOT_HEIGHT;
     const color = room?.color || '#6366f1';
@@ -49,32 +49,30 @@ function getBookingStyle(booking: RoomBooking, room: MeetingRoom | undefined) {
 
 export function BookingCalendar({
     currentDate,
-    bookings,
+    meetings,
     rooms,
     visibleRoomIds,
     onSlotClick,
-    onBookingClick,
+    onMeetingClick,
     view,
 }: BookingCalendarProps) {
-    // Week days
     const weekDays = useMemo(() => {
         if (view === 'day') return [currentDate];
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
         return Array.from({ length: 7 }, (_, i) => addDays(start, i));
     }, [currentDate, view]);
 
-    // Group bookings by date
-    const bookingsByDate = useMemo(() => {
-        const map = new Map<string, RoomBooking[]>();
-        bookings
-            .filter(b => b.status === 'active' && visibleRoomIds.has(b.roomId))
-            .forEach(b => {
-                const key = b.date;
+    const meetingsByDate = useMemo(() => {
+        const map = new Map<string, Meeting[]>();
+        meetings
+            .filter(m => m.status === 'scheduled' && m.roomId && visibleRoomIds.has(m.roomId))
+            .forEach(m => {
+                const key = m.date;
                 if (!map.has(key)) map.set(key, []);
-                map.get(key)!.push(b);
+                map.get(key)!.push(m);
             });
         return map;
-    }, [bookings, visibleRoomIds]);
+    }, [meetings, visibleRoomIds]);
 
     const roomMap = useMemo(() => {
         const m = new Map<string, MeetingRoom>();
@@ -82,44 +80,41 @@ export function BookingCalendar({
         return m;
     }, [rooms]);
 
-    // Layout overlapping bookings in columns
-    const layoutBookings = (dayBookings: RoomBooking[]) => {
-        const sorted = [...dayBookings].sort((a, b) => a.startTime.localeCompare(b.startTime));
-        const columns: RoomBooking[][] = [];
+    const layoutMeetings = (dayMeetings: Meeting[]) => {
+        const sorted = [...dayMeetings].sort((a, b) => a.startTime.localeCompare(b.startTime));
+        const columns: Meeting[][] = [];
 
-        sorted.forEach(booking => {
+        sorted.forEach(meeting => {
             let placed = false;
             for (const col of columns) {
                 const last = col[col.length - 1];
-                if (last.endTime <= booking.startTime) {
-                    col.push(booking);
+                if (last.endTime <= meeting.startTime) {
+                    col.push(meeting);
                     placed = true;
                     break;
                 }
             }
-            if (!placed) columns.push([booking]);
+            if (!placed) columns.push([meeting]);
         });
 
         const layoutMap = new Map<string, { col: number; totalCols: number }>();
         columns.forEach((col, colIdx) => {
-            col.forEach(b => {
-                layoutMap.set(b.id, { col: colIdx, totalCols: columns.length });
+            col.forEach(m => {
+                layoutMap.set(m.id, { col: colIdx, totalCols: columns.length });
             });
         });
 
         return layoutMap;
     };
 
-    const totalHeight = HOURS.length * SLOT_HEIGHT * 2; // 2 slots per hour
+    const totalHeight = HOURS.length * SLOT_HEIGHT * 2;
 
     return (
         <div className="flex-1 overflow-auto border rounded-xl bg-white">
             <div className="flex min-w-[600px]">
                 {/* Time column */}
                 <div className="w-16 shrink-0 border-r bg-slate-50/50">
-                    {/* Header spacer */}
                     <div className="h-12 border-b" />
-                    {/* Time labels */}
                     <div className="relative" style={{ height: `${totalHeight}px` }}>
                         {HOURS.map(hour => (
                             <div
@@ -136,21 +131,17 @@ export function BookingCalendar({
                 </div>
 
                 {/* Day columns */}
-                {weekDays.map((day, dayIdx) => {
+                {weekDays.map(day => {
                     const dateStr = format(day, 'yyyy-MM-dd');
-                    const dayBookings = bookingsByDate.get(dateStr) || [];
-                    const layout = layoutBookings(dayBookings);
+                    const dayMeetings = meetingsByDate.get(dateStr) || [];
+                    const layout = layoutMeetings(dayMeetings);
                     const today = isToday(day);
 
                     return (
                         <div
                             key={dateStr}
-                            className={cn(
-                                'flex-1 min-w-[100px] border-r last:border-r-0',
-                                today && 'bg-indigo-50/30'
-                            )}
+                            className={cn('flex-1 min-w-[100px] border-r last:border-r-0', today && 'bg-indigo-50/30')}
                         >
-                            {/* Day header */}
                             <div className={cn(
                                 'h-12 border-b flex flex-col items-center justify-center sticky top-0 z-10 bg-white',
                                 today && 'bg-indigo-50'
@@ -166,26 +157,14 @@ export function BookingCalendar({
                                 </span>
                             </div>
 
-                            {/* Time grid */}
-                            <div
-                                className="relative"
-                                style={{ height: `${totalHeight}px` }}
-                            >
-                                {/* Hour lines */}
+                            <div className="relative" style={{ height: `${totalHeight}px` }}>
                                 {HOURS.map(hour => (
                                     <React.Fragment key={hour}>
-                                        <div
-                                            className="absolute left-0 right-0 border-t border-slate-100"
-                                            style={{ top: `${(hour - HOUR_START) * SLOT_HEIGHT * 2}px` }}
-                                        />
-                                        <div
-                                            className="absolute left-0 right-0 border-t border-slate-50"
-                                            style={{ top: `${(hour - HOUR_START) * SLOT_HEIGHT * 2 + SLOT_HEIGHT}px` }}
-                                        />
+                                        <div className="absolute left-0 right-0 border-t border-slate-100" style={{ top: `${(hour - HOUR_START) * SLOT_HEIGHT * 2}px` }} />
+                                        <div className="absolute left-0 right-0 border-t border-slate-50" style={{ top: `${(hour - HOUR_START) * SLOT_HEIGHT * 2 + SLOT_HEIGHT}px` }} />
                                     </React.Fragment>
                                 ))}
 
-                                {/* Clickable 30-min slots */}
                                 {HOURS.map(hour => (
                                     <React.Fragment key={`slot-${hour}`}>
                                         <button
@@ -201,30 +180,29 @@ export function BookingCalendar({
                                     </React.Fragment>
                                 ))}
 
-                                {/* Booking blocks */}
-                                {dayBookings.map(booking => {
-                                    const room = roomMap.get(booking.roomId);
-                                    const style = getBookingStyle(booking, room);
-                                    const { col, totalCols } = layout.get(booking.id) || { col: 0, totalCols: 1 };
+                                {dayMeetings.map(meeting => {
+                                    const room = meeting.roomId ? roomMap.get(meeting.roomId) : undefined;
+                                    const style = getMeetingStyle(meeting, room);
+                                    const { col, totalCols } = layout.get(meeting.id) || { col: 0, totalCols: 1 };
                                     const widthPct = totalCols > 1 ? 100 / totalCols : 100;
                                     const leftPct = col * widthPct;
 
                                     return (
                                         <button
-                                            key={booking.id}
+                                            key={meeting.id}
                                             className="absolute rounded-md px-1.5 py-1 text-left z-10 hover:opacity-80 transition-opacity overflow-hidden cursor-pointer"
                                             style={{
                                                 ...style,
                                                 width: `${widthPct - 2}%`,
                                                 left: `${leftPct + 1}%`,
                                             }}
-                                            onClick={(e) => { e.stopPropagation(); onBookingClick(booking); }}
+                                            onClick={e => { e.stopPropagation(); onMeetingClick(meeting); }}
                                         >
                                             <p className="text-[10px] font-bold truncate leading-tight" style={{ color: style.color }}>
-                                                {booking.title}
+                                                {meeting.title}
                                             </p>
                                             <p className="text-[9px] opacity-70 truncate" style={{ color: style.color }}>
-                                                {booking.startTime}–{booking.endTime}
+                                                {meeting.startTime}–{meeting.endTime}
                                             </p>
                                             {room && (
                                                 <p className="text-[9px] opacity-60 truncate" style={{ color: style.color }}>
@@ -235,7 +213,6 @@ export function BookingCalendar({
                                     );
                                 })}
 
-                                {/* Current time indicator */}
                                 {today && <CurrentTimeIndicator />}
                             </div>
                         </div>

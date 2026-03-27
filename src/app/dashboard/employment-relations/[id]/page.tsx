@@ -47,11 +47,11 @@ export default function DocumentDetailPage() {
     const params = useParams<{ id?: string | string[] }>();
     const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
-    const docRef = useMemo(() => (firestore && id ? doc(firestore, 'er_documents', id) : null), [firestore, id]);
+    const docRef = useMemo(() => (firestore && id ? tDoc('er_documents', id) : null), [firestore, id, tDoc]);
     const { data: document, isLoading } = useDoc<ERDocument>(docRef as any);
 
     // Fetch template to check permissions
-    const templateRef = useMemo(() => firestore && document?.templateId ? doc(firestore, 'er_templates', document.templateId) : null, [firestore, document?.templateId]);
+    const templateRef = useMemo(() => firestore && document?.templateId ? tDoc('er_templates', document.templateId) : null, [firestore, document?.templateId, tDoc]);
     const { data: template } = useDoc<any>(templateRef);
 
     // Metadata & Entities
@@ -1023,7 +1023,7 @@ function ActivityFeed({
     useEffect(() => {
         if (!firestore) return;
         const q = query(
-            collection(firestore, `er_documents/${documentId}/activity`),
+            tCollection('er_documents', documentId, 'activity'),
             orderBy('createdAt', 'asc')
         );
         const unsubscribe = onSnapshot(q, (snap) => {

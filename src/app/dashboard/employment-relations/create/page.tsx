@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useFetchCollection, useFirebase, addDocumentNonBlocking, useDoc, useTenantWrite } from '@/firebase';
+import { useTenant } from '@/contexts/tenant-context';
 import { query, where, Timestamp, getDocs, getDoc, addDoc } from 'firebase/firestore';
 import { ERDocumentType, ERTemplate, ERDocument } from '../types';
 import { Employee } from '@/types';
@@ -26,7 +27,7 @@ import { PageHeader } from '@/components/patterns/page-layout';
 
 export default function CreateDocumentPage() {
     const { firestore, user: firebaseUser } = useFirebase();
-    const { tDoc, tCollection } = useTenantWrite();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
 
@@ -134,7 +135,7 @@ export default function CreateDocumentPage() {
                     const msg = String(json?.error || '');
                     // Dev fallback: if Admin SDK env isn't configured, use client-side transaction.
                     if (msg.includes('Firebase Admin env not configured')) {
-                        documentNumber = await getNextDocumentNumber(firestore, selectedType);
+                        documentNumber = await getNextDocumentNumber(firestore, selectedType, companyPath);
                     } else {
                         throw new Error(msg || 'Баримтын дугаар олгох үйлдэл амжилтгүй');
                     }
@@ -143,7 +144,7 @@ export default function CreateDocumentPage() {
                 }
             } else {
                 // Fallback (dev / unexpected auth state): try client transaction
-                documentNumber = await getNextDocumentNumber(firestore, selectedType);
+                documentNumber = await getNextDocumentNumber(firestore, selectedType, companyPath);
             }
 
             if (!documentNumber) {
