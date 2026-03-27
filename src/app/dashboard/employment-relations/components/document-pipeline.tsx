@@ -4,7 +4,7 @@ import React from 'react';
 import { ERDocument, DOCUMENT_STATUSES, DocumentStatus } from '../types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Calendar, Clock, CheckCircle2, Circle, Send } from 'lucide-react';
+import { FileText, Calendar, Clock, CheckCircle2, Circle, Send, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { formatDateTime } from '../utils';
 
@@ -14,13 +14,14 @@ interface DocumentPipelineProps {
     docTypeMap: Record<string, string>;
 }
 
-const COLUMNS: { status: DocumentStatus; label: string; icon: any; color: string }[] = [
+const COLUMNS: { status: DocumentStatus; label: string; icon: any; color: string; headerColor?: string }[] = [
     { status: 'DRAFT', label: 'Төлөвлөх', icon: Circle, color: 'text-slate-400' },
     { status: 'IN_REVIEW', label: 'Хянах', icon: Clock, color: 'text-amber-500' },
     { status: 'REVIEWED', label: 'Хянагдсан', icon: CheckCircle2, color: 'text-blue-500' },
     { status: 'SIGNED', label: 'Баталгаажсан', icon: FileText, color: 'text-emerald-600' },
     { status: 'SENT_TO_EMPLOYEE', label: 'Танилцуулах', icon: Send, color: 'text-amber-700' },
     { status: 'ACKNOWLEDGED', label: 'Танилцсан', icon: CheckCircle2, color: 'text-teal-700' },
+    { status: 'REJECTED', label: 'Татгалзсан', icon: XCircle, color: 'text-rose-500', headerColor: 'text-rose-600' },
 ];
 
 export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentPipelineProps) {
@@ -56,7 +57,7 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
                             <div className="flex items-center justify-between px-2 py-1 shrink-0">
                                 <div className="flex items-center gap-2">
                                     <Icon className={`h-4 w-4 ${column.color}`} />
-                                    <h3 className="font-bold text-sm text-slate-700 whitespace-nowrap">{column.label}</h3>
+                                    <h3 className={`font-bold text-sm whitespace-nowrap ${column.headerColor || 'text-slate-700'}`}>{column.label}</h3>
                                     <Badge variant="secondary" className="bg-slate-200/50 text-slate-600 border-none ml-1 text-[10px] h-5 px-1.5">
                                         {columnDocs.length}
                                     </Badge>
@@ -64,7 +65,11 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
                             </div>
 
                             {/* Column Content */}
-                            <div className="flex flex-col gap-3 min-h-[calc(100vh-350px)] p-2 bg-slate-100/40 rounded-2xl border border-slate-200/50">
+                            <div className={`flex flex-col gap-3 min-h-[calc(100vh-350px)] p-2 rounded-2xl border ${
+                                column.status === 'REJECTED'
+                                    ? 'bg-rose-50/40 border-rose-200/50'
+                                    : 'bg-slate-100/40 border-slate-200/50'
+                            }`}>
                                 {columnDocs.map((doc) => (
                                     <Link key={doc.id} href={`/dashboard/employment-relations/${doc.id}`}>
                                         <Card className="hover:shadow-md transition-all border-none shadow-sm bg-white cursor-pointer group active:scale-[0.98]">

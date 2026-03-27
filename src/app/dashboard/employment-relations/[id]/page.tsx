@@ -568,7 +568,7 @@ export default function DocumentDetailPage() {
                                             )}
                                         </>
                                     )}
-                                    {currentStatus === 'IN_REVIEW' && isApprover && !!currentUserId && document.approvalStatus?.[currentUserId]?.status !== 'APPROVED' && (
+                                    {currentStatus === 'IN_REVIEW' && isApprover && !!approveKeyForCurrentUser && document.approvalStatus?.[approveKeyForCurrentUser]?.status !== 'APPROVED' && (
                                         <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={() => handleApprove()} disabled={isSaving}>
                                             <Check className="h-3.5 w-3.5 mr-1.5" />
                                             Батлах
