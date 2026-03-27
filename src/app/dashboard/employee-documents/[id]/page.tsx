@@ -8,7 +8,8 @@ import { PageHeader } from '@/components/patterns/page-layout';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useFirebase, useDoc, useFetchCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, tenantDoc, tenantCollection } from '@/firebase';
+import { useFirebase, useDoc, useFetchCollection, useMemoFirebase, tenantDoc, tenantCollection } from '@/firebase';
+import { updateDoc, deleteDoc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -232,11 +233,15 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
 
     const { isSubmitting } = form.formState;
 
-    const handleSave = (values: DocumentFormValues) => {
+    const handleSave = async (values: DocumentFormValues) => {
         if (!documentRef) return;
-        updateDocumentNonBlocking(documentRef, values);
-        toast({ title: 'Амжилттай хадгаллаа' });
-        setIsEditing(false);
+        try {
+            await updateDoc(documentRef, values as Record<string, unknown>);
+            toast({ title: 'Амжилттай хадгаллаа' });
+            setIsEditing(false);
+        } catch {
+            toast({ title: 'Алдаа', description: 'Хадгалахад алдаа гарлаа', variant: 'destructive' });
+        }
     };
 
     const selectedDocTypeName = form.watch('documentType');
@@ -313,7 +318,7 @@ function DocumentDetailsCard({ documentData }: { documentData: Document }) {
                                         <div key={`${fieldDef.key}-${idx}`}>
                                             <p className="text-sm text-muted-foreground">{fieldDef.label}</p>
                                             <p className="font-medium">
-                                                {fieldDef.type === 'date' && value ? new Date(value).toLocaleDateString() : (value || 'Тодорхойгүй')}
+                                                {fieldDef.type === 'date' && value ? new Date(String(value)).toLocaleDateString() : (String(value || 'Тодорхойгүй'))}
                                             </p>
                                         </div>
                                     )
@@ -359,20 +364,12 @@ export default function DocumentDetailPage() {
 
     const handleDelete = async () => {
         if (!documentRef) return;
-
         try {
-            await deleteDocumentNonBlocking(documentRef as any);
-            toast({
-                title: "Амжилттай устгагдлаа",
-                description: "Баримт бичиг амжилттай устлаа.",
-            });
+            await deleteDoc(documentRef);
+            toast({ title: 'Амжилттай устгагдлаа', description: 'Баримт бичиг амжилттай устлаа.' });
             router.push('/dashboard/employee-documents');
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Алдаа гарлаа",
-                description: "Баримт бичгийг устгахад алдаа гарлаа.",
-            });
+        } catch {
+            toast({ variant: 'destructive', title: 'Алдаа гарлаа', description: 'Баримт бичгийг устгахад алдаа гарлаа.' });
         }
     };
 

@@ -138,6 +138,14 @@ service cloud.firestore {
         allow delete: if isCompanyAdmin(companyId);
       }
 
+      // Employee documents (HR file storage)
+      match /documents/{documentId} {
+        allow read: if belongsToCompany(companyId);
+        allow create: if isCompanyAdmin(companyId);
+        allow update: if isCompanyAdmin(companyId);
+        allow delete: if isCompanyAdmin(companyId);
+      }
+
       // Evaluation requests — explicit rules so non-admin employees can create/update
       match /evaluation_requests/{requestId} {
         allow read: if belongsToCompany(companyId);
