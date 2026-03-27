@@ -164,6 +164,12 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
+    // Deletion audit log subcollection
+    match /platform/{docId}/{subcollection}/{entryId} {
+      allow read: if isSuperAdmin();
+      allow write: if isSuperAdmin();
+    }
+
     match /payments/{paymentId} {
       allow read: if isSuperAdmin() || (isSignedIn() && resource.data.companyId == request.auth.token.companyId);
       allow write: if isSuperAdmin();

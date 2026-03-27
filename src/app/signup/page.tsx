@@ -150,9 +150,21 @@ export default function SignupPage() {
         throw new Error(result.error || 'Компани үүсгэхэд алдаа гарлаа');
       }
 
-      // Force token refresh to pick up the custom claims set by the register API
-      const freshToken = await uc.user.getIdToken(true);
-      setSessionCookie(freshToken);
+      // Force token refresh to pick up the custom claims set by the register API.
+      // We call getIdTokenResult(true) (not just getIdToken) so we can verify
+      // the claims are actually present before navigating — this prevents the
+      // TenantProvider's Firestore onSnapshot from firing with a stale token
+      // and triggering a permission-denied error on the companies/{id} doc.
+      let tokenResult = await uc.user.getIdTokenResult(true);
+
+      // Retry once more if claims not yet propagated (Firebase Admin setCustomUserClaims
+      // can have a short propagation delay on cold starts)
+      if (!tokenResult.claims.companyId) {
+        await new Promise((r) => setTimeout(r, 1200));
+        tokenResult = await uc.user.getIdTokenResult(true);
+      }
+
+      setSessionCookie(await uc.user.getIdToken());
 
       toast({
         title: 'Амжилттай бүртгүүллээ!',

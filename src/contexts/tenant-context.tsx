@@ -164,19 +164,30 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
           }
         },
         async (err) => {
-          console.error('[TenantContext] Company snapshot error:', err.message);
+          console.warn('[TenantContext] Company snapshot error:', err.message);
 
-          // Retry with a fresh token — the listener may have started
-          // before the Firestore SDK picked up the refreshed auth token
-          if (retries < 3 && !cancelled) {
+          // Retry with a fresh token — the listener may have started before the
+          // Firestore SDK propagated the new custom claims (common after signup).
+          // We retry up to 5 times with exponential-ish backoff (800ms × retries).
+          const isPermissionError =
+            (err as { code?: string })?.code === 'permission-denied' ||
+            err.message?.includes('permission');
+
+          if ((isPermissionError || retries < 5) && retries < 5 && !cancelled) {
             retries++;
             try {
+              // Force-refresh the ID token so Firestore picks up new custom claims
               await user!.getIdToken(true);
             } catch { /* ignore */ }
             retryTimeout = setTimeout(() => {
-              if (!cancelled) subscribe();
-            }, 500 * retries);
+              if (!cancelled) {
+                if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+                subscribe();
+              }
+            }, 800 * retries);
           } else {
+            // After all retries exhausted, set error silently — do NOT throw
+            // to the global error boundary; the UI will show a graceful fallback.
             setState(prev => ({
               ...prev,
               isLoading: false,
