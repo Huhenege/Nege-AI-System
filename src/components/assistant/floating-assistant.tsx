@@ -202,11 +202,7 @@ export function FloatingAssistant() {
         signal: controller.signal,
         body: JSON.stringify({
           messages: genkitMessages,
-          employees: employees.map(e => ({
-            id: e.id,
-            name: e.name,
-            position: e.position,
-          })),
+          // employees server-side-аас авдаг болсон тул client-аас явуулахгүй
         }),
       });
 

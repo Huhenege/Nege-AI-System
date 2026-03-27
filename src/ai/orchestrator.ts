@@ -16,6 +16,7 @@ import {
   createPointsAgentTools,
   createRecruitmentAgentTools,
   createReportAgentTools,
+  createDocumentRagAgentTools,
 } from './agents/index';
 import { createProjectToolForTenant } from './assistant';
 
@@ -43,16 +44,14 @@ export interface OrchestratorContext {
 export function buildOrchestratorSystemPrompt(ctx: OrchestratorContext): string {
   const { employees, userRole } = ctx;
 
+  // Токен хэмнэлт: зөвхөн id+name — position/department system prompt-д байхгүй
+  // (position мэдээлэл шаардлагатай бол getEmployee/searchEmployees tool дуудна)
   const employeeLines = employees
-    .map((emp) => {
-      const pos = emp.position ? ` — ${emp.position}` : '';
-      const dept = emp.department ? ` [${emp.department}]` : '';
-      return `  • ID: "${emp.id}" | ${emp.name}${pos}${dept}`;
-    })
+    .map((emp) => `  • ID: "${emp.id}" | ${emp.name}`)
     .join('\n');
 
   const employeeJsonList = employees
-    .map((e) => `{"id":"${e.id}","name":"${e.name}${e.position ? ' — ' + e.position : ''}"}`)
+    .map((e) => `{"id":"${e.id}","name":"${e.name}"}`)
     .join(',');
 
   // Role-д тохирсон зөвшөөрлийн хэсэг
@@ -111,6 +110,12 @@ export function buildOrchestratorSystemPrompt(ctx: OrchestratorContext): string 
 
 ### 📋 Төсөл (Project)
 - **createProject** — Шинэ төсөл үүсгэх ⚠️ Бүх мэдээллийг нэг нэгээр цуглуулах
+
+### 📄 Бичиг баримт хайлт (Document RAG)
+- **searchEmployeeDocuments** — Ажилтны байршуулсан PDF/Word/зурган файлуудын агуулгаас хайх
+
+Хэрэглэх үед: "Батын гэрээний нөхцөл юу вэ?", "Батын CV-д ямар ур чадвар бичсэн байна?" гэх мэт асуулт
+ЧУХАЛ: Баримтын агуулгаас авсан мэдээлэлд заавал "📄 [баримтын нэр]-аас" гэж эх сурвалж тэмдэглэ
 
 ---
 
@@ -220,5 +225,8 @@ export function createOrchestratorTools(ctx: OrchestratorContext) {
 
     // Report agent
     ...createReportAgentTools(companyId),
+
+    // Document RAG agent
+    ...createDocumentRagAgentTools(companyId),
   ];
 }

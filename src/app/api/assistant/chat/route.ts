@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
-import { buildOrchestratorSystemPrompt, createOrchestratorTools } from '@/ai/orchestrator';
+import { buildOrchestratorSystemPrompt, createOrchestratorTools, type EmployeeInfo } from '@/ai/orchestrator';
 import { requireTenantAuth } from '@/lib/api/auth-middleware';
+import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+
+// Ажилтны жагсаалтыг server-side-аас авах (client body-оос биш)
+// Токен хэмнэлт: зөвхөн id+name
+async function fetchEmployeesServerSide(companyId: string): Promise<EmployeeInfo[]> {
+  try {
+    const db = getFirebaseAdminFirestore();
+    const snap = await db
+      .collection(`companies/${companyId}/employees`)
+      .where('status', 'in', ['active', 'active_probation', 'active_permanent', 'active_recruitment'])
+      .select('firstName', 'lastName')
+      .limit(300)
+      .get();
+
+    return snap.docs.map((doc) => {
+      const d = doc.data();
+      const name = `${d.lastName ?? ''} ${d.firstName ?? ''}`.trim() || 'Нэргүй';
+      return { id: doc.id, name };
+    });
+  } catch {
+    return [];
+  }
+}
 
 export async function POST(req: NextRequest) {
   const authResult = await requireTenantAuth(req, { rateLimit: 'ai' });
@@ -10,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { messages, employees } = body;
+    const { messages } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
@@ -22,27 +45,25 @@ export async function POST(req: NextRequest) {
       ? messages.slice(messages.length - MAX_MESSAGES)
       : messages;
 
-    const employeeList = Array.isArray(employees) ? employees : [];
+    // Server-side-аас ажилтны жагсаалт авах — client body дахь employees-г үл тооно
+    // Давуу тал: network payload бага, client manipulate хийж чадахгүй
+    const employeeList = await fetchEmployeesServerSide(companyId);
 
-    const systemPrompt = buildOrchestratorSystemPrompt({
+    const ctx = {
       companyId,
       userId: uid,
       userRole: role,
       employees: employeeList,
-    });
+    };
 
-    const tools = createOrchestratorTools({
-      companyId,
-      userId: uid,
-      userRole: role,
-      employees: employeeList,
-    });
+    const systemPrompt = buildOrchestratorSystemPrompt(ctx);
+    const tools = createOrchestratorTools(ctx);
 
     console.log(
       '[AI Chat] company:', companyId,
       'role:', role,
-      'messages:', trimmedMessages.length, '(original:', messages.length, ')',
-      'employees:', employeeList.length,
+      'messages:', trimmedMessages.length,
+      'employees (server):', employeeList.length,
       'tools:', tools.length
     );
 

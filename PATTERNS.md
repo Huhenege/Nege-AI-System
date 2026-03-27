@@ -327,3 +327,59 @@ export function createEmployeeAgentTools(companyId: string) {
 ```
 
 _Сүүлийн шинэчлэл: 2026-03-27 — Orchestrator + Specialist Agents архитектур нэмэгдлээ_
+
+---
+
+## 7. Document RAG Pattern (🟢 Баримт хайлт)
+
+Ажилтны байршуулсан файлуудыг векторжуулж, AI чатаас агуулгаар хайх архитектур.
+
+### Урсгал
+
+```
+Upload → Firebase Storage
+       → Firestore (companies/{id}/documents)
+       → POST /api/documents/vectorize
+           → extractTextFromUrl() — PDF/Word/Image → text
+           → chunkText() — 800 тэмдэгт, 150 overlap
+           → ai.embed('googleai/text-embedding-004') per chunk
+           → Firestore (companies/{id}/documentChunks)
+
+AI Chat → searchEmployeeDocuments tool
+        → embed query
+        → cosine similarity vs stored chunks
+        → top-5 results (score > 0.5)
+```
+
+### Файлын бүтэц
+
+| Файл | Үүрэг |
+|---|---|
+| `src/lib/document-extractor.ts` | URL → text (PDF/Word/Image) |
+| `src/lib/document-chunker.ts` | Text → TextChunk[] (800ch, 150 overlap) |
+| `src/app/api/documents/vectorize/route.ts` | POST endpoint, chunk + embed + store |
+| `src/ai/agents/document-rag-agent.ts` | `searchEmployeeDocuments` tool |
+
+### Firestore schema
+
+```
+companies/{companyId}/documentChunks/{chunkId}
+  documentId: string
+  employeeId: string
+  chunkIndex: number
+  text: string
+  embedding: number[]  // 768-dim (text-embedding-004)
+  sourceTitle: string
+  documentType: string
+  createdAt: Timestamp
+```
+
+### Cosine similarity in-memory
+
+Firestore vector search шаардлагагүй — max 200 chunk авч in-memory тооцоолно.
+Их хэмжээний баримттай тохиолдолд Firestore vector index шилжүүлэх хэрэгтэй болно.
+
+### Graceful error handling
+
+`searchEmployeeDocuments` tool нь алдаа гарвал throw хийхгүй — `{ found: false, results: [] }` буцааж,
+AI өөр эх сурвалжаас хариулах боломжийг хадгална.
