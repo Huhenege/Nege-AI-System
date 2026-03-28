@@ -18,6 +18,7 @@ import {
   useFirebase,
   useMemoFirebase,
   useDoc,
+  useFetchDoc,
   setDocumentNonBlocking,
   tenantDoc,
   useTenantWrite,
@@ -36,7 +37,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, History, ArrowLeft, Hash, Mail } from 'lucide-react';
+import { Loader2, Save, History, ArrowLeft, Hash, Mail, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -292,12 +293,24 @@ function ConfigCardSkeleton() {
 }
 
 export default function EmployeeCodeSettingsPage() {
+  const { user } = useUser();
+
   const codeConfigRef = useMemoFirebase(
     ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null),
     []
   );
 
+  // Admin-ийн employee doc — код байгаа эсэхийг шалгах
+  const adminDocRef = useMemoFirebase(
+    ({ firestore, companyPath }) => (firestore && user?.uid ? tenantDoc(firestore, companyPath, 'employees', user.uid) : null),
+    [user?.uid]
+  );
+  const { data: adminEmployee } = useFetchDoc<{ employeeCode?: string }>(adminDocRef as any);
+  const adminHasCode = !!(adminEmployee?.employeeCode);
+  const adminCode = adminEmployee?.employeeCode;
+
   const { data: codeConfig, isLoading } = useDoc<EmployeeCodeConfig>(codeConfigRef as any);
+  const configExists = !!codeConfig;
 
   const initialData: EmployeeCodeFormValues = codeConfig || {
     prefix: '',
@@ -313,6 +326,28 @@ export default function EmployeeCodeSettingsPage() {
           Системийн хэмжээнд ашиглагдах дугаарлалт, кодчлолын тохиргоо болон урилга мэйлын загварыг эндээс удирдана.
         </p>
       </div>
+
+      {/* ── Admin-д код байхгүй бол анхааруулга ── */}
+      {!isLoading && adminEmployee && (
+        adminHasCode ? (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>Таны ажилтны код: <strong>{adminCode}</strong></span>
+          </div>
+        ) : (
+          <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Таны ажилтны код тохируулаагүй байна</p>
+              <p className="text-amber-700 text-xs mt-0.5">
+                {configExists
+                  ? 'Доорх тохиргоог хадгалахад таны код автоматаар олгогдоно.'
+                  : 'Кодчлолын тохиргоо анх тохируулж Хадгалах дарахад таны код автоматаар олгогдоно.'}
+              </p>
+            </div>
+          </div>
+        )
+      )}
 
       <Tabs defaultValue="code" className="w-full">
         <div className="mb-6">
