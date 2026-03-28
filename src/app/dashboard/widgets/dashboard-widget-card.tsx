@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
@@ -126,6 +126,7 @@ export function DashboardWidgetCard({
     isDragging = false,
 }: DashboardWidgetCardProps) {
     const config = getWidgetConfig(id);
+    const router = useRouter();
     
     const {
         attributes,
@@ -694,10 +695,12 @@ export function DashboardWidgetCard({
         <Card 
             ref={setNodeRef}
             style={style}
+            onClick={config?.href ? () => router.push(config.href!) : undefined}
             className={cn(
                 "h-full flex-none bg-slate-900 dark:bg-slate-800 border-slate-700 transition-all duration-300 group overflow-hidden",
                 "hover:bg-slate-800 dark:hover:bg-slate-700 hover:shadow-xl hover:scale-[1.02]",
                 "w-[240px] sm:w-[280px] lg:w-[320px]",
+                config?.href && "cursor-pointer",
                 isDragging && "opacity-50 scale-105 shadow-2xl z-50"
             )}
         >
@@ -768,14 +771,6 @@ export function DashboardWidgetCard({
             </CardContent>
         </Card>
     );
-
-    if (config.href) {
-        return (
-            <Link href={config.href} className="flex-shrink-0">
-                {cardContent}
-            </Link>
-        );
-    }
 
     return <div className="flex-shrink-0">{cardContent}</div>;
 }

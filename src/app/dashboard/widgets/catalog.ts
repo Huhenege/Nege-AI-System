@@ -59,27 +59,17 @@ export interface WidgetConfig {
     module?: SaaSModule;
 }
 
-// Default order for widgets (initial 9 cards)
+// Default order — анхны 8 үндсэн widget (хэт олон widget нүүр харагдахаас сэргийлнэ)
+// Бусад нь "Widget нэмэх" + дарж нэмнэ
 export const DEFAULT_ORDER: WidgetId[] = [
-    'billing',
-    'company',
     'employees',
-    'structure',
     'attendance',
-    'vacation',
     'projects',
     'recruitment',
     'er',
-    'training',
+    'meetings',
     'points',
     'posts',
-    'meetings',
-    'calendar',
-    'skills',
-    'survey',
-    'business-plan',
-    'documents',
-    'settings',
 ];
 
 // Widget catalog with all available widgets
