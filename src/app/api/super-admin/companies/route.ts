@@ -12,7 +12,17 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const plan = searchParams.get('plan');
 
-    let ref: FirebaseFirestore.Query = db.collection('companies').orderBy('createdAt', 'desc');
+    // select() — жагсаалтад хэрэгтэй field-үүд л татна
+    // Дэлгэрэнгүй харахад /api/super-admin/company/[id] ашиглана
+    let ref: FirebaseFirestore.Query = db
+      .collection('companies')
+      .select(
+        'name', 'email', 'status', 'plan', 'employeeCount',
+        'createdAt', 'ownerId', 'setupComplete',
+        'subscription.nextPaymentDate', 'subscription.trialEndsAt',
+        'limits.maxEmployees'
+      )
+      .orderBy('createdAt', 'desc');
 
     if (status) ref = ref.where('status', '==', status);
     if (plan) ref = ref.where('plan', '==', plan);
