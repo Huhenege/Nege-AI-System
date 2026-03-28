@@ -15,8 +15,24 @@ import {
   type CompanyPlan,
 } from '@/types/company';
 import { usePricingPlans } from '@/hooks/use-pricing-plans';
-import { Check, Loader2, Sparkles, QrCode, Receipt, Smartphone } from 'lucide-react';
+import { Check, Loader2, Sparkles, QrCode, Receipt, Smartphone, AlertTriangle, ChevronDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import type { SaaSModule } from '@/types/company';
+import { MODULE_LABELS } from '@/types/company';
+
+interface DowngradeImpact {
+  canDowngrade: boolean;
+  currentPlan: CompanyPlan;
+  targetPlan: CompanyPlan;
+  currentEmployees: number;
+  maxEmployeesInTarget: number;
+  excessEmployees: number;
+  lostModules: SaaSModule[];
+  limitWarnings: string[];
+  targetPlanLabel: string;
+  currentPlanLabel: string;
+}
 
 interface InvoiceRecord {
   id: string;
@@ -59,6 +75,10 @@ export default function BillingPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [invoice, setInvoice] = useState<InvoiceResult | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  // Downgrade state
+  const [downgradeImpact, setDowngradeImpact] = useState<DowngradeImpact | null>(null);
+  const [isCheckingDowngrade, setIsCheckingDowngrade] = useState(false);
+  const [isDowngrading, setIsDowngrading] = useState(false);
   const { plans, getPlanLabel, isLoading: plansLoading } = usePricingPlans();
 
   const invoicesQuery = useMemoFirebase(
@@ -110,6 +130,49 @@ export default function BillingPage() {
     }
   };
 
+  // ── Downgrade handlers ────────────────────────────────────────────
+  const handleDowngradeClick = async (plan: CompanyPlan) => {
+    if (!user) return;
+    setIsCheckingDowngrade(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/billing/downgrade-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ targetPlan: plan }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setDowngradeImpact(data as DowngradeImpact);
+    } catch (err: unknown) {
+      toast({ title: 'Алдаа', description: err instanceof Error ? err.message : 'Шалгахад алдаа гарлаа', variant: 'destructive' });
+    } finally {
+      setIsCheckingDowngrade(false);
+    }
+  };
+
+  const handleDowngradeConfirm = async () => {
+    if (!user || !downgradeImpact) return;
+    setIsDowngrading(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/billing/downgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ targetPlan: downgradeImpact.targetPlan }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      toast({ title: 'Амжилттай', description: `${downgradeImpact.targetPlanLabel} багцруу шилжлээ.` });
+      setDowngradeImpact(null);
+      window.location.reload();
+    } catch (err: unknown) {
+      toast({ title: 'Алдаа', description: err instanceof Error ? err.message : 'Downgrade амжилтгүй', variant: 'destructive' });
+    } finally {
+      setIsDowngrading(false);
+    }
+  };
+
   const handleCheckPayment = async () => {
     if (!invoice) return;
     setIsChecking(true);
@@ -135,6 +198,7 @@ export default function BillingPage() {
   };
 
   return (
+    <>
     <div className="p-6 space-y-8 max-w-5xl mx-auto">
       {/* Current plan info */}
       <div>
@@ -282,11 +346,21 @@ export default function BillingPage() {
                       )}
                       Сунгах
                     </Button>
-                  ) : (
-                    <Button variant="ghost" className="w-full" disabled>
-                      Бага багц
+                  ) : plan.id !== currentPlan ? (
+                    <Button
+                      variant="outline"
+                      className="w-full text-muted-foreground"
+                      onClick={() => handleDowngradeClick(plan.id)}
+                      disabled={isCheckingDowngrade || plan.id === 'free'}
+                    >
+                      {isCheckingDowngrade ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 mr-1" />
+                      )}
+                      Бага багцруу шилжих
                     </Button>
-                  )}
+                  ) : null}
                 </CardContent>
               </Card>
             );
@@ -346,6 +420,90 @@ export default function BillingPage() {
         </Card>
       )}
     </div>
+    {/* ── Downgrade Dialog ── */}
+    {downgradeImpact && (
+      <Dialog open onOpenChange={(open) => !open && setDowngradeImpact(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Багц доошилгох — {downgradeImpact.currentPlanLabel} → {downgradeImpact.targetPlanLabel}
+            </DialogTitle>
+            <DialogDescription>
+              Энэ үйлдэл нь даруй хүчин төгөлдөр болно. Мөнгө буцааж олгогдохгүй.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Ажилтны лимит — блоклогч */}
+            {downgradeImpact.excessEmployees > 0 && (
+              <div className="flex gap-3 p-4 rounded-xl bg-red-50 border border-red-200">
+                <X className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-700 text-sm">Ажилтны тоо хэтэрсэн байна</p>
+                  <p className="text-sm text-red-600 mt-0.5">
+                    Одоо <strong>{downgradeImpact.currentEmployees}</strong> ажилтан байна.{' '}
+                    {downgradeImpact.targetPlanLabel} багцад зөвхөн <strong>{downgradeImpact.maxEmployeesInTarget}</strong> ажилтан зөвшөөрнө.
+                    Downgrade хийхийн өмнө <strong>{downgradeImpact.excessEmployees}</strong> ажилтныг системээс гаргаарай.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Алдагдах модулиуд */}
+            {downgradeImpact.lostModules.length > 0 && (
+              <div className="flex gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-amber-800 text-sm mb-2">Дараах модулиуд идэвхгүй болно:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {downgradeImpact.lostModules.map(mod => (
+                      <span key={mod} className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full border border-amber-200">
+                        {MODULE_LABELS[mod] ?? mod}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-amber-600 mt-2">Эдгээр модулиудын өгөгдөл устгагдахгүй — дахин идэвхжүүлбэл хэвийнхээ дагуу харагдана.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Бусад лимит анхааруулга */}
+            {downgradeImpact.limitWarnings.map((w, i) => (
+              <div key={i} className="flex gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
+                <AlertTriangle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                {w}
+              </div>
+            ))}
+
+            {/* Бүх зүйл OK — downgrade хийж болно */}
+            {downgradeImpact.canDowngrade && downgradeImpact.lostModules.length === 0 && (
+              <div className="flex gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-emerald-700">
+                  Ажилтны тоо лимитэд багтаж байна. Downgrade хийж болно.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDowngradeImpact(null)}>
+              Цуцлах
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDowngradeConfirm}
+              disabled={!downgradeImpact.canDowngrade || isDowngrading}
+            >
+              {isDowngrading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              {downgradeImpact.canDowngrade ? 'Тийм, доошилгох' : 'Ажилтнуудыг хас'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }
 
