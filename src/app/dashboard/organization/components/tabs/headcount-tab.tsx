@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { isSystemUser } from '@/lib/employee-utils';
 import {
     Card,
     CardContent,
@@ -121,6 +122,7 @@ export const HeadcountTab = () => {
         const endDate = date?.to ? endOfDay(date.to) : null;
 
         const filteredEmployees = employees.filter(emp => {
+            if (isSystemUser(emp as any)) return false;
             if (emp.departmentId !== departmentId) return false;
 
             const hireDate = new Date(emp.hireDate || '');

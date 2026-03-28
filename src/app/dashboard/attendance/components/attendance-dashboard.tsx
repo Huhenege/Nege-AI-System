@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { isSystemUser } from '@/lib/employee-utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
@@ -80,7 +81,7 @@ export function AttendanceDashboard() {
   const metrics = React.useMemo(() => {
     if (!employees) return null;
 
-    const activeEmployees = employees.filter((e) => isActiveStatus(e.status));
+    const activeEmployees = employees.filter((e) => !isSystemUser(e as any) && isActiveStatus(e.status));
     const total = activeEmployees.length;
 
     const presentIds = new Set(

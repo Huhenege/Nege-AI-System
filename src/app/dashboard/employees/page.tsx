@@ -3,6 +3,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { isSystemUser } from '@/lib/employee-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -102,6 +103,9 @@ export default function EmployeesPage() {
   const filteredEmployees = React.useMemo(() => {
     if (!employees) return [];
     return employees.filter(emp => {
+      // super_admin нь платформын системийн хэрэглэгч — ажилтан биш
+      if (isSystemUser(emp as any)) return false;
+
       const matchesSearch =
         emp.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         emp.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||

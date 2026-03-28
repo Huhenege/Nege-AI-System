@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { filterSystemUsers } from '@/lib/employee-utils';
 import {
     Dialog,
     DialogContent,
@@ -240,8 +241,10 @@ export function AppointEmployeeDialog({
 
     const assignableEmployees = React.useMemo(() => {
         if (!allEmployees) return [];
+        // super_admin системийн хэрэглэгч — томилгооны сонголтоос хасна
+        const tenantEmployees = filterSystemUsers(allEmployees as any[]) as typeof allEmployees;
         // Filter employees without a position (null, undefined, or empty string)
-        return allEmployees.filter(emp => !emp.positionId || emp.positionId === '');
+        return tenantEmployees.filter(emp => !emp.positionId || emp.positionId === '');
     }, [allEmployees]);
 
     const filteredEmployees = React.useMemo(() => {

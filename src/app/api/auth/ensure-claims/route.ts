@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
     const existingClaims = existingUser.customClaims as TenantClaims | undefined;
 
     if (existingClaims?.role === 'super_admin') {
+      // super_admin нь платформын системийн хэрэглэгч — компанийн employee биш.
+      // Employee doc үүсгэхгүй, companyId тохируулахгүй.
       return NextResponse.json({ status: 'already_set', claims: existingClaims });
     }
 
