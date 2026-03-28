@@ -374,7 +374,9 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         
         if (!contentToShow) return '';
 
+        const now = new Date();
         const sampleData: Record<string, string> = {
+            // Company
             '{{company.name}}': 'ХХК "Жишээ Компани"',
             '{{company.legalName}}': 'ХХК "Жишээ Компани"',
             '{{company.address}}': 'УБ хот, СБД, 1-р хороо',
@@ -383,15 +385,54 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             '{{company.ceo}}': 'Б. Болд',
             '{{company.registrationNumber}}': '1234567',
             '{{company.taxId}}': '9876543',
+            '{{company.website}}': 'https://example.mn',
+            '{{company.industry}}': 'Мэдээллийн технологи',
+            '{{company.employeeCount}}': '50',
+            '{{company.establishedDate}}': '2015-01-01',
+            '{{company.mission}}': 'Хамгийн сайн үйлчилгээг үзүүлэх',
+            '{{company.vision}}': 'Салбартаа тэргүүлэгч байх',
+            // Employee
             '{{employee.firstName}}': 'Бат',
             '{{employee.lastName}}': 'Дорж',
             '{{employee.fullName}}': 'Дорж Бат',
-            '{{employee.registerNo}}': 'АА00112233',
+            '{{employee.email}}': 'bat.dorj@example.mn',
+            '{{employee.phone}}': '99112233',
+            '{{employee.code}}': 'EMP0001',
+            '{{employee.jobTitle}}': 'Ахлах менежер',
             '{{employee.hireDate}}': '2024-01-15',
+            '{{employee.registerNo}}': 'АА00112233',
+            '{{employee.address}}': 'СБД, 5-р хороо, 42-р байр',
+            '{{employee.birthDate}}': '1990-05-15',
+            // Position
             '{{position.title}}': 'Ахлах менежер',
-            '{{department.name}}': 'Санхүү',
-            '{{date.today}}': new Date().toISOString().split('T')[0],
-            '{{date.year}}': new Date().getFullYear().toString(),
+            '{{position.code}}': 'MGR-01',
+            '{{position.levelName}}': 'Ахлах мэргэжилтэн',
+            '{{position.employmentTypeName}}': 'Үндсэн ажилтан',
+            '{{position.workScheduleName}}': '9:00-18:00',
+            '{{position.salary.min}}': '2,000,000',
+            '{{position.salary.max}}': '3,000,000',
+            '{{position.salary.mid}}': '2,500,000',
+            '{{position.salary.currency}}': 'MNT',
+            '{{position.salary.period}}': 'Сар бүр',
+            '{{position.salaryStepName}}': 'Шат 2',
+            '{{position.salaryStepValue}}': '2,200,000',
+            '{{position.benefits.vacationDays}}': '15',
+            '{{position.experience.totalYears}}': '3',
+            '{{position.experience.educationLevel}}': 'Бакалавр',
+            // Department
+            '{{department.name}}': 'Санхүү хэлтэс',
+            '{{department.code}}': 'FIN',
+            '{{department.managerName}}': 'Б. Болд',
+            '{{department.managerPositionName}}': 'Хэлтсийн дарга',
+            '{{department.filled}}': '15',
+            '{{department.positionCount}}': '20',
+            // System
+            '{{date.today}}': now.toISOString().split('T')[0],
+            '{{date.year}}': now.getFullYear().toString(),
+            '{{date.month}}': String(now.getMonth() + 1).padStart(2, '0'),
+            '{{date.day}}': String(now.getDate()).padStart(2, '0'),
+            '{{document.number}}': 'ГЭР-2026-0001',
+            '{{user.name}}': 'Системийн хэрэглэгч',
         };
 
         formData.customInputs?.forEach(input => {

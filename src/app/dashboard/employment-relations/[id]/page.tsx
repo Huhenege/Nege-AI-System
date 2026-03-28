@@ -93,12 +93,23 @@ export default function DocumentDetailPage() {
     }, [allPositions, employeesList]);
 
     const [companyProfile, setCompanyProfile] = useState<any>(null);
+    const [questionnaireData, setQuestionnaireData] = useState<any>(null);
+
+    // company profile — tenant-scoped: companies/{id}/company/profile
     useEffect(() => {
         if (!firestore) return;
-        getDocs(tCollection('company_profile')).then(snap => {
-            if (!snap.empty) setCompanyProfile(snap.docs[0].data());
+        getDoc(tDoc('company', 'profile')).then(snap => {
+            if (snap.exists()) setCompanyProfile(snap.data());
         });
-    }, [firestore]);
+    }, [firestore, tDoc]);
+
+    // questionnaire — ажилтны нэмэлт мэдээлэл (РД, гэрийн хаяг, төрсөн огноо)
+    useEffect(() => {
+        if (!firestore || !document?.employeeId) return;
+        getDoc(tDoc('employees', document.employeeId, 'questionnaire', 'data')).then(snap => {
+            if (snap.exists()) setQuestionnaireData(snap.data());
+        }).catch(() => { /* questionnaire байхгүй ч хэвийн */ });
+    }, [firestore, document?.employeeId, tDoc]);
 
     // UI States
     // UI States
@@ -151,25 +162,8 @@ export default function DocumentDetailPage() {
         canApproveFromCommentBox,
     } = useERPermissions({ document, currentUserId, currentUserProfile, reviewers });
 
-    if (!id) return <div className="p-10 text-center text-muted-foreground">Баримт олдсонгүй</div>;
-    if (isLoading) return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-    if (!document) return <div className="p-8 text-center bg-slate-50 h-screen"><p className="text-muted-foreground">Баримт олдсонгүй</p></div>;
-
-    const currentStatus = document.status;
-    const isOwner = _isOwner;
-
-
-
-    const steps = [
-        { id: 'DRAFT', label: 'Төлөвлөх', icon: Circle, color: 'text-slate-400' },
-        { id: 'IN_REVIEW', label: 'Хянах', icon: Clock, color: 'text-amber-500' },
-        { id: 'REVIEWED', label: 'Хянагдсан', icon: CheckCircle2, color: 'text-blue-500' },
-        { id: 'SIGNED', label: 'Баталгаажсан', icon: FileText, color: 'text-emerald-700' },
-        { id: 'SENT_TO_EMPLOYEE', label: 'Танилцуулах', icon: Send, color: 'text-amber-700' },
-        { id: 'ACKNOWLEDGED', label: 'Танилцсан', icon: CheckCircle2, color: 'text-teal-700' },
-    ];
-
     // ── Document action handlers (via hook) ──────────────────────────────────
+    // IMPORTANT: must be called before any early returns to preserve hook order
     const {
         fileInputRef,
         restoreTemplateContent,
@@ -181,8 +175,8 @@ export default function DocumentDetailPage() {
         handleDelete: _handleDelete,
         handleFileUpload,
     } = useERDocumentActions({
-        id: id!,
-        document,
+        id: id || '',
+        document: document || ({} as ERDocument),
         currentUserId,
         editContent,
         selectedDept,
@@ -201,6 +195,22 @@ export default function DocumentDetailPage() {
     // Wrap handlers that need local state (isDeleteDialogOpen)
     const handleApprove = (comment?: string) => _handleApprove(approveKeyForCurrentUser, comment);
     const handleDelete = () => _handleDelete(() => setIsDeleteDialogOpen(false));
+
+    if (!id) return <div className="p-10 text-center text-muted-foreground">Баримт олдсонгүй</div>;
+    if (isLoading) return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+    if (!document) return <div className="p-8 text-center bg-slate-50 h-screen"><p className="text-muted-foreground">Баримт олдсонгүй</p></div>;
+
+    const currentStatus = document.status;
+    const isOwner = _isOwner;
+
+    const steps = [
+        { id: 'DRAFT', label: 'Төлөвлөх', icon: Circle, color: 'text-slate-400' },
+        { id: 'IN_REVIEW', label: 'Хянах', icon: Clock, color: 'text-amber-500' },
+        { id: 'REVIEWED', label: 'Хянагдсан', icon: CheckCircle2, color: 'text-blue-500' },
+        { id: 'SIGNED', label: 'Баталгаажсан', icon: FileText, color: 'text-emerald-700' },
+        { id: 'SENT_TO_EMPLOYEE', label: 'Танилцуулах', icon: Send, color: 'text-amber-700' },
+        { id: 'ACKNOWLEDGED', label: 'Танилцсан', icon: CheckCircle2, color: 'text-teal-700' },
+    ];
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50 overflow-hidden">
@@ -591,14 +601,16 @@ export default function DocumentDetailPage() {
                                                 department: departments?.find(d => d.id === selectedDept),
                                                 position: positions?.find(p => p.id === selectedPos),
                                                 company: companyProfile,
+                                                questionnaire: questionnaireData,
                                                 system: {
                                                     date: format(new Date(), 'yyyy-MM-dd'),
                                                     year: format(new Date(), 'yyyy'),
                                                     month: format(new Date(), 'MM'),
                                                     day: format(new Date(), 'dd'),
-                                                    user: currentUser?.displayName || 'Системийн хэрэглэгч'
+                                                    user: currentUser?.displayName || 'Системийн хэрэглэгч',
+                                                    documentNumber: document.documentNumber,
                                                 },
-                                                customInputs: customInputValues
+                                                customInputs: customInputValues,
                                             }))
                                         }}
                                     />
@@ -648,14 +660,16 @@ export default function DocumentDetailPage() {
                                 department: departments?.find(d => d.id === selectedDept),
                                 position: positions?.find(p => p.id === selectedPos),
                                 company: companyProfile,
+                                questionnaire: questionnaireData,
                                 system: {
                                     date: format(new Date(), 'yyyy-MM-dd'),
                                     year: format(new Date(), 'yyyy'),
                                     month: format(new Date(), 'MM'),
                                     day: format(new Date(), 'dd'),
-                                    user: currentUser?.displayName || 'Системийн хэрэглэгч'
+                                    user: currentUser?.displayName || 'Системийн хэрэглэгч',
+                                    documentNumber: document.documentNumber,
                                 },
-                                customInputs: customInputValues
+                                customInputs: customInputValues,
                             })}
                             printSettings={document.printSettings}
                             customInputs={template?.customInputs || []}

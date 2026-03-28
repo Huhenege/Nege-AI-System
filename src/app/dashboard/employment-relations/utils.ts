@@ -76,11 +76,39 @@ export function getReplacementMap(data: {
 }): Record<string, string> {
     const map: Record<string, string> = {};
 
+    // ── Virtual / computed field-үүд ────────────────────────────────────────
+    // employee.fullName — Firestore-д байхгүй, firstName+lastName-с тооцно
+    const emp = data.employee || {};
+    const computedEmployee = {
+        ...emp,
+        fullName: [emp.lastName, emp.firstName].filter(Boolean).join(' ') || emp.fullName || '',
+    };
+
+    // company — компанийн profile field нэрийг normalize хийнэ
+    // Firestore-д contactEmail/email, phoneNumber/phone гэж хос байж болно
+    const cp = data.company || {};
+    const computedCompany = {
+        ...cp,
+        email: cp.email || cp.contactEmail || '',
+        phone: cp.phone || cp.phoneNumber || '',
+        legalName: cp.legalName || cp.name || '',
+        ceo: cp.ceo || cp.directorName || cp.directorFullName || '',
+        registrationNumber: cp.registrationNumber || cp.regNumber || '',
+        taxId: cp.taxId || cp.taxNumber || '',
+        website: cp.website || cp.websiteUrl || '',
+        address: cp.address || cp.fullAddress || '',
+        industry: cp.industry || cp.industryName || '',
+        mission: cp.mission || '',
+        vision: cp.vision || '',
+        introduction: cp.introduction || cp.description || '',
+        logoUrl: cp.logoUrl || '',
+        establishedDate: cp.establishedDate || cp.foundedDate || '',
+    };
+
     ALL_DYNAMIC_FIELDS.forEach(field => {
-        // Construct the context object structure expected by the field paths
         const context = {
-            company: data.company,
-            employee: data.employee,
+            company: computedCompany,
+            employee: computedEmployee,
             position: data.position,
             department: data.department,
             questionnaire: data.questionnaire,

@@ -87,12 +87,13 @@ export default function CreateDocumentPage() {
 
     const [companyProfile, setCompanyProfile] = useState<any>(null);
 
+    // company profile — tenant-scoped doc зам: companies/{id}/company/profile
     useEffect(() => {
         if (!firestore) return;
-        getDocs(tCollection('company_profile')).then(snap => {
-            if (!snap.empty) setCompanyProfile(snap.docs[0].data());
+        getDoc(tDoc('company', 'profile')).then(snap => {
+            if (snap.exists()) setCompanyProfile(snap.data());
         });
-    }, [firestore, tCollection]);
+    }, [firestore, tDoc]);
 
     const filteredEmployees = useMemo(() => {
         if (!employees || !debouncedSearch.trim()) return [];
@@ -163,21 +164,29 @@ export default function CreateDocumentPage() {
             const deptData = departments?.find(d => d.id === selectedDepartment);
             const posData = positions?.find(p => p.id === selectedPosition);
 
+            // Questionnaire — ажилтны нэмэлт мэдээлэл (РД, гэрийн хаяг, төрсөн огноо)
+            let questionnaireData: any = null;
+            try {
+                const qSnap = await getDoc(tDoc('employees', selectedEmployee.id, 'questionnaire', 'data'));
+                if (qSnap.exists()) questionnaireData = qSnap.data();
+            } catch { /* questionnaire байхгүй ч баримт үүсгэнэ */ }
+
             // Generate content
             const content = generateDocumentContent(selectedTemplateData?.content || '', {
                 employee: { id: empDoc.id, ...empDoc.data() },
                 department: deptData,
                 position: posData,
                 company: companyProfile,
+                questionnaire: questionnaireData,
                 system: {
                     date: format(new Date(), 'yyyy-MM-dd'),
                     year: format(new Date(), 'yyyy'),
                     month: format(new Date(), 'MM'),
                     day: format(new Date(), 'dd'),
                     user: firebaseUser?.displayName || 'Системийн хэрэглэгч',
-                    documentNumber: documentNumber // Баримтын дугаар
+                    documentNumber: documentNumber,
                 },
-                customInputs: customInputValues
+                customInputs: customInputValues,
             });
 
             const newDoc: Partial<ERDocument> = {
