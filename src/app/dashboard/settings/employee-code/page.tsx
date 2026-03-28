@@ -20,7 +20,11 @@ import {
   useDoc,
   setDocumentNonBlocking,
   tenantDoc,
+  useTenantWrite,
 } from '@/firebase';
+import { useUser } from '@/firebase';
+import { getDoc, setDoc, runTransaction } from 'firebase/firestore';
+import { generateCode } from '@/lib/code-generator';
 
 import {
   Form,
@@ -77,6 +81,8 @@ function EmployeeCodeConfigForm({
   initialData: EmployeeCodeFormValues;
 }) {
   const { toast } = useToast();
+  const { user } = useUser();
+  const { firestore, tDoc } = useTenantWrite();
 
   const codeConfigRef = useMemoFirebase(
     ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null),
@@ -90,27 +96,92 @@ function EmployeeCodeConfigForm({
 
   const { isSubmitting } = form.formState;
 
-  // Firestore-оос ирсэн өгөгдөл өөрчлөгдвөл form-оо шинэчлэх
   React.useEffect(() => {
     form.reset(initialData);
   }, [initialData, form]);
 
   const onSubmit = async (data: EmployeeCodeFormValues) => {
-    if (!codeConfigRef) return;
+    if (!codeConfigRef || !firestore || !user) return;
 
     try {
-      await setDocumentNonBlocking(codeConfigRef, data, { merge: true });
+      // ── 1. Config-г transaction дотор хадгалж, admin-д код олгоно ──────────
+      await runTransaction(firestore, async (tx) => {
+        const configSnap = await tx.get(codeConfigRef);
+        const isFirstTime = !configSnap.exists();
 
-      toast({
-        title: 'Амжилттай хадгаллаа',
-        description: 'Ажилтны кодчлолын тохиргоо шинэчлэгдлээ.',
+        // Одоогийн config-д nextNumber-г шалгана
+        const currentNext = configSnap.exists()
+          ? (configSnap.data()?.nextNumber ?? data.nextNumber)
+          : data.nextNumber;
+
+        // Admin-ийн employee doc-г уншина
+        const adminDocRef = tDoc('employees', user.uid);
+        const adminSnap = await tx.get(adminDocRef);
+        const adminData = adminSnap.exists() ? adminSnap.data() : null;
+        const adminHasCode = !!(adminData?.employeeCode);
+
+        // ── Config хадгалах ──
+        // Анх тохируулж байгаа бол admin-д эхний код өгч nextNumber нэмэгдүүлнэ
+        // Хэрэв admin-д аль хэдийн код байвал config-г шууд хадгална
+        if (adminSnap.exists() && !adminHasCode) {
+          // Admin-д эхний код олгоно
+          const adminCode = generateCode({
+            prefix: data.prefix,
+            digitCount: data.digitCount,
+            nextNumber: data.nextNumber,
+          });
+
+          tx.update(adminDocRef, { employeeCode: adminCode });
+
+          // Config-д nextNumber+1-ийг хадгална (admin дугаараа авсан учир)
+          const configData = {
+            prefix: data.prefix,
+            digitCount: data.digitCount,
+            nextNumber: data.nextNumber + 1,
+          };
+
+          if (isFirstTime) {
+            tx.set(codeConfigRef, configData);
+          } else {
+            tx.update(codeConfigRef, configData);
+          }
+
+          return { adminCode, assigned: true };
+        } else {
+          // Admin-д код байна эсвэл employee doc байхгүй — config-г хадгална
+          const configData = {
+            prefix: data.prefix,
+            digitCount: data.digitCount,
+            nextNumber: isFirstTime ? data.nextNumber : currentNext,
+          };
+
+          if (isFirstTime) {
+            tx.set(codeConfigRef, configData);
+          } else {
+            tx.update(codeConfigRef, configData);
+          }
+
+          return { adminCode: null, assigned: false };
+        }
+      }).then((result: any) => {
+        if (result?.assigned && result?.adminCode) {
+          toast({
+            title: 'Амжилттай хадгаллаа',
+            description: `Кодчлол тохируулагдлаа. Таны ажилтны код: ${result.adminCode}`,
+          });
+        } else {
+          toast({
+            title: 'Амжилттай хадгаллаа',
+            description: 'Ажилтны кодчлолын тохиргоо шинэчлэгдлээ.',
+          });
+        }
       });
+
     } catch (error) {
       console.error(error);
       toast({
         title: 'Алдаа гарлаа',
-        description:
-          'Тохиргоо хадгалах үед алдаа гарлаа. Дахин оролдож үзнэ үү.',
+        description: 'Тохиргоо хадгалах үед алдаа гарлаа. Дахин оролдож үзнэ үү.',
         variant: 'destructive',
       });
     }
