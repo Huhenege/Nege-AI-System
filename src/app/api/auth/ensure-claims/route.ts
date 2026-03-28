@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
-import type { TenantClaims } from '@/types/company';
+import type { TenantClaims, CompanyStatus } from '@/types/company';
+import { BASE_MODULES } from '@/types/company';
 import { checkRateLimit } from '@/lib/api/rate-limiter';
 
 function getBearerToken(req: Request): string | null {
@@ -50,17 +51,62 @@ export async function POST(request: NextRequest) {
     if (rateLimited) return rateLimited;
 
     // ── 3. Short-circuit: claims already present ─────────────────────────────
+    const force = request.nextUrl.searchParams.get('force') === '1';
     const existingUser = await adminAuth.getUser(decoded.uid);
     const existingClaims = existingUser.customClaims as TenantClaims | undefined;
 
-    if (existingClaims?.role === 'super_admin') {
-      // super_admin нь платформын системийн хэрэглэгч — компанийн employee биш.
-      // Employee doc үүсгэхгүй, companyId тохируулахгүй.
-      return NextResponse.json({ status: 'already_set', claims: existingClaims });
-    }
+    if (!force) {
+      if (existingClaims?.role === 'super_admin') {
+        return NextResponse.json({ status: 'already_set', claims: existingClaims });
+      }
 
-    if (existingClaims?.companyId && existingClaims?.role) {
-      return NextResponse.json({ status: 'already_set', claims: existingClaims });
+      if (existingClaims?.companyId && existingClaims?.role) {
+        // ── Subscription expire шалгалт ────────────────────────────────────
+        // Хэрэглэгч нэвтрэх болгонд компанийн expire-г server-side шалгана.
+        // Client-side check нь UI-г блокоодог ч Firestore status-г
+        // автоматаар шинэчилдэггүй — энд нэг удаа шалгаж засна.
+        try {
+          const companyDoc = await db.doc(`companies/${existingClaims.companyId}`).get();
+          if (companyDoc.exists) {
+            const company = companyDoc.data()!;
+            const now = new Date();
+            let shouldSuspend = false;
+
+            // Trial expire
+            if (company.status === 'trial' && company.subscription?.trialEndsAt) {
+              const trialEnd = new Date(company.subscription.trialEndsAt);
+              if (trialEnd < now) shouldSuspend = true;
+            }
+
+            // Paid subscription expire
+            if (company.status === 'active' && company.subscription?.endDate) {
+              const endDate = new Date(company.subscription.endDate);
+              if (endDate < now) shouldSuspend = true;
+            }
+
+            if (shouldSuspend) {
+              // Company-г suspended болгоод BASE_MODULES-д буцаана
+              const moduleUpdates: Record<string, { enabled: boolean }> = {};
+              const allModules = Object.keys(company.modules || {});
+              for (const mod of allModules) {
+                moduleUpdates[`modules.${mod}.enabled`] = {
+                  enabled: BASE_MODULES.includes(mod as any),
+                };
+              }
+              await companyDoc.ref.update({
+                status: 'suspended' as CompanyStatus,
+                'subscription.paymentStatus': 'overdue',
+                ...moduleUpdates,
+                updatedAt: now,
+              });
+            }
+          }
+        } catch (expireErr) {
+          // Expire check алдаасан ч нэвтрэлтийг зогсоохгүй
+          console.warn('[ensure-claims] Expire check failed:', expireErr);
+        }
+        return NextResponse.json({ status: 'already_set', claims: existingClaims });
+      }
     }
 
     // ── 4. Strategy 1: user owns a company ───────────────────────────────────

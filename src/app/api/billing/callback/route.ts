@@ -16,24 +16,16 @@ async function processPaymentCallback(invoiceNo: string): Promise<{ status: stri
   const companyId = extractCompanyId(invoiceNo);
   let invoiceDoc;
 
-  if (companyId) {
-    const docRef = db.doc(`companies/${companyId}/invoices/${invoiceNo}`);
-    const snap = await docRef.get();
-    if (snap.exists) {
-      invoiceDoc = snap;
-    }
+  // companyId нь invoiceNo-д encode хийгдсэн (NEGE-{companyId}-{timestamp})
+  // O(n) company scan хэрэггүй — шууд замаар tatna
+  if (!companyId) {
+    return { error: 'Invalid invoice format', status: 400 };
   }
 
-  if (!invoiceDoc) {
-    // Fallback: iterate companies to find the invoice
-    const companies = await db.collection('companies').listDocuments();
-    for (const companyRef of companies) {
-      const snap = await db.doc(`${companyRef.path}/invoices/${invoiceNo}`).get();
-      if (snap.exists) {
-        invoiceDoc = snap;
-        break;
-      }
-    }
+  const docRef = db.doc(`companies/${companyId}/invoices/${invoiceNo}`);
+  const snap = await docRef.get();
+  if (snap.exists) {
+    invoiceDoc = snap;
   }
 
   if (!invoiceDoc || !invoiceDoc.exists) {

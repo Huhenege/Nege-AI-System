@@ -9,6 +9,12 @@ let cachedPlans: PlanDefinition[] | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 60_000; // 1 min
 
+/** Super admin pricing save хийсний дараа cache-г flush хийнэ */
+export function invalidatePricingCache() {
+    cachedPlans = null;
+    cacheTimestamp = 0;
+}
+
 /**
  * Fetch pricing plans from Firestore, with in-memory cache and hardcoded fallback.
  * Safe for use in any server-side context (API routes, server components).

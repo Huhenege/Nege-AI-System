@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { requireSuperAdmin } from '../lib/auth-guard';
-import { PLAN_DEFINITIONS, type PlanDefinition } from '@/types/company';
+import { PLAN_DEFINITIONS, BASE_MODULES, type PlanDefinition } from '@/types/company';
+import { invalidatePricingCache } from '@/lib/pricing/get-pricing-plans';
 
 const PRICING_DOC_PATH = 'platform/pricing_plans';
 
@@ -58,6 +59,14 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
+    // BASE_MODULES нь бүх планд заавал байх ёстой — хасах боломжгүй
+    const missingBase = BASE_MODULES.filter(m => !plan.modules.includes(m));
+    if (missingBase.length > 0) {
+      return NextResponse.json(
+        { error: `Plan '${plan.id}' is missing required base modules: ${missingBase.join(', ')}` },
+        { status: 400 }
+      );
+    }
   }
 
   const db = getFirebaseAdminFirestore();
@@ -68,6 +77,9 @@ export async function PUT(request: NextRequest) {
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: authResult.uid,
   });
+
+  // Server-side cache flush — дараагийн хүсэлтэд шинэ план ачаална
+  invalidatePricingCache();
 
   return NextResponse.json({ success: true });
 }

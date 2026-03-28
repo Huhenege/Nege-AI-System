@@ -26,7 +26,8 @@ export type SaaSModule =
   | 'meetings'
   | 'ai_assistant';
 
-export const BASE_MODULES: SaaSModule[] = ['company', 'organization', 'employees'];
+// Бүх планд суурь байх модулиуд — хасах боломжгүй
+export const BASE_MODULES: SaaSModule[] = ['company', 'organization', 'employees', 'projects'];
 
 export interface ModuleConfig {
   enabled: boolean;
