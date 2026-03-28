@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Loader2, Send, Archive, Mail, Edit, Trash2 } from 'lucide-react';
+import { Download, Loader2, Send, Archive, Mail, Edit, Trash2, Copy } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
@@ -37,7 +37,7 @@ async function waitForImages(root: HTMLElement | null) {
 export default function OfficialLetterDetailPage() {
     const { id } = useParams<{ id: string }>();
     const { firestore } = useFirebase();
-    const { tDoc } = useTenantWrite();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { user } = useUser();
     const role = useTenantRole();
     const isAdmin = role === 'company_super_admin' || role === 'admin';
@@ -118,6 +118,28 @@ export default function OfficialLetterDetailPage() {
         }
     };
 
+    const handleDuplicate = async () => {
+        if (!firestore || !user || !letter) return;
+        try {
+            const { addDoc, Timestamp } = await import('firebase/firestore');
+            const { getNextOfficialLetterNumber } = await import('../services/numbering');
+            const letterNumber = await getNextOfficialLetterNumber(firestore, companyPath);
+            const { id: newId } = await addDoc(tCollection('official_letters'), {
+                letterNumber,
+                status: 'DRAFT',
+                config: { ...letter.config },
+                templateId: letter.templateId,
+                createdBy: user.uid,
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now(),
+            });
+            toast({ title: 'Хувилагдлаа', description: `Дугаар: ${letterNumber}` });
+            router.push(`/dashboard/official-letters/${newId}`);
+        } catch {
+            toast({ title: 'Хувилахад алдаа гарлаа', variant: 'destructive' });
+        }
+    };
+
     const handleArchive = async () => {
         try {
             await updateDoc(tDoc('official_letters', id), { status: 'ARCHIVED', updatedAt: Timestamp.now() });
@@ -156,6 +178,9 @@ export default function OfficialLetterDetailPage() {
                         <Button variant="outline" size="sm" onClick={handleGeneratePDF} disabled={isGeneratingPDF}>
                             {isGeneratingPDF ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Download className="h-4 w-4 mr-1.5" />}
                             PDF
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleDuplicate}>
+                            <Copy className="h-4 w-4 mr-1.5" /> Хувилах
                         </Button>
                         {letter.status !== 'ARCHIVED' && (
                             <Button variant="outline" size="sm" onClick={handleArchive}>

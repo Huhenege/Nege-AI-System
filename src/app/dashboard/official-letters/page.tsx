@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { query, orderBy, updateDoc, Timestamp } from 'firebase/firestore';
-import { useFirebase, useFetchCollection, useTenantWrite } from '@/firebase';
+import { useFirebase, useFetchCollection, useTenantWrite, useUser } from '@/firebase';
 import { OfficialLetter, OfficialLetterStatus, STATUS_LABELS, STATUS_COLORS } from './types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { AddActionButton } from '@/components/ui/add-action-button';
@@ -13,13 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, Search, Archive, Eye, Trash2 } from 'lucide-react';
+import { FileText, Search, Archive, Eye, Trash2, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 
 export default function OfficialLettersPage() {
     const { firestore } = useFirebase();
-    const { tCollection, tDoc } = useTenantWrite();
+    const { tCollection, tDoc, companyPath } = useTenantWrite();
+    const { user } = useUser();
     const { toast } = useToast();
     const [search, setSearch] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState<OfficialLetterStatus | 'ALL'>('ALL');
@@ -41,6 +42,27 @@ export default function OfficialLettersPage() {
             l.config?.addresseeOrg?.toLowerCase().includes(q)
         );
     }, [letters, search, statusFilter]);
+
+    const handleDuplicate = async (letter: OfficialLetter) => {
+        if (!firestore || !user) return;
+        try {
+            const { addDoc, Timestamp } = await import('firebase/firestore');
+            const { getNextOfficialLetterNumber } = await import('./services/numbering');
+            const letterNumber = await getNextOfficialLetterNumber(firestore, companyPath);
+            await addDoc(tCollection('official_letters'), {
+                letterNumber,
+                status: 'DRAFT',
+                config: { ...letter.config },
+                templateId: letter.templateId,
+                createdBy: user.uid,
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now(),
+            });
+            toast({ title: 'Хувилагдлаа', description: `Шинэ дугаар: ${letterNumber}` });
+        } catch {
+            toast({ title: 'Хувилахад алдаа гарлаа', variant: 'destructive' });
+        }
+    };
 
     const handleArchive = async (id: string) => {
         try {
@@ -138,6 +160,10 @@ export default function OfficialLettersPage() {
                                 <div className="flex items-center gap-1 shrink-0">
                                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
                                         <Link href={`/dashboard/official-letters/${letter.id}`}><Eye className="h-4 w-4" /></Link>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-600"
+                                        onClick={() => handleDuplicate(letter)} title="Хувилах">
+                                        <Copy className="h-4 w-4" />
                                     </Button>
                                     {letter.status !== 'ARCHIVED' && (
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-amber-600"
