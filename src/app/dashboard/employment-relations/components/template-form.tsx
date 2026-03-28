@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-    Printer, Save, ArrowLeft, Plus, Trash2, Settings2, ChevronUp, ChevronDown,
+    Printer, Save, ArrowLeft, Plus, Trash2, Settings2,
     GripVertical, Sparkles, Loader2, Eye, Library, PanelLeftClose, PanelLeft,
     Check, Copy, Keyboard, Clock, CheckCircle2, AlertCircle, Wand2
 } from 'lucide-react';
@@ -80,16 +80,16 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     const [pendingInsertContent, setPendingInsertContent] = useState<string | null>(null);
     const [companyProfile, setCompanyProfile] = useState<any>(null);
 
-    // Fetch company profile for logo
+    // Fetch company profile for logo — tenant-scoped
     useEffect(() => {
         if (!firestore) return;
-        const profileRef = doc(firestore, 'company', 'profile');
+        const profileRef = tDoc('company', 'profile');
         getDoc(profileRef).then(snap => {
             if (snap.exists()) {
                 setCompanyProfile(snap.data());
             }
         });
-    }, [firestore]);
+    }, [firestore, tDoc]);
 
     const [formData, setFormData] = useState<Partial<ERTemplate>>({
         isActive: true,
@@ -109,22 +109,28 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         }
     }, [initialData]);
 
+    // Mount-ийн дараа л track хийнэ — анхнаасаа "Хадгалаагүй" гарахгүй
+    const isMountedRef = React.useRef(false);
     useEffect(() => {
+        if (!isMountedRef.current) {
+            isMountedRef.current = true;
+            return;
+        }
         setHasUnsavedChanges(true);
     }, [formData]);
+
+    // handleSubmit ref — keyboard shortcut-д stale closure-с зайлсхийнэ
+    const handleSubmitRef = React.useRef<(() => void) | null>(null);
 
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Ctrl+S or Cmd+S to save
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
-                handleSubmit();
+                handleSubmitRef.current?.();
             }
-            // Ctrl+Shift+V to open variable selector
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'V') {
                 e.preventDefault();
-                // Focus on search in variable selector
                 const searchInput = document.querySelector('[data-variable-search]') as HTMLInputElement;
                 searchInput?.focus();
             }
@@ -132,7 +138,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [formData]);
+    }, []); // Зөвхөн mount-д — ref-р handleSubmit-г дамжуулна
 
     // Warn before leaving with unsaved changes
     useEffect(() => {
@@ -412,6 +418,8 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     }, [formData.content, formData.customInputs, generateHeaderHtml]);
 
     const handleSubmit = async () => {
+        // ref update — keyboard shortcut always gets latest version
+        // (ref assigned below via useEffect)
         if (!firestore || !formData.name || !formData.documentTypeId || !formData.content) {
             toast({ title: "Дутуу мэдээлэл", description: "Шаардлагатай талбаруудыг бөглөнө үү", variant: "destructive" });
             return;
@@ -478,6 +486,12 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         }
     };
 
+    // Ref-г handleSubmit-ийн хамгийн сүүлийн хувилбараар шинэчилнэ
+    // (keyboard shortcut-д stale closure байхгүй болно)
+    React.useEffect(() => {
+        handleSubmitRef.current = handleSubmit;
+    });
+
     return (
         <TooltipProvider>
             <div className="space-y-6 max-w-7xl mx-auto pb-20">
@@ -525,6 +539,25 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                 <div className="flex justify-between"><span>Хадгалах</span><kbd className="px-1 bg-muted rounded">Ctrl+S</kbd></div>
                                 <div className="flex justify-between"><span>Хувьсагч хайх</span><kbd className="px-1 bg-muted rounded">Ctrl+Shift+V</kbd></div>
                             </div>
+                        </TooltipContent>
+                    </Tooltip>
+
+                    {/* Split view toggle */}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setShowSplitView(v => !v)}
+                                className="shrink-0"
+                            >
+                                {showSplitView
+                                    ? <PanelLeftClose className="h-4 w-4" />
+                                    : <PanelLeft className="h-4 w-4" />}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                            <span className="text-xs">{showSplitView ? 'Sidebar нуух' : 'Sidebar харуулах'}</span>
                         </TooltipContent>
                     </Tooltip>
 
@@ -990,11 +1023,8 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                                     key={`input-${input.order}`}
                                                     id={`input-${input.order}`}
                                                     input={input}
-                                                    index={index}
-                                                    isLast={index === allInputs.length - 1}
                                                     onUpdate={updateCustomInput}
                                                     onRemove={removeCustomInput}
-                                                    onMove={moveCustomInput}
                                                 />
                                             ))}
                                     </div>
@@ -1015,14 +1045,11 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     );
 }
 
-function SortableInputItem({ id, input, index, isLast, onUpdate, onRemove, onMove }: {
+function SortableInputItem({ id, input, onUpdate, onRemove }: {
     id: string;
     input: any;
-    index: number;
-    isLast: boolean;
     onUpdate: (order: number, field: string, value: any) => void;
     onRemove: (order: number) => void;
-    onMove: (index: number, direction: 'up' | 'down') => void;
 }) {
     const {
         attributes,
@@ -1109,30 +1136,18 @@ function SortableInputItem({ id, input, index, isLast, onUpdate, onRemove, onMov
                         />
                     </div>
                 </div>
+                {/* Required toggle */}
+                <div className="flex items-center justify-between pt-1 border-t mt-2">
+                    <Label className="text-[10px] text-slate-500 cursor-pointer">Заавал бөглөх</Label>
+                    <Switch
+                        checked={input.required ?? true}
+                        onCheckedChange={(v) => onUpdate(input.order, 'required', v)}
+                    />
+                </div>
             </div>
 
-            <div className="flex flex-col gap-1 border-l pl-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-slate-400 hover:text-primary hover:bg-primary/5"
-                    onClick={() => onMove(index, 'up')}
-                    disabled={index === 0}
-                    title="Дээшлүүлэх"
-                >
-                    <ChevronUp className="h-5 w-5" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-slate-400 hover:text-primary hover:bg-primary/5"
-                    onClick={() => onMove(index, 'down')}
-                    disabled={isLast}
-                    title="Доошлуулах"
-                >
-                    <ChevronDown className="h-5 w-5" />
-                </Button>
-                <div className="flex-1 min-h-[4px]" />
+            {/* Arrow buttons хасав — DnD drag handle л байна */}
+            <div className="flex flex-col items-center justify-end border-l pl-4 pb-1">
                 <Button
                     variant="ghost"
                     size="icon"
