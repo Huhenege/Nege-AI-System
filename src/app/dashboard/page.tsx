@@ -131,6 +131,7 @@ const UNASSIGNED_Y_GAP = 220;
 const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
 import { PositionStructureCard } from '@/components/organization/position-structure-card';
+import { PositionRadialMenu } from '@/components/organization/position-radial-menu';
 import { EmployeeCard } from '@/components/employees/employee-card';
 
 // --- Node Components ---
@@ -186,37 +187,34 @@ const AttendanceStatusIndicator = ({ status }: { status?: AttendanceStatus }) =>
     )
 }
 
-const RADIUS = 44;
 const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
     const [menuOpen, setMenuOpen] = React.useState(false);
-    const menuRef = React.useRef<HTMLDivElement>(null);
-    const leaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const employee = data.employees[0]
         ? ({ ...(data.employees[0] as any), attendanceStatus: data.attendanceStatus } as any)
         : undefined;
     const hasEmployee = (data.filled ?? 0) >= 1;
+
     const openMenu = () => {
-        if (leaveTimerRef.current) {
-            clearTimeout(leaveTimerRef.current);
-            leaveTimerRef.current = null;
-        }
+        if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
         setMenuOpen(true);
     };
     const closeMenu = () => {
-        leaveTimerRef.current = setTimeout(() => setMenuOpen(false), 250);
+        timerRef.current = setTimeout(() => setMenuOpen(false), 220);
     };
-    React.useEffect(() => () => { if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current); }, []);
+    React.useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
-    const actionsList = hasEmployee
+    const radialActions = (hasEmployee
         ? [
-            { key: 'release' as const, angle: 90, Icon: UserMinus, label: 'Чөлөөлөх', run: data.onRelease },
-            { key: 'details' as const, angle: 150, Icon: ExternalLink, label: 'Дэлгэрэнгүй', run: data.onOpenDetails },
+            data.onRelease     && { key: 'release', angle: 90,  Icon: UserMinus,    label: 'Чөлөөлөх',         onClick: data.onRelease },
+            data.onOpenDetails && { key: 'details', angle: 150, Icon: ExternalLink,  label: 'Дэлгэрэнгүй',      onClick: data.onOpenDetails },
         ]
         : [
-            { key: 'appoint' as const, angle: 90, Icon: UserPlus, label: 'Ажилтан томилох', run: data.onAppoint },
-            { key: 'details' as const, angle: 150, Icon: ExternalLink, label: 'Дэлгэрэнгүй', run: data.onOpenDetails },
-        ];
+            data.onAppoint     && { key: 'appoint', angle: 90,  Icon: UserPlus,     label: 'Ажилтан томилох',   onClick: data.onAppoint },
+            data.onOpenDetails && { key: 'details', angle: 150, Icon: ExternalLink,  label: 'Дэлгэрэнгүй',      onClick: data.onOpenDetails },
+        ]
+    ).filter(Boolean) as React.ComponentProps<typeof PositionRadialMenu>['actions'];
 
     return (
         <div className="relative group overflow-visible">
@@ -228,66 +226,16 @@ const JobPositionNode = ({ data }: { data: JobPositionNodeData }) => {
                     departmentName={data.department}
                     departmentColor={data.departmentColor}
                     employee={employee as any}
-                    actions={<div className="w-8 h-8" aria-hidden />}
                 />
-                <TooltipProvider delayDuration={150}>
-                    <div
-                        ref={menuRef}
-                        className={cn(
-                            'absolute right-3 z-[100] overflow-visible transition-all duration-200',
-                            menuOpen ? 'top-0 w-[88px] h-[56px] -mt-11' : 'top-3 w-8 h-8'
-                        )}
-                        onMouseEnter={openMenu}
-                        onMouseLeave={closeMenu}
-                    >
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button
-                                    type="button"
-                                    className={cn(
-                                        'h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-transform',
-                                        menuOpen ? 'absolute right-0 bottom-0 rotate-90' : 'absolute right-0 top-0'
-                                    )}
-                                >
-                                    <MoreVertical className="h-4 w-4" />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent><div className="text-xs font-semibold">Үйлдлүүд</div></TooltipContent>
-                        </Tooltip>
-                        {actionsList.map(({ key, angle, Icon, label, run }, i) => {
-                            if (!run) return null;
-                            const rad = (angle * Math.PI) / 180;
-                            const x = Math.cos(rad) * RADIUS;
-                            const y = -Math.sin(rad) * RADIUS;
-                            return (
-                                <Tooltip key={key}>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            type="button"
-                                            className={cn(
-                                                'absolute h-9 w-9 rounded-full bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-lg border border-slate-200 transition-all duration-200',
-                                                menuOpen ? 'right-0 bottom-0' : 'right-0 top-0',
-                                                !menuOpen && 'pointer-events-none invisible scale-0'
-                                            )}
-                                            style={{
-                                                transform: menuOpen ? `translate(${x}px, ${y}px)` : 'translate(0, 0) scale(0)',
-                                                transitionDelay: menuOpen ? `${i * 50}ms` : '0ms',
-                                            }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                run();
-                                                setMenuOpen(false);
-                                            }}
-                                        >
-                                            <Icon className="h-4 w-4" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" className="z-[110]"><div className="text-xs font-semibold">{label}</div></TooltipContent>
-                                </Tooltip>
-                            );
-                        })}
-                    </div>
-                </TooltipProvider>
+                {radialActions.length > 0 && (
+                    <PositionRadialMenu
+                        open={menuOpen}
+                        isDarkBg={true}
+                        actions={radialActions}
+                        onOpen={openMenu}
+                        onClose={closeMenu}
+                    />
+                )}
             </div>
             <Handle type="source" position={Position.Bottom} className="!bg-primary opacity-0" />
         </div>
