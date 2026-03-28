@@ -1,6 +1,7 @@
-import { isSystemUser } from '@/lib/employee-utils';
-// src/app/dashboard/training/page.tsx
 'use client';
+// src/app/dashboard/training/page.tsx
+
+import { isSystemUser } from '@/lib/employee-utils';
 
 import React, { useMemo, useState } from 'react';
 import { query, orderBy, addDoc, deleteDoc } from 'firebase/firestore';
