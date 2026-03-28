@@ -22,6 +22,7 @@ const COLUMNS: { status: DocumentStatus; label: string; icon: any; color: string
     { status: 'SENT_TO_EMPLOYEE', label: 'Танилцуулах', icon: Send, color: 'text-amber-700' },
     { status: 'ACKNOWLEDGED', label: 'Танилцсан', icon: CheckCircle2, color: 'text-teal-700' },
     { status: 'REJECTED', label: 'Татгалзсан', icon: XCircle, color: 'text-rose-500', headerColor: 'text-rose-600' },
+    { status: 'ARCHIVED', label: 'Архив', icon: FileText, color: 'text-slate-400', headerColor: 'text-slate-500' },
 ];
 
 export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentPipelineProps) {
@@ -68,6 +69,8 @@ export function DocumentPipeline({ documents, isLoading, docTypeMap }: DocumentP
                             <div className={`flex flex-col gap-3 min-h-[calc(100vh-350px)] p-2 rounded-2xl border ${
                                 column.status === 'REJECTED'
                                     ? 'bg-rose-50/40 border-rose-200/50'
+                                    : column.status === 'ARCHIVED'
+                                    ? 'bg-slate-50/60 border-slate-200/40 opacity-80'
                                     : 'bg-slate-100/40 border-slate-200/50'
                             }`}>
                                 {columnDocs.map((doc) => (

@@ -40,15 +40,21 @@ export default function DocumentListPage() {
         return docTypes?.reduce((acc, type) => ({ ...acc, [type.id]: type.name }), {} as Record<string, string>) || {};
     }, [docTypes]);
 
+    // useFetchCollection нь one-time getDocs ашиглана (onSnapshot биш)
+    // Тиймээс хуудас руу буцах болгонд fresh data авах зорилгоор visibilitychange ашигладаг — зөв
+    const refetchRef = React.useRef(refetchDocuments);
+    React.useEffect(() => { refetchRef.current = refetchDocuments; }, [refetchDocuments]);
+
     useEffect(() => {
         const onVisibilityChange = () => {
             if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-                refetchDocuments();
+                refetchRef.current();
             }
         };
         document.addEventListener('visibilitychange', onVisibilityChange);
         return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-    }, [refetchDocuments]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Зөвхөн mount/unmount-д — ref-р refetch дамжуулна
 
     const filteredDocuments = React.useMemo(() => {
         if (!documents) return [];

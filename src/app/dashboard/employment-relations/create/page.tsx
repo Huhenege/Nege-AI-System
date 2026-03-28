@@ -7,7 +7,7 @@ import { query, where, Timestamp, getDocs, getDoc, addDoc } from 'firebase/fires
 import { ERDocumentType, ERTemplate, ERDocument } from '../types';
 import { Employee } from '@/types';
 import { generateDocumentContent } from '../utils';
-import { getNextDocumentNumber, previewNextDocumentNumber } from '../services/document-numbering';
+import { getNextDocumentNumber } from '../services/document-numbering';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';

@@ -87,6 +87,9 @@ export async function getNextDocumentNumber(
     documentTypeId: string,
     companyPath: string | null = null
 ): Promise<string> {
+    if (!companyPath) {
+        throw new Error('companyPath байхгүй — tenant isolation алдагдана');
+    }
     const docTypeRef = tenantDoc(firestore, companyPath, 'er_process_document_types', documentTypeId);
     
     return await runTransaction(firestore, async (transaction) => {
@@ -172,9 +175,10 @@ export async function getDocumentType(
  */
 export async function previewNextDocumentNumber(
     firestore: Firestore,
-    documentTypeId: string
+    documentTypeId: string,
+    companyPath: string | null = null
 ): Promise<string | null> {
-    const docType = await getDocumentType(firestore, documentTypeId);
+    const docType = await getDocumentType(firestore, documentTypeId, companyPath);
     
     if (!docType) {
         return null;

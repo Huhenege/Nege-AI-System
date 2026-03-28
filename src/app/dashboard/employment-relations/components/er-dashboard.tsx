@@ -71,6 +71,7 @@ export function ERDashboard({
       return {
         total: 0,
         pendingCount: 0,
+        rejectedCount: 0,
         statusData: [] as { name: string; value: number; color: string }[],
       };
     }
@@ -80,6 +81,7 @@ export function ERDashboard({
     // Pending: DRAFT, IN_REVIEW, REVIEWED, SENT_TO_EMPLOYEE
     const pendingStatuses = ['DRAFT', 'IN_REVIEW', 'REVIEWED', 'SENT_TO_EMPLOYEE'];
     const pendingCount = documents.filter((d) => pendingStatuses.includes(d.status)).length;
+    const rejectedCount = documents.filter((d) => d.status === 'REJECTED').length;
 
     // Status distribution
     const statusCounts: Record<string, number> = {};
@@ -103,6 +105,7 @@ export function ERDashboard({
     return {
       total,
       pendingCount,
+      rejectedCount,
       statusData,
     };
   }, [documents]);
@@ -228,8 +231,18 @@ export function ERDashboard({
                     Хүлээгдэж буй
                   </p>
                 </div>
-                <div className="text-2xl font-extrabold text-amber-400 leading-none">{metrics.pendingCount}</div>
-                <p className="text-[10px] text-slate-500 mt-0.5">баримт</p>
+                <div className="flex items-end gap-3">
+                  <div>
+                    <div className="text-2xl font-extrabold text-amber-400 leading-none">{metrics.pendingCount}</div>
+                    <p className="text-[10px] text-slate-500 mt-0.5">баримт</p>
+                  </div>
+                  {metrics.rejectedCount > 0 && (
+                    <div className="mb-0.5">
+                      <div className="text-lg font-bold text-rose-400 leading-none">{metrics.rejectedCount}</div>
+                      <p className="text-[10px] text-rose-500/70 mt-0.5">татгалзсан</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Document types */}
