@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from 'react';
 import { useUser, useFirestore, useFetchCollection, useFirebaseApp, useTenantWrite } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { query, orderBy, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Reward } from '@/types/points';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -42,10 +42,10 @@ export function RewardManager() {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Fetch all rewards
+    // Fetch all rewards — tenant-scoped
     const rewardsQuery = useMemo(() =>
-        firestore ? query(collection(firestore, 'rewards'), orderBy('isActive', 'desc')) : null
-        , [firestore]);
+        firestore ? query(tCollection('rewards'), orderBy('isActive', 'desc')) : null
+        , [firestore, tCollection]);
 
     const { data: rewards, isLoading } = useFetchCollection<Reward>(rewardsQuery);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirestore, useMemoFirebase, tenantCollection, useFetchCollection, useFetchDoc } from '@/firebase';
 import { collection, doc, query, orderBy, limit, where } from 'firebase/firestore';
@@ -37,9 +37,12 @@ interface PointTx {
 
 export default function PointAdminPage() {
     const firestore = useFirestore();
+    const [activeTab, setActiveTab] = useState('overview');
 
     // Queries
-    const valuesQuery = useMemo(() => firestore ? query(collection(firestore, 'company', 'branding', 'values'), where('isActive', '==', true)) : null, [firestore]);
+    const valuesQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'values'), where('isActive', '==', true)) : null
+        , [firestore]);
     const recognitionQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore ? query(tenantCollection(firestore, companyPath, 'recognition_posts'), orderBy('createdAt', 'desc'), limit(50)) : null
         , [firestore]);
@@ -51,8 +54,10 @@ export default function PointAdminPage() {
         firestore ? query(tenantCollection(firestore, companyPath, 'positions'), where('hasPointBudget', '==', true)) : null
         , [firestore]);
 
-    // Config
-    const configRef = useMemo(() => firestore ? doc(firestore, 'points_config', 'main') : null, [firestore]);
+    // Config — tenant-scoped (companyPath = "companies/{id}", тиймээс бүтэн замыг нэг string-д дамжуулна)
+    const configRef = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? doc(firestore, `${companyPath}/points_config/main`) : null
+        , [firestore]);
     const { data: pointsConfig } = useFetchDoc<PointsConfig>(configRef);
 
     // Data
@@ -202,7 +207,7 @@ export default function PointAdminPage() {
                     <ActionIconButton
                         label="Тохиргоо"
                         description="Пойнтын тохиргоо"
-                        href="/dashboard/company/mission"
+                        onClick={() => setActiveTab('settings')}
                         icon={<SettingsIcon className="h-4 w-4" />}
                         variant="outline"
                         className="bg-white hover:bg-slate-50 border-slate-200"
@@ -210,7 +215,7 @@ export default function PointAdminPage() {
                 }
             />
 
-            <Tabs defaultValue="overview" className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <VerticalTabMenu
                     orientation="horizontal"
                     items={[

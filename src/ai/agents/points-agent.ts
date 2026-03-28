@@ -67,36 +67,24 @@ export function createPointsAgentTools(companyId: string) {
       };
 
       try {
-        // 1st: document ID = employeeId байж болно
-        const directDoc = await db()
-          .collection(`companies/${companyId}/pointBalances`)
+        // Зөв зам: companies/{companyId}/employees/{employeeId}/point_profile/main
+        const profileDoc = await db()
+          .collection(`companies/${companyId}/employees`)
           .doc(employeeId)
+          .collection('point_profile')
+          .doc('main')
           .get();
 
-        if (directDoc.exists) {
-          const d = directDoc.data()!;
+        if (profileDoc.exists) {
+          const d = profileDoc.data()!;
+          // totalSpent = нийт REDEEMED гүйлгээг тооцдоггүй тул totalEarned - balance-аас тооцно
+          const balance = d['balance'] ?? 0;
+          const totalEarned = d['totalEarned'] ?? 0;
           return {
             employeeId,
-            balance: d['balance'] ?? 0,
-            totalEarned: d['totalEarned'] ?? 0,
-            totalSpent: d['totalSpent'] ?? 0,
-          };
-        }
-
-        // 2nd: employeeId field-аар шүүх
-        const snap = await db()
-          .collection(`companies/${companyId}/pointBalances`)
-          .where('employeeId', '==', employeeId)
-          .limit(1)
-          .get();
-
-        if (!snap.empty) {
-          const d = snap.docs[0].data();
-          return {
-            employeeId,
-            balance: d['balance'] ?? 0,
-            totalEarned: d['totalEarned'] ?? 0,
-            totalSpent: d['totalSpent'] ?? 0,
+            balance,
+            totalEarned,
+            totalSpent: Math.max(0, totalEarned - balance),
           };
         }
 
@@ -121,24 +109,38 @@ export function createPointsAgentTools(companyId: string) {
       const maxLimit = Math.min(limit ?? 10, 20);
 
       try {
-        const snap = await db()
-          .collection(`companies/${companyId}/pointBalances`)
-          .orderBy('balance', 'desc')
-          .limit(maxLimit)
+        // Ажилтнуудыг авч, дараа нь point_profile-г collection group query-гаар авна
+        // Хялбар арга: employees-г авч profile-г нь тус тус уншина
+        const employeesSnap = await db()
+          .collection(`companies/${companyId}/employees`)
+          .limit(100) // Ажилтны дээд хязгаар
           .get();
 
-        const entries: z.infer<typeof leaderboardEntrySchema>[] = [];
-        let rank = 1;
+        const profilePromises = employeesSnap.docs.map(async (empDoc) => {
+          const emp = empDoc.data();
+          const profileDoc = await db()
+            .collection(`companies/${companyId}/employees`)
+            .doc(empDoc.id)
+            .collection('point_profile')
+            .doc('main')
+            .get();
 
-        snap.forEach((doc) => {
-          const d = doc.data();
-          entries.push({
-            rank: rank++,
-            employeeId: d['employeeId'] ?? doc.id,
-            employeeName: d['employeeName'] ?? d['name'],
-            balance: d['balance'] ?? 0,
-          });
+          const balance = profileDoc.exists ? (profileDoc.data()!['balance'] ?? 0) : 0;
+          const name = [emp['firstName'], emp['lastName']].filter(Boolean).join(' ') || empDoc.id;
+          return { employeeId: empDoc.id, employeeName: name, balance };
         });
+
+        const profiles = await Promise.all(profilePromises);
+        const sorted = profiles
+          .sort((a, b) => b.balance - a.balance)
+          .slice(0, maxLimit);
+
+        const entries: z.infer<typeof leaderboardEntrySchema>[] = sorted.map((p, i) => ({
+          rank: i + 1,
+          employeeId: p.employeeId,
+          employeeName: p.employeeName,
+          balance: p.balance,
+        }));
 
         return { entries, total: entries.length };
       } catch {
@@ -162,9 +164,10 @@ export function createPointsAgentTools(companyId: string) {
       const maxLimit = limit ?? 20;
 
       try {
+        // Зөв зам: companies/{companyId}/point_transactions (userId field-аар шүүнэ)
         const snap = await db()
-          .collection(`companies/${companyId}/pointTransactions`)
-          .where('employeeId', '==', employeeId)
+          .collection(`companies/${companyId}/point_transactions`)
+          .where('userId', '==', employeeId)
           .orderBy('createdAt', 'desc')
           .limit(maxLimit)
           .get();

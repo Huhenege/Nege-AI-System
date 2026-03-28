@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFetchCollection, useFirestore, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
 import { query, orderBy, where, getDoc } from 'firebase/firestore';
 import { BudgetPointRequest, CoreValue } from '@/types/points';
@@ -76,7 +76,7 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
     const [position, setPosition] = useState<Position | null>(null);
     const [coreValue, setCoreValue] = useState<CoreValue | null>(null);
 
-    useMemo(() => {
+    useEffect(() => {
         if (!firestore || !companyPath) return;
 
         // Fetch Sender
@@ -90,9 +90,9 @@ function RequestCard({ request }: { request: BudgetPointRequest, onStatusChange:
             setReceivers(snaps.map(s => s.data()));
         });
 
-        // Fetch Value
-        getDoc(tDoc('company', 'branding', 'values', request.valueId)).then(v => setCoreValue(v.data() as CoreValue));
-    }, [firestore, companyPath, tDoc, request]);
+        // Fetch Value — tenant-scoped values collection
+        getDoc(tDoc('values', request.valueId)).then(v => setCoreValue(v.data() as CoreValue));
+    }, [firestore, companyPath, request.fromUserId, request.positionId, request.toUserIds, request.valueId]);
 
     const handleApprove = async () => {
         if (!firestore || !companyPath) return;
