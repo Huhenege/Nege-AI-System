@@ -17,11 +17,11 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const RADIAL_RADIUS = 44;  // trigger төвөөс радиал товч төв хүртэлх зай (px)
+export const RADIAL_RADIUS = 50;  // trigger төвөөс радиал товч төв хүртэлх зай (px)
 const TRIGGER_SIZE         = 32;  // trigger button (px)
-const BTN_SIZE             = 36;  // радиал товч (px)
+const BTN_SIZE             = 44;  // радиал товч (px) — томруулсан
 // Wrapper: trigger нь баруун доод буланд, товчнууд зүүн+дээш тийш гарна
-export const WRAPPER_SIZE  = RADIAL_RADIUS + BTN_SIZE + TRIGGER_SIZE / 2; // ≈ 94px
+export const WRAPPER_SIZE  = RADIAL_RADIUS + BTN_SIZE + TRIGGER_SIZE / 2; // ≈ 110px
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ export function PositionRadialMenu({ open, isDarkBg = false, actions, onOpen, on
                                         onClose();
                                     }}
                                 >
-                                    <Icon className="h-4 w-4" />
+                                    <Icon className="h-5 w-5" />
                                 </button>
                             </TooltipTrigger>
                             <TooltipContent side="left" className="z-[110]">
