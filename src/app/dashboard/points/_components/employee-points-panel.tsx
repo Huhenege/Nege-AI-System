@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFetchCollection, useCollection, useTenantWrite } from '@/firebase';
+import { isSystemUser } from '@/lib/employee-utils';
 import { query, orderBy, where, limit, collectionGroup } from 'firebase/firestore';
 import { UserPointProfile, PointTransaction, PointsConfig } from '@/types/points';
 import { Employee } from '@/types/index';
@@ -292,9 +293,9 @@ export function EmployeePointsPanel() {
         return m;
     }, [employees]);
 
-    // Merge: employee + point profile
+    // Merge: employee + point profile (super_admin хасна)
     const merged = useMemo((): EmployeeWithPoints[] => {
-        return (employees || []).map(e => {
+        return (employees || []).filter(e => !isSystemUser(e as any)).map(e => {
             const p = profileMap.get(e.id);
             return {
                 id: e.id,

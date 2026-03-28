@@ -1,3 +1,4 @@
+import { isSystemUser } from '@/lib/employee-utils';
 'use client';
 
 import * as React from 'react';
@@ -88,7 +89,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, teamMemberIds 
     const teamMembers = React.useMemo(() => {
         if (!employees || !teamMemberIds) return [];
         return employees.filter(e => 
-            e.id && 
+            e.id && !isSystemUser(e as any) &&
             isActiveStatus(e.status) && 
             teamMemberIds.includes(e.id)
         );

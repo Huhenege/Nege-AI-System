@@ -1,3 +1,4 @@
+import { isSystemUser } from '@/lib/employee-utils';
 'use client';
 
 import * as React from 'react';
@@ -63,7 +64,7 @@ export function EditProjectTeamDialog({ open, onOpenChange, project }: EditProje
     );
     const { data: employees } = useCollection<Employee>(employeesQuery);
     const activeEmployees = React.useMemo(() => 
-        (employees || []).filter(e => isActiveStatus(e.status)),
+        (employees || []).filter(e => !isSystemUser(e as any) && isActiveStatus(e.status)),
         [employees]
     );
 

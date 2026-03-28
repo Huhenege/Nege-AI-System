@@ -1,3 +1,4 @@
+import { isSystemUser } from '@/lib/employee-utils';
 // src/app/dashboard/training/page.tsx
 'use client';
 
@@ -99,7 +100,7 @@ export default function TrainingPage() {
 
     // Active employees
     const activeEmployees = useMemo(() =>
-        employees.filter(e => isActiveStatus(e.status)),
+        employees.filter(e => !isSystemUser(e as any) && isActiveStatus(e.status)),
         [employees]
     );
 

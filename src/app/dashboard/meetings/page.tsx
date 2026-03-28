@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
+import { isSystemUser } from '@/lib/employee-utils';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -186,7 +187,7 @@ function MeetingsContent() {
     );
     const { data: allEmployees } = useFetchCollection<Employee>(employeesQuery);
     const employees = useMemo(() =>
-        (allEmployees || []).filter(e => isActiveStatus(e.status)),
+        (allEmployees || []).filter(e => !isSystemUser(e as any) && isActiveStatus(e.status)),
         [allEmployees]
     );
 

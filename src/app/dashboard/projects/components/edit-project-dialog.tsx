@@ -1,3 +1,4 @@
+import { isSystemUser } from '@/lib/employee-utils';
 'use client';
 
 import * as React from 'react';
@@ -93,7 +94,7 @@ export function EditProjectDialog({ open, onOpenChange, project }: EditProjectDi
     const { data: employees } = useFetchCollection<Employee>(employeesQuery);
 
     const activeEmployees = React.useMemo(() => {
-        return (employees || []).filter(e => isActiveStatus(e.status));
+        return (employees || []).filter(e => !isSystemUser(e as any) && isActiveStatus(e.status));
     }, [employees]);
 
     const normalizeProjectStatus = React.useCallback(

@@ -1,3 +1,4 @@
+import { isSystemUser } from '@/lib/employee-utils';
 'use client';
 
 import * as React from 'react';
@@ -121,7 +122,7 @@ export function StartOffboardingWizardDialog({ open, onOpenChange }: StartOffboa
 
   const employeesWithoutOffboarding = React.useMemo(() => {
     const list = employees || [];
-    return list.filter((e) => !employeesWithOffboarding.has(e.id));
+    return list.filter((e) => !isSystemUser(e as any) && !employeesWithOffboarding.has(e.id));
   }, [employees, employeesWithOffboarding]);
 
   const filteredEmployees = React.useMemo(() => {

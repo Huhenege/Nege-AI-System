@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useFetchCollection, useTenantWrite } from '@/firebase';
+import { isSystemUser } from '@/lib/employee-utils';
 import { query, orderBy, collectionGroup } from 'firebase/firestore';
 import { UserPointProfile } from '@/types/points';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -119,6 +120,8 @@ export function Leaderboard() {
             .filter(p => p.userId && (p.balance > 0 || p.totalEarned > 0))
             .map(p => {
                 const emp = empMap.get(p.userId);
+                // super_admin нь платформын хэрэглэгч — рейтингт харагдахгүй
+                if (emp && isSystemUser(emp as any)) return null;
                 const name = emp
                     ? [emp.firstName, emp.lastName].filter(Boolean).join(' ').trim() || p.userId
                     : p.userId;
@@ -131,6 +134,7 @@ export function Leaderboard() {
                     totalGiven: p.totalGiven || 0,
                 };
             })
+            .filter((e): e is NonNullable<typeof e> => e !== null)
             .sort((a, b) => b.balance - a.balance);
     }, [profiles, empMap]);
 

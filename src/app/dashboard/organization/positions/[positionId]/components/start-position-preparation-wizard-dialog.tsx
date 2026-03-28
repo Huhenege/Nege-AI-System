@@ -1,3 +1,4 @@
+import { isSystemUser } from '@/lib/employee-utils';
 'use client';
 
 import * as React from 'react';
@@ -320,7 +321,7 @@ export function StartPositionPreparationWizardDialog({
                             <SelectValue placeholder="Хариуцагч сонгох" />
                           </SelectTrigger>
                           <SelectContent>
-                            {(employees || []).map((e) => (
+                            {(employees || []).filter(e => !isSystemUser(e as any)).map((e) => (
                               <SelectPrimitive.Item
                                 key={e.id}
                                 value={e.id}
