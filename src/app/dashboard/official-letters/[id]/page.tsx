@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { Timestamp, updateDoc } from 'firebase/firestore';
 import { useFirebase, useFetchDoc, useTenantWrite } from '@/firebase';
 import { useUser } from '@/firebase';
+import { useTenantRole } from '@/contexts/tenant-context';
+import Link from 'next/link';
 import { OfficialLetter, STATUS_LABELS, STATUS_COLORS } from '../types';
 import { LetterPaper } from '../components/letter-paper';
 import '../official-letters.css';
@@ -15,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Loader2, Send, Archive, Printer, Mail, Save } from 'lucide-react';
+import { Download, Loader2, Send, Archive, Mail, Edit, Trash2 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
@@ -37,6 +39,8 @@ export default function OfficialLetterDetailPage() {
     const { firestore } = useFirebase();
     const { tDoc } = useTenantWrite();
     const { user } = useUser();
+    const role = useTenantRole();
+    const isAdmin = role === 'company_super_admin' || role === 'admin';
     const { toast } = useToast();
     const router = useRouter();
     const paperRef = useRef<HTMLDivElement>(null);
@@ -102,6 +106,18 @@ export default function OfficialLetterDetailPage() {
         }
     };
 
+    const handleDelete = async () => {
+        if (!confirm('Энэ бичгийг устгах уу? Энэ үйлдлийг буцаах боломжгүй.')) return;
+        try {
+            const { deleteDoc } = await import('firebase/firestore');
+            await deleteDoc(tDoc('official_letters', id));
+            toast({ title: 'Устгагдлаа' });
+            router.push('/dashboard/official-letters');
+        } catch {
+            toast({ title: 'Устгахад алдаа гарлаа', variant: 'destructive' });
+        }
+    };
+
     const handleArchive = async () => {
         try {
             await updateDoc(tDoc('official_letters', id), { status: 'ARCHIVED', updatedAt: Timestamp.now() });
@@ -127,6 +143,13 @@ export default function OfficialLetterDetailPage() {
                         <Badge className={STATUS_COLORS[letter.status]} variant="secondary">
                             {STATUS_LABELS[letter.status]}
                         </Badge>
+                        {letter.status === 'DRAFT' && (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={`/dashboard/official-letters/${letter.id}/edit`}>
+                                    <Edit className="h-4 w-4 mr-1.5" /> Засах
+                                </Link>
+                            </Button>
+                        )}
                         <Button variant="outline" size="sm" onClick={() => setEmailDialogOpen(true)}>
                             <Mail className="h-4 w-4 mr-1.5" /> Имэйл
                         </Button>
@@ -137,6 +160,11 @@ export default function OfficialLetterDetailPage() {
                         {letter.status !== 'ARCHIVED' && (
                             <Button variant="outline" size="sm" onClick={handleArchive}>
                                 <Archive className="h-4 w-4 mr-1.5" /> Архивлах
+                            </Button>
+                        )}
+                        {isAdmin && (
+                            <Button variant="outline" size="sm" onClick={handleDelete} className="text-rose-500 hover:text-rose-600 hover:border-rose-300">
+                                <Trash2 className="h-4 w-4 mr-1.5" /> Устгах
                             </Button>
                         )}
                     </div>

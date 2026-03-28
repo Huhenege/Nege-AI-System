@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { query, orderBy, updateDoc, Timestamp } from 'firebase/firestore';
 import { useFirebase, useFetchCollection, useTenantWrite } from '@/firebase';
-import { OfficialLetter, STATUS_LABELS, STATUS_COLORS } from './types';
+import { OfficialLetter, OfficialLetterStatus, STATUS_LABELS, STATUS_COLORS } from './types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { AddActionButton } from '@/components/ui/add-action-button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ export default function OfficialLettersPage() {
     const { tCollection, tDoc } = useTenantWrite();
     const { toast } = useToast();
     const [search, setSearch] = React.useState('');
+    const [statusFilter, setStatusFilter] = React.useState<OfficialLetterStatus | 'ALL'>('ALL');
 
     const lettersQuery = useMemo(() =>
         firestore ? query(tCollection('official_letters'), orderBy('createdAt', 'desc')) : null
@@ -31,14 +32,15 @@ export default function OfficialLettersPage() {
 
     const filtered = useMemo(() => {
         if (!letters) return [];
+        const byStatus = statusFilter === 'ALL' ? letters : letters.filter(l => l.status === statusFilter);
         const q = search.trim().toLowerCase();
-        if (!q) return letters;
-        return letters.filter(l =>
+        if (!q) return byStatus;
+        return byStatus.filter(l =>
             l.letterNumber?.toLowerCase().includes(q) ||
             l.config?.subject?.toLowerCase().includes(q) ||
             l.config?.addresseeOrg?.toLowerCase().includes(q)
         );
-    }, [letters, search]);
+    }, [letters, search, statusFilter]);
 
     const handleArchive = async (id: string) => {
         try {
@@ -53,7 +55,15 @@ export default function OfficialLettersPage() {
         total: letters?.length || 0,
         draft: letters?.filter(l => l.status === 'DRAFT').length || 0,
         sent: letters?.filter(l => l.status === 'SENT').length || 0,
+        archived: letters?.filter(l => l.status === 'ARCHIVED').length || 0,
     }), [letters]);
+
+    const stats = useMemo(() => [
+        { label: 'Нийт', value: counts.total, color: 'text-slate-700', filter: 'ALL' as const },
+        { label: 'Ноорог', value: counts.draft, color: 'text-amber-600', filter: 'DRAFT' as const },
+        { label: 'Илгээсэн', value: counts.sent, color: 'text-emerald-600', filter: 'SENT' as const },
+        { label: 'Архив', value: counts.archived, color: 'text-gray-500', filter: 'ARCHIVED' as const },
+    ], [counts]);
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50 p-6 md:p-8 space-y-6 overflow-y-auto pb-20">
@@ -75,13 +85,13 @@ export default function OfficialLettersPage() {
             />
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
-                {[
-                    { label: 'Нийт', value: counts.total, color: 'text-slate-700' },
-                    { label: 'Ноорог', value: counts.draft, color: 'text-amber-600' },
-                    { label: 'Илгээсэн', value: counts.sent, color: 'text-emerald-600' },
-                ].map(s => (
-                    <Card key={s.label}>
+            <div className="grid grid-cols-4 gap-4">
+                {stats.map(s => (
+                    <Card
+                        key={s.label}
+                        className={`cursor-pointer transition-all ${statusFilter === s.filter ? 'ring-2 ring-primary' : 'hover:shadow-sm'}`}
+                        onClick={() => setStatusFilter(s.filter)}
+                    >
                         <CardContent className="pt-4 pb-3 px-4">
                             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
                             <p className="text-xs text-muted-foreground">{s.label}</p>
