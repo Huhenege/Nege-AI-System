@@ -66,7 +66,7 @@ function AttendanceStatusPill({ status, isDarkBg }: { status: PositionAttendance
   );
 }
 
-function isColorDark(hex: string): boolean {
+export function isColorDark(hex: string): boolean {
   if (!hex) return false;
   const color = hex.startsWith('#') ? hex.substring(1) : hex;
   const rgb = parseInt(color, 16);

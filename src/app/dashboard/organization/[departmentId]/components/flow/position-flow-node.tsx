@@ -1,16 +1,17 @@
-import React, { memo, useState, useRef, useEffect } from 'react';
+import React, { memo, useState, useRef, useEffect, useCallback } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Plus, Copy, UserPlus, Eye, MoreVertical } from 'lucide-react';
 import { Position as PositionType } from '../../../types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import { PositionStructureCard } from '@/components/organization/position-structure-card';
+import { PositionStructureCard, PositionCardExternalLinkAction, isColorDark } from '@/components/organization/position-structure-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PositionNodeData extends PositionType {
     levelName?: string;
-    departmentColor?: string; // Color inherited from department
+    departmentColor?: string;
     departmentName?: string;
     assignedEmployee?: {
         id: string;
@@ -26,17 +27,166 @@ interface PositionNodeData extends PositionType {
     onAppoint?: (pos: PositionType) => void;
 }
 
-const RADIUS = 44;
+type AppointingStatus = 'appointing';
+const isAppointingStatus = (s?: string): s is AppointingStatus => s === 'appointing';
+
+// ─── Radial menu config ───────────────────────────────────────────────────────
+// Зургийн дизайнтай тохируулсан: товчнууд карт дээрх баруун дээд буланд
+// гарч ирэхдээ дээш (view), зүүн дээш (add), зүүн (duplicate) байрлана.
+const RADIAL_RADIUS = 44; // px — CSS variable биш тул нэг газраас удирдана
+
 const ACTIONS = [
-    { key: 'view', angle: 90, Icon: Eye, label: 'Дэлгэрэнгүй', run: (ctx: { onPositionClick?: (p: PositionType) => void; data: PositionNodeData }) => ctx.onPositionClick?.(ctx.data as PositionType) },
-    { key: 'add', angle: 150, Icon: Plus, label: 'Нэмэх', run: (ctx: { onAddChild?: (id: string) => void; id: string }) => ctx.onAddChild?.(ctx.id) },
-    { key: 'duplicate', angle: 30, Icon: Copy, label: 'Хувилах', run: (ctx: { onDuplicate?: (p: PositionType) => void; data: PositionNodeData }) => ctx.onDuplicate?.(ctx.data as PositionType) },
+    {
+        key: 'view'      as const,
+        angle: 90,   // зүүн тийш
+        Icon: Eye,
+        label: 'Дэлгэрэнгүй',
+        run: (ctx: ActionCtx) => ctx.onPositionClick?.(ctx.data as PositionType),
+    },
+    {
+        key: 'add'       as const,
+        angle: 150,  // зүүн доош
+        Icon: Plus,
+        label: 'Дэд позиц нэмэх',
+        run: (ctx: ActionCtx) => ctx.onAddChild?.(ctx.id),
+    },
+    {
+        key: 'duplicate' as const,
+        angle: 30,   // баруун дээш
+        Icon: Copy,
+        label: 'Хувилах',
+        run: (ctx: ActionCtx) => ctx.onDuplicate?.(ctx.data as PositionType),
+    },
 ] as const;
 
+interface ActionCtx {
+    onPositionClick?: (p: PositionType) => void;
+    onAddChild?: (id: string) => void;
+    onDuplicate?: (p: PositionType) => void;
+    data: PositionNodeData;
+    id: string;
+}
+
+// ─── Radial Menu ──────────────────────────────────────────────────────────────
+
+interface RadialMenuProps {
+    open: boolean;
+    isDarkBg: boolean;
+    ctx: ActionCtx;
+    onOpen: () => void;
+    onClose: () => void;
+    onAction: () => void;
+}
+
+function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMenuProps) {
+    const { onPositionClick, onAddChild, onDuplicate } = ctx;
+
+    // Ямар товч идэвхтэй байхыг тодорхойлно
+    const activeActions = ACTIONS.filter(a =>
+        (a.key === 'view'      && onPositionClick) ||
+        (a.key === 'add'       && onAddChild) ||
+        (a.key === 'duplicate' && onDuplicate)
+    );
+
+    if (activeActions.length === 0) return null;
+
+    return (
+        <TooltipProvider delayDuration={100}>
+            {/*
+             * Trigger container: hover + click хоёуланг дэмжинэ (touch-friendly).
+             * Байрлал: карт дээрх absolute top-right, overflow-visible тул
+             * радиал товчнууд карт хилийн гадна харагдана.
+             */}
+            <div
+                className="absolute top-3 right-3 z-50"
+                style={{ overflow: 'visible' }}
+                onMouseEnter={onOpen}
+                onMouseLeave={onClose}
+            >
+                {/* Trigger button */}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <button
+                            type="button"
+                            aria-label="Үйлдлүүд"
+                            aria-expanded={open}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                // Click toggle — touch болон mouse хоёуланд ажиллана
+                                open ? onClose() : onOpen();
+                            }}
+                            className={cn(
+                                'h-8 w-8 rounded-full flex items-center justify-center',
+                                'transition-all duration-200',
+                                isDarkBg
+                                    ? 'bg-white/20 hover:bg-white/35 text-white'
+                                    : 'bg-black/10 hover:bg-black/20 text-slate-700',
+                                open && 'rotate-90',
+                            )}
+                        >
+                            <MoreVertical className="h-4 w-4" />
+                        </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                        <span className="text-xs font-semibold">Үйлдлүүд</span>
+                    </TooltipContent>
+                </Tooltip>
+
+                {/* Radial action buttons */}
+                {activeActions.map(({ key, angle, Icon, label, run }, i) => {
+                    const rad = (angle * Math.PI) / 180;
+                    // Triggerийн төвөөс харьцангуй offset
+                    const tx = open ? Math.cos(rad) * RADIAL_RADIUS : 0;
+                    const ty = open ? -Math.sin(rad) * RADIAL_RADIUS : 0;
+
+                    return (
+                        <Tooltip key={key}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    type="button"
+                                    aria-label={label}
+                                    className={cn(
+                                        'absolute top-0 left-0',
+                                        // Trigger-ийн төвтэй тэнцүүлнэ (-16px = 32px/2)
+                                        '-translate-x-[calc(50%-16px)] -translate-y-[calc(50%-16px)]',
+                                        'h-9 w-9 rounded-full',
+                                        'bg-white hover:bg-slate-50 text-slate-700',
+                                        'flex items-center justify-center',
+                                        'shadow-lg border border-slate-200',
+                                        'transition-all duration-200',
+                                        !open && 'pointer-events-none invisible',
+                                    )}
+                                    style={{
+                                        transform: open
+                                            ? `translate(calc(${tx}px - 50% + 16px), calc(${ty}px - 50% + 16px))`
+                                            : 'translate(0, 0) scale(0)',
+                                        opacity: open ? 1 : 0,
+                                        transitionDelay: open ? `${i * 40}ms` : '0ms',
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        run(ctx);
+                                        onAction();
+                                    }}
+                                >
+                                    <Icon className="h-4 w-4" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="z-[110]">
+                                <span className="text-xs font-semibold">{label}</span>
+                            </TooltipContent>
+                        </Tooltip>
+                    );
+                })}
+            </div>
+        </TooltipProvider>
+    );
+}
+
+// ─── Main Node ────────────────────────────────────────────────────────────────
+
 export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNodeData>) => {
-    const router = useRouter();
     const [menuOpen, setMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
     const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const {
@@ -46,37 +196,39 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
         isActive,
         isApproved,
         filled,
-        levelName,
         departmentColor,
         departmentName,
         assignedEmployee,
         onPositionClick,
         onAddChild,
         onDuplicate,
-        onAppoint
+        onAppoint,
     } = data;
 
-    const openMenu = () => {
+    // ── Menu open/close (hover + click дэмжинэ) ──
+    const openMenu = useCallback(() => {
         if (leaveTimerRef.current) {
             clearTimeout(leaveTimerRef.current);
             leaveTimerRef.current = null;
         }
         setMenuOpen(true);
-    };
+    }, []);
 
-    const closeMenu = () => {
-        leaveTimerRef.current = setTimeout(() => setMenuOpen(false), 250);
-    };
+    const closeMenu = useCallback(() => {
+        leaveTimerRef.current = setTimeout(() => setMenuOpen(false), 220);
+    }, []);
 
+    // Unmount + dependency change-д cleanup
     useEffect(() => {
         return () => {
             if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
         };
     }, []);
 
-    const isAppointing = assignedEmployee?.status === 'appointing';
+    // ── Derived values ──
+    const isAppointing = isAppointingStatus(assignedEmployee?.status);
+
     const occupancyPct = (() => {
-        // `filled` is used across the system; treat 0..1 as ratio, 0..100 as percent.
         if (typeof filled === 'number') {
             const pct = filled <= 1 ? filled * 100 : filled;
             return Math.max(0, Math.min(100, Math.round(pct)));
@@ -84,21 +236,30 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
         return assignedEmployee ? 100 : 0;
     })();
 
-    const hasActions = onPositionClick || onAddChild || onDuplicate;
-    const ctx = { onPositionClick, onAddChild, onDuplicate, data, id };
+    const cardColor   = departmentColor || '#1e293b';
+    const isDarkBg    = isColorDark(cardColor);
+    const hasActions  = !!(onPositionClick || onAddChild || onDuplicate);
+    const ctx: ActionCtx = { onPositionClick, onAddChild, onDuplicate, data, id };
 
     return (
-        <div className={cn(
-            "relative z-10 selection:bg-none overflow-visible",
-            selected ? "ring-4 ring-primary/30 scale-[1.02]" : "",
-            isActive === false && "opacity-60 grayscale"
-        )}>
+        <div
+            className={cn(
+                'relative z-10 selection:bg-none overflow-visible',
+                selected && 'ring-4 ring-primary/30 scale-[1.02]',
+                isActive === false && 'opacity-60 grayscale',
+            )}
+        >
             {/* Top Handle */}
             <Handle
                 type="target"
                 position={Position.Top}
                 className="!bg-slate-400/20 !w-2 !h-2 !border-none !top-0"
             />
+
+            {/*
+             * overflow-visible нь зөвхөн энд нэг удаа — радиал товчнуудыг
+             * карт хилийн гадна харуулахад хэрэгтэй.
+             */}
             <div className="relative overflow-visible">
                 <PositionStructureCard
                     positionId={id}
@@ -111,23 +272,26 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
                     employee={assignedEmployee as any}
                     completionPct={occupancyPct}
                     bottomLeftMeta={isApproved ? 'Батлагдсан' : 'Ноорог'}
+                    // ── Fix #2: placeholder div устгаж PositionCardExternalLinkAction ашиглав
                     actions={
-                        hasActions ? (
-                            /* Триггер нь доорх floating цэс дээр байрлана, карт дээр хоосон зай үлдээнэ */
-                            <div className="w-8 h-8" aria-hidden />
-                        ) : null
+                        hasActions
+                            ? <PositionCardExternalLinkAction positionId={id} isDarkBg={isDarkBg} />
+                            : null
                     }
-                    bottomSlot={
+                    actionsVisibility="always"
+                    // ── Fix #3: deprecated bottomSlot → footerActions болгов
+                    footerActions={
                         !assignedEmployee && isApproved ? (
                             <Button
                                 size="sm"
                                 className={cn(
-                                    "w-full h-10 rounded-xl text-[11px] font-semibold gap-2",
-                                    "bg-white/20 hover:bg-white/30 text-white border border-white/20 shadow-none"
+                                    'w-full h-10 rounded-xl text-[11px] font-semibold gap-2',
+                                    'bg-white/20 hover:bg-white/30 text-white',
+                                    'border border-white/20 shadow-none',
                                 )}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    if (onAppoint) onAppoint(data as PositionType);
+                                    onAppoint?.(data as PositionType);
                                 }}
                             >
                                 <UserPlus className="w-4 h-4" />
@@ -140,67 +304,17 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
                         ) : null
                     }
                 />
-                {/* Цэс картаас гадна, дээр нь — overflow-аас гарч бүрэн харагдана */}
+
+                {/* ── Fix #1, #4, #5: Radial menu — hover + click, зөв angle, тогтвортой offset ── */}
                 {hasActions && (
-                    <TooltipProvider delayDuration={150}>
-                        <div
-                            ref={menuRef}
-                            className={cn(
-                                "absolute right-3 z-[100] overflow-visible transition-all duration-200",
-                                menuOpen ? "top-0 w-[88px] h-[56px] -mt-11" : "top-3 w-8 h-8"
-                            )}
-                            onMouseEnter={openMenu}
-                            onMouseLeave={closeMenu}
-                        >
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        type="button"
-                                        className={cn(
-                                            "h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-transform",
-                                            menuOpen ? "absolute right-0 bottom-0 rotate-90" : "absolute right-0 top-0"
-                                        )}
-                                    >
-                                        <MoreVertical className="h-4 w-4" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent><div className="text-xs font-semibold">Үйлдлүүд</div></TooltipContent>
-                            </Tooltip>
-                            {ACTIONS.map(({ key, angle, Icon, label, run }, i) => {
-                            const hasHandler = (key === 'view' && onPositionClick) || (key === 'add' && onAddChild) || (key === 'duplicate' && onDuplicate);
-                            if (!hasHandler) return null;
-                            const rad = (angle * Math.PI) / 180;
-                            const x = Math.cos(rad) * RADIUS;
-                            const y = -Math.sin(rad) * RADIUS;
-                            return (
-                                <Tooltip key={key}>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            type="button"
-                                            className={cn(
-                                                "absolute h-9 w-9 rounded-full bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-lg border border-slate-200 transition-all duration-200",
-                                                menuOpen ? "right-0 bottom-0" : "right-0 top-0",
-                                                !menuOpen && "pointer-events-none invisible scale-0"
-                                            )}
-                                            style={{
-                                                transform: menuOpen ? `translate(${x}px, ${y}px)` : 'translate(0, 0) scale(0)',
-                                                transitionDelay: menuOpen ? `${i * 50}ms` : '0ms',
-                                            }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                run(ctx);
-                                                setMenuOpen(false);
-                                            }}
-                                        >
-                                            <Icon className="h-4 w-4" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" className="z-[110]"><div className="text-xs font-semibold">{label}</div></TooltipContent>
-                                </Tooltip>
-                            );
-                        })}
-                        </div>
-                    </TooltipProvider>
+                    <RadialMenu
+                        open={menuOpen}
+                        isDarkBg={isDarkBg}
+                        ctx={ctx}
+                        onOpen={openMenu}
+                        onClose={closeMenu}
+                        onAction={() => setMenuOpen(false)}
+                    />
                 )}
             </div>
 
