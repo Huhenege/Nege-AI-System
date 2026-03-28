@@ -12,23 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-    Plus, 
-    RotateCcw, 
-    Sparkles,
-    Network,
-    UserCheck,
-    Palmtree,
-    Newspaper,
-    Handshake,
-    Rocket,
-    Lock,
-} from 'lucide-react';
+import { Plus, RotateCcw, Sparkles, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { WidgetId, WIDGET_CATALOG, getAllWidgetIds, getWidgetsByCategory, WidgetConfig } from './catalog';
 import { getPlanDefinition, type SaaSModule, type CompanyPlan } from '@/types/company';
 import { usePricingPlans } from '@/hooks/use-pricing-plans';
 import { useRouter } from 'next/navigation';
+import { WidgetContent, WIDGET_GRADIENT, WIDGET_ICON_COLOR } from './widget-content';
 
 interface AddWidgetDialogProps {
     open: boolean;
@@ -312,198 +302,69 @@ interface WidgetRealPreviewProps {
     index: number;
 }
 
-// Real widget preview - looks exactly like dashboard cards
+/**
+ * Dashboard-д харагддагтай яг ижил widget preview.
+ * DashboardWidgetCard-ийн markup-г ашиглаж, data-г хоосон дамжуулна.
+ * Hover-д "Нэмэх" overlay гарна.
+ */
 function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
     const Icon = widget.icon;
     const isCompact = widget.size === 'compact';
 
-    // Get gradient for specific widgets
-    const getGradientClasses = () => {
-        switch (widget.id) {
-            case 'recruitment':
-                return 'bg-blue-500/10';
-            case 'points':
-                return 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20';
-            case 'er':
-                return 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10';
-            default:
-                return '';
-        }
-    };
-
-    const getIconColor = () => {
-        switch (widget.id) {
-            case 'employees': return 'text-emerald-400';
-            case 'points': return 'text-yellow-500';
-            case 'recruitment': return 'text-blue-400';
-            case 'er': return 'text-blue-500';
-            default: return 'text-slate-500';
-        }
-    };
-
-    // Render content based on widget type - same as dashboard
-    const renderContent = () => {
-        switch (widget.id) {
-            case 'employees':
-                return (
-                    <div>
-                        <div className="text-4xl font-semibold text-white mb-1">--</div>
-                        <div className="text-xs text-slate-400 font-medium">нийт ажилтан</div>
-                    </div>
-                );
-
-            case 'structure':
-                return (
-                    <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <div className="text-2xl font-semibold text-indigo-400">--</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Нэгж</div>
-                            </div>
-                            <div>
-                                <div className="text-2xl font-semibold text-purple-400">--</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Ажлын байр</div>
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            case 'attendance':
-                return (
-                    <div className="flex items-end gap-6">
-                        <div>
-                            <div className="text-3xl font-semibold text-white">--</div>
-                            <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wide">Ажил дээрээ</div>
-                        </div>
-                        <div className="h-12 w-px bg-slate-700" />
-                        <div>
-                            <div className="text-3xl font-semibold text-white">--</div>
-                            <div className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide">Чөлөөтэй</div>
-                        </div>
-                    </div>
-                );
-
-            case 'vacation':
-                return (
-                    <div>
-                        <div className="text-4xl font-semibold text-amber-500 mb-1">--</div>
-                        <div className="text-xs text-slate-400 font-medium">ажилтан амарч байна</div>
-                    </div>
-                );
-
-            case 'posts':
-                return (
-                    <div>
-                        <div className="text-4xl font-semibold text-white mb-1">--</div>
-                        <div className="text-xs text-slate-400 font-medium">нийтлэл</div>
-                    </div>
-                );
-
-            case 'recruitment':
-                return (
-                    <div className="relative z-10">
-                        <div className="text-2xl font-bold text-white mb-1">Сонгон шалгаруулалт</div>
-                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Recruitment & Selection</div>
-                    </div>
-                );
-
-            case 'points':
-                return (
-                    <div className="relative z-10">
-                        <div className="flex items-baseline gap-2 mb-1">
-                            <div className="text-3xl font-semibold text-white">Points</div>
-                            <Rocket className="w-5 h-5 text-orange-400" />
-                        </div>
-                        <div className="text-xs text-slate-400 font-medium">Recognition System</div>
-                    </div>
-                );
-
-            case 'er':
-                return (
-                    <div className="relative z-10 space-y-2">
-                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
-                            Хөдөлмөрийн харилцаа
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <div className="text-2xl font-semibold text-white">--</div>
-                                <div className="text-[10px] text-slate-400">Нийт баримт</div>
-                            </div>
-                            <div className="h-8 w-px bg-slate-700" />
-                            <div>
-                                <div className="text-2xl font-semibold text-amber-400">--</div>
-                                <div className="text-[10px] text-slate-400">Хүлээгдэж буй</div>
-                            </div>
-                            <div className="h-8 w-px bg-slate-700" />
-                            <div>
-                                <div className="text-2xl font-semibold text-blue-400">--</div>
-                                <div className="text-[10px] text-slate-400">Загвар</div>
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            default:
-                return null;
-        }
-    };
-
     return (
-        <div 
+        <div
             className={cn(
-                "relative group cursor-pointer",
-                "animate-in fade-in slide-in-from-bottom-4"
+                'relative group cursor-pointer',
+                'animate-in fade-in slide-in-from-bottom-4',
             )}
             style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
             onClick={onAdd}
         >
-            {/* The actual widget card - same style as dashboard */}
-            <Card 
+            {/* ── Card: DashboardWidgetCard-тай яг ижил markup ── */}
+            <Card
                 className={cn(
-                    "h-[140px] bg-slate-900 dark:bg-slate-800 border-slate-700",
-                    "transition-all duration-300 group overflow-hidden",
-                    "group-hover:scale-[1.03] group-hover:shadow-2xl group-hover:border-primary/50",
-                    isCompact ? "w-[200px]" : "w-[280px]"
+                    'bg-slate-900 dark:bg-slate-800 border-slate-700',
+                    'transition-all duration-300 overflow-hidden',
+                    'group-hover:scale-[1.03] group-hover:shadow-2xl group-hover:border-primary/50',
+                    'h-[160px]',
+                    isCompact ? 'w-[200px]' : 'w-[280px]',
                 )}
             >
-                <CardContent className="p-4 h-full flex flex-col justify-between relative overflow-hidden">
-                    {/* Decorative gradient background */}
-                    {getGradientClasses() && (
+                <CardContent className="p-3 sm:p-4 h-full flex flex-col justify-between relative overflow-hidden">
+                    {/* Gradient bg */}
+                    {WIDGET_GRADIENT[widget.id] && (
                         <div className={cn(
-                            "absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-3xl transition-all",
-                            getGradientClasses()
+                            'absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-3xl',
+                            WIDGET_GRADIENT[widget.id],
                         )} />
                     )}
 
                     {/* Header */}
-                    <div className="flex items-center justify-between relative z-10">
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    <div className="flex items-center justify-between mb-3 relative z-10">
+                        <div className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                             {widget.label}
                         </div>
-                        <Icon className={cn("h-5 w-5", getIconColor())} />
+                        <Icon className={cn('h-5 w-5 text-slate-500', WIDGET_ICON_COLOR[widget.id])} />
                     </div>
 
-                    {/* Content */}
+                    {/* Content — яг l ижил WidgetContent, data хоосон */}
                     <div className="relative z-10">
-                        {renderContent()}
+                        <WidgetContent id={widget.id} data={{}} />
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Hover overlay with add button */}
+            {/* Hover overlay */}
             <div className={cn(
-                "absolute inset-0 rounded-xl",
-                "bg-primary/0 group-hover:bg-primary/10",
-                "flex items-center justify-center",
-                "opacity-0 group-hover:opacity-100",
-                "transition-all duration-300"
+                'absolute inset-0 rounded-xl',
+                'bg-primary/0 group-hover:bg-primary/10',
+                'flex items-center justify-center',
+                'opacity-0 group-hover:opacity-100',
+                'transition-all duration-300',
             )}>
                 <Button
                     size="sm"
-                    className={cn(
-                        "shadow-xl scale-90 group-hover:scale-100 transition-transform",
-                        "bg-primary hover:bg-primary/90"
-                    )}
+                    className="shadow-xl scale-90 group-hover:scale-100 transition-transform bg-primary hover:bg-primary/90"
                 >
                     <Plus className="h-4 w-4 mr-1.5" />
                     Нэмэх
