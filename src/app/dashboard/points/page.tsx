@@ -18,6 +18,7 @@ import { BudgetRequestManager } from './_components/budget-request-manager';
 import { RedemptionManager } from './_components/redemption-manager';
 import { Leaderboard } from './_components/leaderboard';
 import { PointsTrendChart } from './_components/points-trend-chart';
+import { EmployeePointsPanel } from './_components/employee-points-panel';
 import { formatDistanceToNow } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -227,6 +228,7 @@ export default function PointAdminPage() {
                     items={[
                         { value: 'overview', label: 'Ерөнхий мэдээлэл' },
                         { value: 'leaderboard', label: 'Рейтинг' },
+                        { value: 'employees', label: 'Ажилтнууд' },
                         { value: 'rewards', label: 'Дэлгүүр удирдах' },
                         { value: 'requests', label: 'Захиалгууд' },
                         { value: 'budget-requests', label: 'Төсвийн хүсэлтүүд' },
@@ -539,6 +541,10 @@ export default function PointAdminPage() {
 
                 <TabsContent value="leaderboard" className="animate-in fade-in slide-in-from-bottom-2">
                     <Leaderboard />
+                </TabsContent>
+
+                <TabsContent value="employees" className="animate-in fade-in slide-in-from-bottom-2">
+                    <EmployeePointsPanel />
                 </TabsContent>
 
                 <TabsContent value="rewards" className="animate-in fade-in slide-in-from-bottom-2">
