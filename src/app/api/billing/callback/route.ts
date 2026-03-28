@@ -108,7 +108,7 @@ async function processPaymentCallback(invoiceNo: string): Promise<{ status: stri
       await db.doc(`companies/${companyId}/coupon_usage/${code}`).set(usage);
 
       // usedCount++ — race condition-с хамгаалахын тулд FieldValue.increment
-      await db.doc(`platform/coupons/${code}`).update({
+      await db.doc(`platform/config/coupons/${code}`).update({
         usedCount: FieldValue.increment(1),
       });
     }

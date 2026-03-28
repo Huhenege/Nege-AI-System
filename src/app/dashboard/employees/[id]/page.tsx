@@ -54,6 +54,7 @@ import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
 import { SystemSettingsTabContent } from './system-settings-tab-content';
 import { CVTabContent } from './cv-tab-content';
 import { VerificationDialog } from './verification-dialog';
+import { MakeAdminDialog } from './make-admin-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -658,6 +659,9 @@ export default function EmployeeProfilePage() {
         email: ''
     });
 
+    // Make admin dialog state
+    const [makeAdminOpen, setMakeAdminOpen] = React.useState(false);
+
     // Verification dialog state
     const [verifyDialogOpen, setVerifyDialogOpen] = React.useState(false);
     const [verifyType, setVerifyType] = React.useState<'email' | 'phone'>('email');
@@ -1047,14 +1051,34 @@ export default function EmployeeProfilePage() {
                     backBehavior="history"
                     fallbackBackHref="/dashboard/employees"
                     actions={
-                        <>
+                        <div className="flex items-center gap-2">
+                            {currentUserRole && (currentUserRole === 'admin' || currentUserRole === 'company_super_admin') && user?.uid !== employeeId && employee.role !== 'company_super_admin' && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn("h-8", employee.role === 'admin' ? 'text-orange-600 border-orange-200 hover:bg-orange-50' : '')}
+                                    onClick={() => setMakeAdminOpen(true)}
+                                >
+                                    {employee.role === 'admin' ? (
+                                        <>
+                                            <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+                                            Админ эрх цуцлах
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+                                            Админ болгох
+                                        </>
+                                    )}
+                                </Button>
+                            )}
                             <Button variant="outline" size="sm" className="h-8" asChild>
                                 <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
                                     <Activity className="h-3.5 w-3.5 mr-1.5" />
                                     Life Cycle
                                 </Link>
                             </Button>
-                        </>
+                        </div>
                     }
                 />
             </div>
@@ -1427,6 +1451,15 @@ export default function EmployeeProfilePage() {
             employeeId={employeeId || ''}
             onVerified={handleVerified}
         />
+
+        {employee && (
+            <MakeAdminDialog
+                open={makeAdminOpen}
+                onOpenChange={setMakeAdminOpen}
+                employee={employee as any}
+                currentUserId={user?.uid ?? ''}
+            />
+        )}
 
         </>
     )

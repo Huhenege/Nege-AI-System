@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Employee } from '@/types';
 import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { useTenant } from '@/contexts/tenant-context';
+import { useUser } from '@/firebase';
 
 interface MakeAdminDialogProps {
     open: boolean;
@@ -37,6 +38,7 @@ export function MakeAdminDialog({
     const { firestore, tDoc, tCollection } = useTenantWrite();
     const { companyId } = useTenant();
     const { toast } = useToast();
+    const { user: firebaseUser } = useUser();
     const [isLoading, setIsLoading] = React.useState(false);
 
     const isCurrentlyAdmin = employee.role === 'admin' || employee.role === 'company_super_admin';
@@ -103,6 +105,11 @@ export function MakeAdminDialog({
             // Claims succeeded — now update Firestore document
             const employeeRef = tDoc('employees', employee.id);
             await updateDoc(employeeRef, { role: newRole });
+
+            // Force refresh current user's token so Firestore rules pick up any claim changes
+            try {
+                await firebaseUser?.getIdToken(true);
+            } catch { /* ignore */ }
 
             toast({
                 title: 'Амжилттай',

@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     if (couponCode) {
       const code = couponCode.trim().toUpperCase();
-      const couponSnap = await db.doc(`platform/coupons/${code}`).get();
+      const couponSnap = await db.doc(`platform/config/coupons/${code}`).get();
 
       if (couponSnap.exists) {
         const coupon = couponSnap.data() as Coupon;

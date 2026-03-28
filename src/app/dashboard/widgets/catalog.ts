@@ -20,6 +20,7 @@ import {
     Calendar,
     FileText,
     Settings,
+    Stamp,
     LucideIcon
 } from 'lucide-react';
 import type { SaaSModule } from '@/types/company';
@@ -43,7 +44,8 @@ export type WidgetId =
     | 'company'
     | 'calendar'
     | 'documents'
-    | 'settings';
+    | 'settings'
+    | 'official-letters';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -278,6 +280,17 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         icon: Settings,
         requiredData: [],
         category: 'core'
+    },
+    'official-letters': {
+        id: 'official-letters',
+        label: 'Албан бичиг',
+        description: 'Стандарт албан бичиг үүсгэх',
+        href: '/dashboard/official-letters',
+        size: 'compact',
+        icon: Stamp,
+        requiredData: [],
+        category: 'core',
+        module: 'official_letters',
     },
 };
 

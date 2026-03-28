@@ -22,6 +22,7 @@ import { getDoc } from 'firebase/firestore';
 
 // ─── Status colours (semantic, matching the page's statusConfig) ─────────────
 const STATUS_COLORS: Record<string, string> = {
+  'appointing': '#f59e0b',
   'active': '#10b981',
   'active_probation': '#f59e0b',
   'active_permanent': '#10b981',
@@ -32,6 +33,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  'appointing': EMPLOYEE_STATUS_LABELS.appointing,
   'active': EMPLOYEE_STATUS_LABELS.active,
   'active_probation': EMPLOYEE_STATUS_LABELS.active_probation,
   'active_permanent': EMPLOYEE_STATUS_LABELS.active_permanent,

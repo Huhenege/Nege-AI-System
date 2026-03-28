@@ -40,6 +40,7 @@ import { EmployeesDashboard } from './components/employees-dashboard';
 
 // Status badge configuration
 const statusConfig: { [key: string]: { variant: 'success' | 'info' | 'warning' | 'error' | 'muted', label: string, color: string } } = {
+  "appointing": { variant: 'warning', label: EMPLOYEE_STATUS_LABELS.appointing, color: 'amber' },
   "active": { variant: 'success', label: EMPLOYEE_STATUS_LABELS.active, color: 'emerald' },
   "active_probation": { variant: 'warning', label: EMPLOYEE_STATUS_LABELS.active_probation, color: 'amber' },
   "active_permanent": { variant: 'success', label: EMPLOYEE_STATUS_LABELS.active_permanent, color: 'emerald' },

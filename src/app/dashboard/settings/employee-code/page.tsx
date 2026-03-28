@@ -18,7 +18,7 @@ import {
   useFirebase,
   useMemoFirebase,
   useDoc,
-  useFetchDoc,
+
   setDocumentNonBlocking,
   tenantDoc,
   useTenantWrite,
@@ -107,6 +107,14 @@ function EmployeeCodeConfigForm({
     if (!codeConfigRef || !firestore || !user) return;
 
     try {
+      // Sync Firestore role → Firebase Auth claims, then refresh token
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/ensure-claims?force=1', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      await user.getIdToken(true);
+
       // ── 1. Config-г transaction дотор хадгалж, admin-д код олгоно ──────────
       await runTransaction(firestore, async (tx) => {
         const configSnap = await tx.get(codeConfigRef);
@@ -307,7 +315,7 @@ export default function EmployeeCodeSettingsPage() {
     ({ firestore, companyPath }) => (firestore && user?.uid ? tenantDoc(firestore, companyPath, 'employees', user.uid) : null),
     [user?.uid]
   );
-  const { data: adminEmployee } = useFetchDoc<{ employeeCode?: string }>(adminDocRef as any);
+  const { data: adminEmployee } = useDoc<{ employeeCode?: string }>(adminDocRef as any);
   const adminHasCode = !!(adminEmployee?.employeeCode);
   const adminCode = adminEmployee?.employeeCode;
 

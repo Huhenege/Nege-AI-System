@@ -29,8 +29,9 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Lock, KeyRound, Loader2, LogIn, Mail, ShieldAlert, Eye, EyeOff } from 'lucide-react';
+import { Lock, KeyRound, Loader2, LogIn, Mail, ShieldAlert, Eye, EyeOff, Shield, ShieldOff } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/change-password-dialog';
+import { MakeAdminDialog } from './make-admin-dialog';
 import type { Employee } from '../data';
 import {
     buildInvitationEmailHtmlFromFields,
@@ -65,6 +66,7 @@ export function SystemSettingsTabContent({
     const [adminPasswordConfirm, setAdminPasswordConfirm] = React.useState('');
     const [adminPasswordShow, setAdminPasswordShow] = React.useState(false);
     const [isAdminSettingPassword, setIsAdminSettingPassword] = React.useState(false);
+    const [makeAdminOpen, setMakeAdminOpen] = React.useState(false);
 
     const isAdmin = currentUserRole === 'company_super_admin' || currentUserRole === 'admin';
     const isSelf = employee.id === currentUserId;
@@ -363,6 +365,61 @@ export function SystemSettingsTabContent({
                 </CardContent>
             </Card>
 
+            {/* Админ эрх */}
+            {isAdmin && !isSelf && (
+                <Card className="border-none shadow-sm bg-white">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <Shield className="h-4 w-4" />
+                            Админ эрх
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                            Энэ ажилтанд системийн админ эрх олгох эсвэл цуцлах.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex items-center gap-3">
+                        <Badge
+                            variant="secondary"
+                            className={
+                                employee.role === 'admin' || employee.role === 'company_super_admin'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-slate-50 text-slate-500 border-slate-200'
+                            }
+                        >
+                            {employee.role === 'company_super_admin'
+                                ? 'Ерөнхий админ'
+                                : employee.role === 'admin'
+                                  ? 'Админ'
+                                  : 'Ажилтан'}
+                        </Badge>
+                        {employee.role !== 'company_super_admin' && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={
+                                    employee.role === 'admin'
+                                        ? 'gap-2 text-orange-600 border-orange-200 hover:bg-orange-50'
+                                        : 'gap-2'
+                                }
+                                onClick={() => setMakeAdminOpen(true)}
+                            >
+                                {employee.role === 'admin' ? (
+                                    <>
+                                        <ShieldOff className="h-4 w-4" />
+                                        Админ эрх цуцлах
+                                    </>
+                                ) : (
+                                    <>
+                                        <Shield className="h-4 w-4" />
+                                        Админ болгох
+                                    </>
+                                )}
+                            </Button>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Нэвтрэх эрхийн мэйл дахин илгээх */}
             {showResendAccessEmail ? (
                 <Card className="border-none shadow-sm bg-white">
@@ -658,6 +715,13 @@ export function SystemSettingsTabContent({
             </AlertDialog>
 
             <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
+
+            <MakeAdminDialog
+                open={makeAdminOpen}
+                onOpenChange={setMakeAdminOpen}
+                employee={employee as any}
+                currentUserId={currentUserId}
+            />
         </div>
     );
 }

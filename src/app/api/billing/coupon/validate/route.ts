@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         const db = getFirebaseAdminFirestore();
 
         // ── 1. Coupon татах ──
-        const couponSnap = await db.doc(`platform/coupons/${code}`).get();
+        const couponSnap = await db.doc(`platform/config/coupons/${code}`).get();
         if (!couponSnap.exists) {
             return NextResponse.json({ valid: false, error: 'Хөнгөлтийн код олдсонгүй' });
         }

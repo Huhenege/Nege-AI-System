@@ -6,11 +6,13 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { WidgetId } from './catalog';
+// official-letters widget-д нэмэлт data хэрэггүй — KPI-гүй link card
 import { WidgetData } from './dashboard-widget-card';
 
 // ─── Gradient map ─────────────────────────────────────────────────────────────
 
 export const WIDGET_GRADIENT: Partial<Record<WidgetId, string>> = {
+    'official-letters': 'bg-gradient-to-br from-blue-500/10 to-cyan-500/10',
     projects:       'bg-gradient-to-br from-violet-500/10 to-purple-500/10',
     employees:      'bg-gradient-to-br from-emerald-500/10 to-teal-500/10',
     recruitment:    'bg-blue-500/10',
@@ -31,6 +33,7 @@ export const WIDGET_GRADIENT: Partial<Record<WidgetId, string>> = {
 // ─── Icon color map ───────────────────────────────────────────────────────────
 
 export const WIDGET_ICON_COLOR: Partial<Record<WidgetId, string>> = {
+    'official-letters': 'text-blue-400',
     projects:       'text-violet-400',
     employees:      'text-emerald-400',
     points:         'text-yellow-500',
@@ -489,6 +492,12 @@ const CONTENT_MAP: Partial<Record<WidgetId, React.ComponentType<Props>>> = {
     documents:      DocumentsContent,
     settings:       SettingsContent,
     billing:        BillingContent,
+    'official-letters': ({ data }: Props) => (
+        <div className="space-y-1">
+            <div className="text-lg font-semibold text-white leading-tight">Албан бичиг</div>
+            <div className="text-[10px] text-slate-400 font-medium">Стандарт бланк үүсгэх</div>
+        </div>
+    ),
 };
 
 // ─── Main export ──────────────────────────────────────────────────────────────

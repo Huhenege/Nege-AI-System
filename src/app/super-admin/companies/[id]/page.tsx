@@ -97,6 +97,7 @@ const MODULE_LABELS: Record<SaaSModule, string> = {
   calendar: 'Календар',
   meetings: 'Уулзалт',
   ai_assistant: 'AI туслах',
+  official_letters: 'Албан бичиг',
 };
 
 interface CompanyUser {
