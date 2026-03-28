@@ -133,6 +133,7 @@ const LAYOUT_STORAGE_KEY = 'org-chart-layout';
 
 import { PositionStructureCard } from '@/components/organization/position-structure-card';
 import { PositionRadialMenu } from '@/components/organization/position-radial-menu';
+import { isSystemUser } from '@/lib/employee-utils';
 import { EmployeeCard } from '@/components/employees/employee-card';
 
 // --- Node Components ---
@@ -637,7 +638,9 @@ const OrganizationChart = () => {
             let m = 0, f = 0;
             let totalAge = 0, ageCount = 0;
             const today = new Date();
-            const promises = employees.map(async (emp) => {
+            // super_admin хасна
+            const tenantEmployees = employees.filter(e => !isSystemUser(e as any));
+            const promises = tenantEmployees.map(async (emp) => {
                 try {
                     const snap = await getDoc(tDoc('employees', emp.id, 'questionnaire', 'data'));
                     if (snap.exists()) {
@@ -737,7 +740,8 @@ const OrganizationChart = () => {
 
     // Prepare widget data for the dashboard widgets bar
     const widgetData: WidgetData = useMemo(() => {
-        const empArr = employees || [];
+        // super_admin нь платформын хэрэглэгч — тоонд орохгүй
+        const empArr = (employees || []).filter(e => !isSystemUser(e as any));
         return {
             // Projects widget
             activeProjectsCount: activeProjects?.length || 0,
