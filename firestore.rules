@@ -67,6 +67,12 @@ service cloud.firestore {
           allow read: if belongsToCompany(companyId);
           allow write: if isCompanyAdmin(companyId);
         }
+
+        // Dashboard widget preferences — өөрийн тохиргоог өөрөө л удирдана
+        match /dashboardWidgets/{docId} {
+          allow read: if belongsToCompany(companyId);
+          allow write: if belongsToCompany(companyId) && isOwner(employeeId);
+        }
       }
 
       // collectionGroup query-д зориулсан top-level rule

@@ -1,10 +1,31 @@
 // src/app/dashboard/widgets/use-dashboard-widgets.ts
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * useDashboardWidgets
+ *
+ * Widget-ийн дараалал болон нуусан жагсаалтыг Firestore-д хадгалдаг.
+ * Зам: companies/{companyId}/employees/{userId}/dashboardWidgets/main
+ *
+ * Өмнө: localStorage → per-browser, хэрэглэгч хоорондоо хольцдог байсан.
+ * Одоо: Firestore → per-user, per-company, device-independent.
+ *
+ * Fallback: Firestore ачаалахаас өмнө localStorage-г ашиглана (flash-гүй).
+ * Шилжилт: localStorage-д хуучин state байвал нэг удаа Firestore-д migrate хийж,
+ *           localStorage-г цэвэрлэнэ.
+ */
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot,
+    Firestore,
+} from 'firebase/firestore';
 import { WidgetId, DEFAULT_ORDER, getAllWidgetIds } from './catalog';
 
-const STORAGE_KEY = 'dashboard-widgets';
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface DashboardWidgetsState {
     order: WidgetId[];
@@ -13,143 +34,208 @@ interface DashboardWidgetsState {
 
 const DEFAULT_STATE: DashboardWidgetsState = {
     order: DEFAULT_ORDER,
-    hidden: []
+    hidden: [],
 };
 
-function loadFromStorage(): DashboardWidgetsState {
-    if (typeof window === 'undefined') {
-        return DEFAULT_STATE;
-    }
-    
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (!stored) {
-            return DEFAULT_STATE;
-        }
-        
-        const parsed = JSON.parse(stored) as DashboardWidgetsState;
-        
-        // Validate the parsed data
-        if (!Array.isArray(parsed.order) || !Array.isArray(parsed.hidden)) {
-            return DEFAULT_STATE;
-        }
-        
-        const allWidgetIds = getAllWidgetIds();
-        const validOrder = parsed.order.filter(id => allWidgetIds.includes(id));
-        const validHidden = parsed.hidden.filter(id => allWidgetIds.includes(id));
-        
-        // Detect newly added widgets not present in stored order or hidden list
-        const knownIds = new Set([...validOrder, ...validHidden]);
-        const newWidgets = allWidgetIds.filter(id => !knownIds.has(id));
-        
-        // Prepend new widgets so the user sees them immediately
-        const finalOrder = newWidgets.length > 0
-            ? [...newWidgets, ...validOrder]
-            : validOrder;
-        
-        return {
-            order: finalOrder.length > 0 ? finalOrder : DEFAULT_ORDER,
-            hidden: validHidden
-        };
-    } catch (e) {
-        console.error('Failed to parse dashboard widgets from localStorage', e);
-        return DEFAULT_STATE;
-    }
+const LEGACY_STORAGE_KEY = 'dashboard-widgets';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function mergeWithNewWidgets(stored: DashboardWidgetsState): DashboardWidgetsState {
+    const allIds = getAllWidgetIds();
+    const knownIds = new Set([...stored.order, ...stored.hidden]);
+    const newWidgets = allIds.filter(id => !knownIds.has(id));
+
+    const validOrder = stored.order.filter(id => allIds.includes(id));
+    const validHidden = stored.hidden.filter(id => allIds.includes(id));
+
+    return {
+        order: newWidgets.length > 0 ? [...newWidgets, ...validOrder] : validOrder,
+        hidden: validHidden,
+    };
 }
 
-function saveToStorage(state: DashboardWidgetsState): void {
-    if (typeof window === 'undefined') return;
-    
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-        console.error('Failed to save dashboard widgets to localStorage', e);
-    }
+function getDocRef(firestore: Firestore, companyPath: string, userId: string) {
+    return doc(firestore, `${companyPath}/employees/${userId}/dashboardWidgets/main`);
 }
 
-export function useDashboardWidgets() {
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
+interface UseDashboardWidgetsOptions {
+    firestore: Firestore | null;
+    companyPath: string | null;
+    userId: string | null;
+}
+
+export function useDashboardWidgets(opts?: UseDashboardWidgetsOptions) {
+    const { firestore = null, companyPath = null, userId = null } = opts ?? {};
+
     const [state, setState] = useState<DashboardWidgetsState>(DEFAULT_STATE);
     const [isLoaded, setIsLoaded] = useState(false);
 
-    // Load from localStorage on mount
-    useEffect(() => {
-        const loaded = loadFromStorage();
-        setState(loaded);
-        setIsLoaded(true);
-    }, []);
+    // Firestore-д write дарааллах — ачаалах үед давхар write-с сэргийлэх
+    const isMigratingRef = useRef(false);
+    const isInitializedRef = useRef(false);
 
-    // Save to localStorage whenever state changes (after initial load)
+    // ── Firestore-оос ачаалах + realtime sync ────────────────────────────────
     useEffect(() => {
-        if (isLoaded) {
-            saveToStorage(state);
+        if (!firestore || !companyPath || !userId) {
+            // Firestore бэлэн биш — legacy localStorage-с авна
+            if (typeof window !== 'undefined') {
+                try {
+                    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw) as DashboardWidgetsState;
+                        setState(mergeWithNewWidgets(parsed));
+                    }
+                } catch { /* ignore */ }
+            }
+            setIsLoaded(true);
+            return;
         }
-    }, [state, isLoaded]);
 
-    // Set the order of widgets (used after drag-and-drop)
-    const setOrder = useCallback((newOrder: WidgetId[]) => {
-        setState(prev => ({
-            ...prev,
-            order: newOrder
-        }));
+        const ref = getDocRef(firestore, companyPath, userId);
+
+        const unsub = onSnapshot(ref, (snap) => {
+            if (!snap.exists()) {
+                // Firestore-д байхгүй — localStorage migration шалгана
+                if (!isInitializedRef.current) {
+                    isInitializedRef.current = true;
+                    migrateLegacyState(firestore, companyPath, userId);
+                }
+                setIsLoaded(true);
+                return;
+            }
+
+            const data = snap.data() as DashboardWidgetsState;
+            const merged = mergeWithNewWidgets(data);
+            setState(merged);
+            isInitializedRef.current = true;
+            setIsLoaded(true);
+        }, (err) => {
+            console.error('[useDashboardWidgets] Firestore error:', err);
+            setIsLoaded(true);
+        });
+
+        return () => unsub();
+    }, [firestore, companyPath, userId]);
+
+    // ── localStorage → Firestore migration ───────────────────────────────────
+    const migrateLegacyState = useCallback(async (
+        fs: Firestore,
+        cp: string,
+        uid: string
+    ) => {
+        if (isMigratingRef.current) return;
+        isMigratingRef.current = true;
+
+        try {
+            const legacy = typeof window !== 'undefined'
+                ? localStorage.getItem(LEGACY_STORAGE_KEY)
+                : null;
+
+            const initial = legacy
+                ? mergeWithNewWidgets(JSON.parse(legacy) as DashboardWidgetsState)
+                : DEFAULT_STATE;
+
+            const ref = getDocRef(fs, cp, uid);
+            await setDoc(ref, initial, { merge: false });
+
+            // Migration амжилттай — localStorage цэвэрлэнэ
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem(LEGACY_STORAGE_KEY);
+            }
+
+            setState(initial);
+        } catch (err) {
+            console.error('[useDashboardWidgets] Migration failed:', err);
+        } finally {
+            isMigratingRef.current = false;
+        }
     }, []);
 
-    // Hide a widget (remove from order, add to hidden)
+    // ── Firestore-д write (debounced) ────────────────────────────────────────
+    const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const persistState = useCallback((newState: DashboardWidgetsState) => {
+        if (!firestore || !companyPath || !userId || !isInitializedRef.current) return;
+
+        // 600ms debounce — DnD drag үед хэт олон write гарахаас сэргийлнэ
+        if (writeTimer.current) clearTimeout(writeTimer.current);
+        writeTimer.current = setTimeout(async () => {
+            try {
+                const ref = getDocRef(firestore, companyPath, userId);
+                await setDoc(ref, newState, { merge: false });
+            } catch (err) {
+                console.error('[useDashboardWidgets] Write failed:', err);
+            }
+        }, 600);
+    }, [firestore, companyPath, userId]);
+
+    // ── Cleanup ───────────────────────────────────────────────────────────────
+    useEffect(() => {
+        return () => {
+            if (writeTimer.current) clearTimeout(writeTimer.current);
+        };
+    }, []);
+
+    // ── Actions ───────────────────────────────────────────────────────────────
+
+    const setOrder = useCallback((newOrder: WidgetId[]) => {
+        setState(prev => {
+            const next = { ...prev, order: newOrder };
+            persistState(next);
+            return next;
+        });
+    }, [persistState]);
+
     const hideWidget = useCallback((id: WidgetId) => {
         setState(prev => {
-            // Don't hide if it's already hidden
             if (prev.hidden.includes(id)) return prev;
-            
-            return {
+            const next = {
                 order: prev.order.filter(wid => wid !== id),
-                hidden: [...prev.hidden, id]
+                hidden: [...prev.hidden, id],
             };
+            persistState(next);
+            return next;
         });
-    }, []);
+    }, [persistState]);
 
-    // Show a widget (remove from hidden, add to order at the end or middle)
     const showWidget = useCallback((id: WidgetId, position?: 'start' | 'middle' | 'end') => {
         setState(prev => {
-            // Don't add if it's already in order
             if (prev.order.includes(id)) return prev;
-            
+
             const newHidden = prev.hidden.filter(wid => wid !== id);
             let newOrder: WidgetId[];
-            
+
             switch (position) {
                 case 'start':
                     newOrder = [id, ...prev.order];
                     break;
-                case 'middle':
-                    const middleIndex = Math.floor(prev.order.length / 2);
-                    newOrder = [
-                        ...prev.order.slice(0, middleIndex),
-                        id,
-                        ...prev.order.slice(middleIndex)
-                    ];
+                case 'middle': {
+                    const mid = Math.floor(prev.order.length / 2);
+                    newOrder = [...prev.order.slice(0, mid), id, ...prev.order.slice(mid)];
                     break;
-                case 'end':
+                }
                 default:
                     newOrder = [...prev.order, id];
-                    break;
             }
-            
-            return {
-                order: newOrder,
-                hidden: newHidden
-            };
-        });
-    }, []);
 
-    // Get available widgets (not in order and in hidden, or new KPI widgets)
+            const next = { order: newOrder, hidden: newHidden };
+            persistState(next);
+            return next;
+        });
+    }, [persistState]);
+
     const getAvailableWidgets = useCallback((): WidgetId[] => {
-        const allWidgetIds = getAllWidgetIds();
-        return allWidgetIds.filter(id => !state.order.includes(id));
+        return getAllWidgetIds().filter(id => !state.order.includes(id));
     }, [state.order]);
 
-    // Reset to default state
     const resetToDefault = useCallback(() => {
-        setState(DEFAULT_STATE);
-    }, []);
+        const next = DEFAULT_STATE;
+        setState(next);
+        persistState(next);
+    }, [persistState]);
 
     return {
         order: state.order,
@@ -159,6 +245,6 @@ export function useDashboardWidgets() {
         hideWidget,
         showWidget,
         getAvailableWidgets,
-        resetToDefault
+        resetToDefault,
     };
 }

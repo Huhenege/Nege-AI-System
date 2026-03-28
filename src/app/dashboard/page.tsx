@@ -36,6 +36,7 @@ import {
     tenantCollection,
     tenantDoc,
     useTenantWrite,
+    useUser,
 } from '@/firebase';
 import { query, where, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -413,7 +414,8 @@ const OrganizationChart = () => {
 
     const { toast } = useToast();
     const { company, isModuleEnabled } = useTenant();
-    const { firestore, tDoc, tCollection } = useTenantWrite();
+    const { firestore, tDoc, tCollection, companyPath } = useTenantWrite();
+    const { user } = useUser();
     const { getPlanLabel } = usePricingPlans();
 
     // Data fetching
@@ -563,7 +565,11 @@ const OrganizationChart = () => {
         setOrder,
         hideWidget,
         showWidget
-    } = useDashboardWidgets();
+    } = useDashboardWidgets({
+        firestore: firestore ?? null,
+        companyPath: companyPath ?? null,
+        userId: user?.uid ?? null,
+    });
 
     const onLeaveCount = useMemo(() => {
         if (!vacationRequests) return 0;
