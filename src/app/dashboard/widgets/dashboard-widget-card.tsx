@@ -87,6 +87,27 @@ export interface WidgetData {
     billingNextPayment?: string;
     billingAmount?: number;
     billingCurrency?: string;
+
+    // Points widget
+    pointsRecognitionCount?: number;   // Нийт талархлын тоо
+    pointsActiveUsers?: number;        // Сүүлийн 30 хоногт идэвхтэй хэрэглэгч
+    pointsTotalGiven?: number;         // Нийт олгосон оноо
+
+    // Company widget
+    companyName?: string;
+    companyPlan?: string;
+    companyPlanLabel?: string;
+
+    // Calendar widget
+    calendarEventsToday?: number;      // Өнөөдрийн үйл явдал
+    calendarEventsWeek?: number;       // 7 хоногийн үйл явдал
+
+    // Documents widget
+    documentsTotal?: number;           // Нийт баримт
+    documentsExpiring?: number;        // Дуусах дөхсөн (30 хоногт)
+
+    // Settings widget — тохиргоо дутуу байгаа зүйлсийн тоо
+    settingsMissingCount?: number;
 }
 
 interface DashboardWidgetCardProps {
@@ -306,11 +327,29 @@ export function DashboardWidgetCard({
 
             case 'points':
                 return (
-                    <div className="relative z-10">
-                        <div className="flex items-baseline gap-2 mb-1">
-                            <div className="text-2xl sm:text-3xl font-semibold text-white">Points</div>
+                    <div className="relative z-10 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl sm:text-3xl font-semibold text-white">
+                                    {data.pointsRecognitionCount ?? 0}
+                                </div>
+                                <div className="text-[10px] text-yellow-400 font-semibold uppercase tracking-wide">Талархал</div>
+                            </div>
+                            <div className="h-10 w-px bg-slate-700" />
+                            <div className="text-right">
+                                <div className="text-2xl sm:text-3xl font-semibold text-orange-400">
+                                    {data.pointsActiveUsers ?? 0}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Идэвхтэй</div>
+                            </div>
                         </div>
-                        <div className="text-xs text-slate-400 font-medium">Recognition System</div>
+                        {(data.pointsTotalGiven ?? 0) > 0 && (
+                            <div className="pt-1 border-t border-slate-700/60">
+                                <div className="text-[10px] text-slate-500">
+                                    Нийт олгосон: <span className="text-yellow-400 font-semibold">{(data.pointsTotalGiven ?? 0).toLocaleString()} pts</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
 
@@ -466,35 +505,95 @@ export function DashboardWidgetCard({
 
             case 'company':
                 return (
-                    <div className="relative z-10">
-                        <div className="text-2xl sm:text-3xl font-semibold text-white mb-1">Компани</div>
-                        <div className="text-xs text-slate-400 font-medium">Мэдээлэл, бодлого, түүх</div>
+                    <div className="relative z-10 space-y-1">
+                        <div className="text-lg sm:text-xl font-semibold text-white leading-tight truncate">
+                            {data.companyName || 'Компани'}
+                        </div>
+                        {data.companyPlanLabel && (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-700 text-[10px] font-semibold text-slate-300">
+                                {data.companyPlanLabel}
+                            </div>
+                        )}
+                        <div className="text-[10px] text-slate-500 pt-1">Мэдээлэл, бодлого, түүх</div>
                     </div>
                 );
 
-            case 'calendar':
+            case 'calendar': {
+                const today = data.calendarEventsToday ?? 0;
+                const week = data.calendarEventsWeek ?? 0;
                 return (
-                    <div className="relative z-10">
-                        <div className="text-2xl sm:text-3xl font-semibold text-white mb-1">Календар</div>
-                        <div className="text-xs text-slate-400 font-medium">Үйл явдлын хуанли</div>
+                    <div className="relative z-10 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl sm:text-3xl font-semibold text-sky-400">{today}</div>
+                                <div className="text-[10px] text-slate-400 uppercase tracking-wide">Өнөөдөр</div>
+                            </div>
+                            <div className="h-10 w-px bg-slate-700" />
+                            <div className="text-right">
+                                <div className="text-2xl sm:text-3xl font-semibold text-white">{week}</div>
+                                <div className="text-[10px] text-slate-400 uppercase tracking-wide">7 хоногт</div>
+                            </div>
+                        </div>
+                        <div className="text-[10px] text-slate-500">Үйл явдлын хуанли</div>
                     </div>
                 );
+            }
 
-            case 'documents':
+            case 'documents': {
+                const total = data.documentsTotal ?? 0;
+                const expiring = data.documentsExpiring ?? 0;
                 return (
-                    <div className="relative z-10">
-                        <div className="text-2xl sm:text-3xl font-semibold text-white mb-1">Баримт бичиг</div>
-                        <div className="text-xs text-slate-400 font-medium">Бичиг баримтын удирдлага</div>
+                    <div className="relative z-10 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl sm:text-3xl font-semibold text-amber-400">{total}</div>
+                                <div className="text-[10px] text-slate-400 uppercase tracking-wide">Нийт баримт</div>
+                            </div>
+                            {expiring > 0 && (
+                                <>
+                                    <div className="h-10 w-px bg-slate-700" />
+                                    <div className="text-right">
+                                        <div className="text-2xl sm:text-3xl font-semibold text-rose-400">{expiring}</div>
+                                        <div className="text-[10px] text-rose-400 uppercase tracking-wide">Дуусах дөхсөн</div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Бичиг баримтын удирдлага</div>
                     </div>
                 );
+            }
 
-            case 'settings':
+            case 'settings': {
+                const missing = data.settingsMissingCount ?? 0;
                 return (
-                    <div className="relative z-10">
-                        <div className="text-2xl sm:text-3xl font-semibold text-white mb-1">Тохиргоо</div>
-                        <div className="text-xs text-slate-400 font-medium">Системийн тохиргоо</div>
+                    <div className="relative z-10 space-y-2">
+                        {missing > 0 ? (
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                                    <span className="text-amber-400 font-bold text-sm">{missing}</span>
+                                </div>
+                                <div>
+                                    <div className="text-sm font-semibold text-amber-400">Тохиргоо шаардлагатай</div>
+                                    <div className="text-[10px] text-slate-500">Дэлгэрэнгүйг харах</div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                                    <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div className="text-sm font-semibold text-emerald-400">Бүх тохиргоо бэлэн</div>
+                                    <div className="text-[10px] text-slate-500">Системийн тохиргоо</div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
+            }
 
             case 'billing': {
                 const plan = data.billingPlanLabel ?? 'Үнэгүй';

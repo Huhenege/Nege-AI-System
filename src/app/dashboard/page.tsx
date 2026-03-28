@@ -38,7 +38,7 @@ import {
     useTenantWrite,
     useUser,
 } from '@/firebase';
-import { query, where, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
+import { query, where, orderBy, limit, collectionGroup, writeBatch, getDoc, getDocs, increment } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -543,6 +543,33 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: allSurveys } = useFetchCollection<any>(surveysQuery);
 
+    // Points widget queries
+    const recognitionPostsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'recognition_posts'), orderBy('createdAt', 'desc'), limit(30)) : null
+        , [firestore]);
+    const { data: recentRecognitionPosts } = useFetchCollection<any>(recognitionPostsQuery);
+
+    const pointTxQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'point_transactions'), orderBy('createdAt', 'desc'), limit(200)) : null
+        , [firestore]);
+    const { data: recentPointTx } = useFetchCollection<any>(pointTxQuery);
+
+    // Calendar events (today + next 7 days) — for Calendar widget
+    const calendarEventsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(
+            tenantCollection(firestore, companyPath, 'calendar_events'),
+            where('date', '>=', todayStr),
+            limit(50)
+        ) : null
+        , [firestore, todayStr]);
+    const { data: upcomingCalendarEvents } = useFetchCollection<any>(calendarEventsQuery);
+
+    // Employee documents — for Documents widget
+    const employeeDocsQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'employee_documents'), limit(200)) : null
+        , [firestore]);
+    const { data: employeeDocuments } = useFetchCollection<any>(employeeDocsQuery);
+
     // Calculate overdue tasks
     const overdueTasksCount = useMemo(() => {
         if (!allTasks) return 0;
@@ -800,6 +827,50 @@ const OrganizationChart = () => {
             surveyDraftCount: allSurveys?.filter((s: any) => s.status === 'draft').length || 0,
             surveyTotalResponses: allSurveys?.reduce((sum: number, s: any) => sum + (s.responsesCount || 0), 0) || 0,
 
+            // Points widget
+            pointsRecognitionCount: recentRecognitionPosts?.length || 0,
+            pointsActiveUsers: (() => {
+                const last30 = new Date();
+                last30.setDate(last30.getDate() - 30);
+                const activeIds = new Set<string>();
+                (recentPointTx || []).forEach((tx: any) => {
+                    const d = tx.createdAt?.toDate?.() ?? (tx.createdAt ? new Date(tx.createdAt) : null);
+                    if (d && d >= last30) activeIds.add(tx.userId);
+                });
+                return activeIds.size;
+            })(),
+            pointsTotalGiven: (recentPointTx || [])
+                .filter((tx: any) => tx.type === 'GIVEN')
+                .reduce((s: number, tx: any) => s + Math.abs(Number(tx.amount)), 0),
+
+            // Company widget
+            companyName: companyProfile?.name || company?.name,
+            companyPlan: company?.plan,
+            companyPlanLabel: company?.plan ? getPlanLabel(company.plan) : undefined,
+
+            // Calendar widget
+            calendarEventsToday: (upcomingCalendarEvents || []).filter((e: any) => e.date === todayStr).length,
+            calendarEventsWeek: upcomingCalendarEvents?.length || 0,
+
+            // Documents widget
+            documentsTotal: employeeDocuments?.length || 0,
+            documentsExpiring: (() => {
+                const in30 = new Date();
+                in30.setDate(in30.getDate() + 30);
+                const in30Str = in30.toISOString().slice(0, 10);
+                return (employeeDocuments || []).filter((d: any) =>
+                    d.expiryDate && d.expiryDate <= in30Str && d.expiryDate >= todayStr
+                ).length;
+            })(),
+
+            // Settings widget — дутуу тохиргооны тоо
+            settingsMissingCount: (() => {
+                let count = 0;
+                // Ажилтны кодчлол тохируулаагүй
+                // (company profile-оос шалгах боломжгүй тул 0 буцаана — banner нь хариуцна)
+                return count;
+            })(),
+
             // Billing widget
             billingPlan: company?.plan,
             billingPlanLabel: company?.plan ? getPlanLabel(company.plan) : undefined,
@@ -836,6 +907,12 @@ const OrganizationChart = () => {
         bpKpis,
         allSurveys,
         company,
+        companyProfile,
+        recentRecognitionPosts,
+        recentPointTx,
+        upcomingCalendarEvents,
+        employeeDocuments,
+        todayStr,
     ]);
 
 
