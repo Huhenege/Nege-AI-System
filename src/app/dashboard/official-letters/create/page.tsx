@@ -306,7 +306,7 @@ export default function CreateOfficialLetterPage() {
                                 ].map(f => (
                                     <div key={f.name} className="space-y-1">
                                         <Label className="text-xs">{f.label}</Label>
-                                        <Input name={f.name} value={(config as any)[f.name]} onChange={handleChange} className="h-8 text-sm" />
+                                        <Input name={f.name} value={config[f.name as keyof OfficialLetterConfig] as string ?? ''} onChange={handleChange} className="h-8 text-sm" />
                                     </div>
                                 ))}
                             </CardContent>

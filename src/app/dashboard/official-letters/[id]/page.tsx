@@ -103,9 +103,13 @@ export default function OfficialLetterDetailPage() {
     };
 
     const handleArchive = async () => {
-        await updateDoc(tDoc('official_letters', id), { status: 'ARCHIVED', updatedAt: Timestamp.now() });
-        toast({ title: 'Архивлагдлаа' });
-        router.push('/dashboard/official-letters');
+        try {
+            await updateDoc(tDoc('official_letters', id), { status: 'ARCHIVED', updatedAt: Timestamp.now() });
+            toast({ title: 'Архивлагдлаа' });
+            router.push('/dashboard/official-letters');
+        } catch {
+            toast({ title: 'Алдаа гарлаа', variant: 'destructive' });
+        }
     };
 
     if (isLoading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;

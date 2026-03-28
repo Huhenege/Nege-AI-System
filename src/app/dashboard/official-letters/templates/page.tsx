@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { Timestamp, addDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { useFirebase, useFetchCollection, useFetchDoc, useTenantWrite } from '@/firebase';
 import { useUser } from '@/firebase';
+import { useTenantRole } from '@/contexts/tenant-context';
 import { OfficialLetterTemplate, OfficialLetterConfig, DEFAULT_CONFIG } from '../types';
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ export default function TemplatesPage() {
     const { firestore } = useFirebase();
     const { tCollection, tDoc } = useTenantWrite();
     const { user } = useUser();
+    const role = useTenantRole();
+    const isAdmin = role === 'company_super_admin' || role === 'admin';
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [templateName, setTemplateName] = useState('');
@@ -82,7 +85,7 @@ export default function TemplatesPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <NumberingConfigForm configRef={configRef} />
+                    <NumberingConfigForm configRef={configRef} isAdmin={isAdmin} />
                 </CardContent>
             </Card>
 
@@ -106,7 +109,7 @@ export default function TemplatesPage() {
                                 </div>
                                 {t.isSystem && <Badge variant="secondary" className="text-[10px]">Системийн</Badge>}
                             </div>
-                            {!t.isSystem && (
+                            {!t.isSystem && isAdmin && (
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-400 hover:text-rose-600"
                                     onClick={() => handleDelete(t.id, t.isSystem)}>
                                     <Trash2 className="h-4 w-4" />
@@ -142,7 +145,7 @@ export default function TemplatesPage() {
 }
 
 // Numbering config mini form
-function NumberingConfigForm({ configRef }: { configRef: any }) {
+function NumberingConfigForm({ configRef, isAdmin }: { configRef: any; isAdmin: boolean }) {
     const { data: cfg, isLoading } = useFetchDoc<any>(configRef);
     const [prefix, setPrefix] = React.useState('АБ');
     const [digitCount, setDigitCount] = React.useState(4);
@@ -174,7 +177,7 @@ function NumberingConfigForm({ configRef }: { configRef: any }) {
                 <Input type="number" min={1} max={8} value={digitCount} onChange={e => setDigitCount(Number(e.target.value))} className="h-8 w-20 text-sm" />
             </div>
             <div className="text-sm text-muted-foreground pb-1">→ Жишээ: <strong>{prefix}-{new Date().getFullYear()}-{'0'.repeat(digitCount - 1)}1</strong></div>
-            <Button size="sm" onClick={handleSave} disabled={isSaving} className="h-8">
+            <Button size="sm" onClick={handleSave} disabled={isSaving || !isAdmin} className="h-8">
                 {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Хадгалах'}
             </Button>
         </div>

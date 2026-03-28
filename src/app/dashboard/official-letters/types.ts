@@ -1,4 +1,5 @@
 // official-letters/types.ts
+import { Timestamp } from 'firebase/firestore';
 
 export type OfficialLetterStatus = 'DRAFT' | 'SENT' | 'ARCHIVED';
 
@@ -43,10 +44,10 @@ export interface OfficialLetter {
     config: OfficialLetterConfig;
     templateId?: string;
     sentTo?: string;
-    sentAt?: any;
+    sentAt?: Timestamp;
     createdBy: string;
-    createdAt: any;
-    updatedAt: any;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }
 
 export interface OfficialLetterTemplate {
@@ -55,8 +56,8 @@ export interface OfficialLetterTemplate {
     config: Partial<OfficialLetterConfig>;
     isSystem?: boolean;
     createdBy: string;
-    createdAt: any;
-    updatedAt?: any;
+    createdAt: Timestamp;
+    updatedAt?: Timestamp;
 }
 
 export interface OfficialLetterNumberingConfig {

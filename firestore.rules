@@ -152,7 +152,10 @@ service cloud.firestore {
       match /official_letters/{letterId} {
         allow read: if belongsToCompany(companyId);
         allow create: if belongsToCompany(companyId);
-        allow update: if belongsToCompany(companyId);
+        allow update: if belongsToCompany(companyId) && (
+          isCompanyAdmin(companyId) ||
+          resource.data.createdBy == request.auth.uid
+        );
         allow delete: if isCompanyAdmin(companyId);
       }
 

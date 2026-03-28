@@ -4,7 +4,7 @@
  * OfficialLetterheadGenerator.jsx-aas Next.js/TSX bolgoson.
  * Pagination logic (useLayoutEffect) энд хэрэгжсэн.
  */
-import React, { useRef, useLayoutEffect, useState } from 'react';
+import React, { useRef, useLayoutEffect, useState, useDeferredValue } from 'react';
 import { OfficialLetterConfig } from '../types';
 
 const blank = '\u00A0';
@@ -45,28 +45,29 @@ interface LetterPaperProps {
 }
 
 export function LetterPaper({ config, printing = false, wrapperRef }: LetterPaperProps) {
+    const deferredConfig = useDeferredValue(config);
     const measureRef = useRef<HTMLDivElement>(null);
     const measureHeaderRef = useRef<HTMLDivElement>(null);
     const measureAddresseeRef = useRef<HTMLDivElement>(null);
     const measureSubjectRef = useRef<HTMLDivElement>(null);
     const measureContentRef = useRef<HTMLDivElement>(null);
     const measureSignatureRef = useRef<HTMLDivElement>(null);
-    const [pages, setPages] = useState<string[][]>([normalizeContentParagraphs(config.content)]);
+    const [pages, setPages] = useState<string[][]>([normalizeContentParagraphs(deferredConfig.content)]);
 
-    const isA5 = config.paperSize === 'A5';
-    const margins = getPaperMargins(config.paperSize, config.orientation);
-    const fontFamily = config.fontFamily === 'Arial' ? 'Arial, sans-serif' : '"Times New Roman", serif';
-    const bodyFontSize = config.fontFamily === 'Arial' ? '11pt' : '12pt';
-    const lineHeight = config.paperSize === 'A5' ? 1.0 : 1.3;
-    const formattedDate = config.docDate ? config.docDate.replace(/-/g, '.') : '';
+    const isA5 = deferredConfig.paperSize === 'A5';
+    const margins = getPaperMargins(deferredConfig.paperSize, deferredConfig.orientation);
+    const fontFamily = deferredConfig.fontFamily === 'Arial' ? 'Arial, sans-serif' : '"Times New Roman", serif';
+    const bodyFontSize = deferredConfig.fontFamily === 'Arial' ? '11pt' : '12pt';
+    const lineHeight = deferredConfig.paperSize === 'A5' ? 1.0 : 1.3;
+    const formattedDate = deferredConfig.docDate ? deferredConfig.docDate.replace(/-/g, '.') : '';
 
     const paperStyle: React.CSSProperties = {
-        width: config.paperSize === 'A4'
-            ? (config.orientation === 'portrait' ? '210mm' : '297mm')
-            : (config.orientation === 'portrait' ? '148mm' : '210mm'),
-        height: config.paperSize === 'A4'
-            ? (config.orientation === 'portrait' ? '297mm' : '210mm')
-            : (config.orientation === 'portrait' ? '210mm' : '148mm'),
+        width: deferredConfig.paperSize === 'A4'
+            ? (deferredConfig.orientation === 'portrait' ? '210mm' : '297mm')
+            : (deferredConfig.orientation === 'portrait' ? '148mm' : '210mm'),
+        height: deferredConfig.paperSize === 'A4'
+            ? (deferredConfig.orientation === 'portrait' ? '297mm' : '210mm')
+            : (deferredConfig.orientation === 'portrait' ? '210mm' : '148mm'),
         paddingTop: `${margins.top}mm`,
         paddingRight: `${margins.right}mm`,
         paddingBottom: `${margins.bottom}mm`,
@@ -83,13 +84,13 @@ export function LetterPaper({ config, printing = false, wrapperRef }: LetterPape
         const contentEl = measureContentRef.current;
         const signatureEl = measureSignatureRef.current;
         if (!measureEl || !headerEl || !subjectEl || !contentEl || !signatureEl) {
-            setPages([normalizeContentParagraphs(config.content)]);
+            setPages([normalizeContentParagraphs(deferredConfig.content)]);
             return;
         }
-        const paragraphs = normalizeContentParagraphs(config.content);
-        const pageHeightMm = config.paperSize === 'A4'
-            ? (config.orientation === 'portrait' ? 297 : 210)
-            : (config.orientation === 'portrait' ? 210 : 148);
+        const paragraphs = normalizeContentParagraphs(deferredConfig.content);
+        const pageHeightMm = deferredConfig.paperSize === 'A4'
+            ? (deferredConfig.orientation === 'portrait' ? 297 : 210)
+            : (deferredConfig.orientation === 'portrait' ? 210 : 148);
         const cs = window.getComputedStyle(measureEl);
         const paddingTop = parseFloat(cs.paddingTop) || 0;
         const paddingBottom = parseFloat(cs.paddingBottom) || 0;
@@ -161,7 +162,7 @@ export function LetterPaper({ config, printing = false, wrapperRef }: LetterPape
         }
         const compactPages = newPages.filter((pp, idx) => idx === 0 || pp.some(p => String(p || '').trim().length > 0));
         setPages(compactPages.length ? compactPages : [['']]);
-    }, [config, isA5]);
+    }, [deferredConfig, isA5]);
 
     return (
         <>
@@ -177,7 +178,7 @@ export function LetterPaper({ config, printing = false, wrapperRef }: LetterPape
                     return (
                         <div
                             key={`page-${pageIndex}`}
-                            className={`ob-paper${isA5 ? ' ob-paper--a5' : ''}${config.orientation === 'landscape' ? ' landscape' : ''}`}
+                            className={`ob-paper${isA5 ? ' ob-paper--a5' : ''}${deferredConfig.orientation === 'landscape' ? ' landscape' : ''}`}
                             style={paperStyle}
                         >
                             {isFirst && (
@@ -185,22 +186,22 @@ export function LetterPaper({ config, printing = false, wrapperRef }: LetterPape
                                     <div className="ob-header-row">
                                         <div className="ob-header-left">
                                             <span className="ob-corner ob-corner--tl" />
-                                            {config.orgLogo && <img src={config.orgLogo} alt="Logo" className="ob-doc-logo" loading="eager" />}
-                                            <div className="ob-doc-org-name">{config.orgName}</div>
-                                            <div className="ob-header-tagline">{config.orgTagline}</div>
+                                            {deferredConfig.orgLogo && <img src={deferredConfig.orgLogo} alt="Logo" className="ob-doc-logo" loading="eager" />}
+                                            <div className="ob-doc-org-name">{deferredConfig.orgName}</div>
+                                            <div className="ob-header-tagline">{deferredConfig.orgTagline}</div>
                                             <div className="ob-header-contacts">
-                                                <div>{config.address}</div>
-                                                <div>Утас: {config.phone}</div>
-                                                <div>И-мэйл: {config.email}</div>
-                                                {config.web && <div>Вэб: {config.web}</div>}
+                                                <div>{deferredConfig.address}</div>
+                                                <div>Утас: {deferredConfig.phone}</div>
+                                                <div>И-мэйл: {deferredConfig.email}</div>
+                                                {deferredConfig.web && <div>Вэб: {deferredConfig.web}</div>}
                                             </div>
                                         </div>
                                         {!isA5 && (
                                             <div className="ob-header-right">
                                                 <span className="ob-corner ob-corner--tl" />
                                                 <span className="ob-corner ob-corner--tr" />
-                                                <div className="ob-header-recipient">{config.addresseeOrg}</div>
-                                                <div className="ob-header-recipient-name">{config.addresseeName}</div>
+                                                <div className="ob-header-recipient">{deferredConfig.addresseeOrg}</div>
+                                                <div className="ob-header-recipient-name">{deferredConfig.addresseeName}</div>
                                             </div>
                                         )}
                                     </div>
@@ -209,13 +210,13 @@ export function LetterPaper({ config, printing = false, wrapperRef }: LetterPape
                                             <span className="ob-meta-label">огноо:</span>
                                             <span className="ob-meta-fill ob-meta-fill--date">{formattedDate || blank}</span>
                                             <span className="ob-meta-label">№</span>
-                                            <span className="ob-meta-fill">{config.docIndex || blank}</span>
+                                            <span className="ob-meta-fill">{deferredConfig.docIndex || blank}</span>
                                         </div>
                                         <div className="ob-meta-row">
                                             <span className="ob-meta-label">танай</span>
-                                            <span className="ob-meta-fill ob-meta-fill--wide">{config.tanaiRef || blank}</span>
+                                            <span className="ob-meta-fill ob-meta-fill--wide">{deferredConfig.tanaiRef || blank}</span>
                                             <span className="ob-meta-label">№</span>
-                                            <span className="ob-meta-fill ob-meta-fill--wide">{config.tanaiNo || blank}</span>
+                                            <span className="ob-meta-fill ob-meta-fill--wide">{deferredConfig.tanaiNo || blank}</span>
                                             <span className="ob-meta-label">т</span>
                                         </div>
                                     </div>
@@ -223,15 +224,15 @@ export function LetterPaper({ config, printing = false, wrapperRef }: LetterPape
                             )}
                             {isFirst && isA5 && (
                                 <div className="ob-doc-addressee">
-                                    <p>{config.addresseeOrg}</p>
-                                    <p>{config.addresseeName}</p>
+                                    <p>{deferredConfig.addresseeOrg}</p>
+                                    <p>{deferredConfig.addresseeName}</p>
                                 </div>
                             )}
                             {isFirst && (
                                 <div className="ob-doc-subject">
                                     <span className="ob-subject-corner ob-subject-corner--left" />
                                     <span className="ob-subject-corner ob-subject-corner--right" />
-                                    <span className="ob-doc-subject-text">{config.subject}</span>
+                                    <span className="ob-doc-subject-text">{deferredConfig.subject}</span>
                                 </div>
                             )}
                             <div className="ob-doc-content">
@@ -242,12 +243,12 @@ export function LetterPaper({ config, printing = false, wrapperRef }: LetterPape
                             {isLast && (
                                 <div className="ob-doc-signature">
                                     <div className="ob-sig-row">
-                                        <span>{config.signPosition}</span>
+                                        <span>{deferredConfig.signPosition}</span>
                                         <div className="ob-sig-line-wrap">
                                             <div className="ob-sig-line" />
                                             <div className="ob-sig-label">гарын үсэг</div>
                                         </div>
-                                        <span>{config.signName}</span>
+                                        <span>{deferredConfig.signName}</span>
                                     </div>
                                 </div>
                             )}
@@ -262,22 +263,22 @@ export function LetterPaper({ config, printing = false, wrapperRef }: LetterPape
                 <div className="ob-doc-header" ref={measureHeaderRef}>
                     <div className="ob-header-row">
                         <div className="ob-header-left">
-                            {config.orgLogo && <img src={config.orgLogo} alt="" className="ob-doc-logo" />}
-                            <div className="ob-doc-org-name">{config.orgName}</div>
-                            <div className="ob-header-tagline">{config.orgTagline}</div>
-                            <div className="ob-header-contacts"><div>{config.address}</div><div>Утас: {config.phone}</div><div>И-мэйл: {config.email}</div></div>
+                            {deferredConfig.orgLogo && <img src={deferredConfig.orgLogo} alt="" className="ob-doc-logo" />}
+                            <div className="ob-doc-org-name">{deferredConfig.orgName}</div>
+                            <div className="ob-header-tagline">{deferredConfig.orgTagline}</div>
+                            <div className="ob-header-contacts"><div>{deferredConfig.address}</div><div>Утас: {deferredConfig.phone}</div><div>И-мэйл: {deferredConfig.email}</div></div>
                         </div>
-                        {!isA5 && <div className="ob-header-right"><div className="ob-header-recipient">{config.addresseeOrg}</div><div className="ob-header-recipient-name">{config.addresseeName}</div></div>}
+                        {!isA5 && <div className="ob-header-right"><div className="ob-header-recipient">{deferredConfig.addresseeOrg}</div><div className="ob-header-recipient-name">{deferredConfig.addresseeName}</div></div>}
                     </div>
                     <div className="ob-meta-block">
-                        <div className="ob-meta-row"><span className="ob-meta-label">огноо:</span><span className="ob-meta-fill ob-meta-fill--date">{formattedDate || blank}</span><span className="ob-meta-label">№</span><span className="ob-meta-fill">{config.docIndex || blank}</span></div>
-                        <div className="ob-meta-row"><span className="ob-meta-label">танай</span><span className="ob-meta-fill ob-meta-fill--wide">{config.tanaiRef || blank}</span><span className="ob-meta-label">№</span><span className="ob-meta-fill ob-meta-fill--wide">{config.tanaiNo || blank}</span><span className="ob-meta-label">т</span></div>
+                        <div className="ob-meta-row"><span className="ob-meta-label">огноо:</span><span className="ob-meta-fill ob-meta-fill--date">{formattedDate || blank}</span><span className="ob-meta-label">№</span><span className="ob-meta-fill">{deferredConfig.docIndex || blank}</span></div>
+                        <div className="ob-meta-row"><span className="ob-meta-label">танай</span><span className="ob-meta-fill ob-meta-fill--wide">{deferredConfig.tanaiRef || blank}</span><span className="ob-meta-label">№</span><span className="ob-meta-fill ob-meta-fill--wide">{deferredConfig.tanaiNo || blank}</span><span className="ob-meta-label">т</span></div>
                     </div>
                 </div>
-                {isA5 && <div className="ob-doc-addressee" ref={measureAddresseeRef}><p>{config.addresseeOrg}</p><p>{config.addresseeName}</p></div>}
-                <div className="ob-doc-subject" ref={measureSubjectRef}><span className="ob-doc-subject-text">{config.subject}</span></div>
+                {isA5 && <div className="ob-doc-addressee" ref={measureAddresseeRef}><p>{deferredConfig.addresseeOrg}</p><p>{deferredConfig.addresseeName}</p></div>}
+                <div className="ob-doc-subject" ref={measureSubjectRef}><span className="ob-doc-subject-text">{deferredConfig.subject}</span></div>
                 <div className="ob-doc-content" ref={measureContentRef} />
-                <div className="ob-doc-signature" ref={measureSignatureRef}><div className="ob-sig-row"><span>{config.signPosition}</span><div className="ob-sig-line-wrap"><div className="ob-sig-line" /><div className="ob-sig-label">гарын үсэг</div></div><span>{config.signName}</span></div></div>
+                <div className="ob-doc-signature" ref={measureSignatureRef}><div className="ob-sig-row"><span>{deferredConfig.signPosition}</span><div className="ob-sig-line-wrap"><div className="ob-sig-line" /><div className="ob-sig-label">гарын үсэг</div></div><span>{deferredConfig.signName}</span></div></div>
             </div>
         </>
     );
