@@ -15,6 +15,7 @@ import { NotificationCenter } from '@/components/notification-center';
 import { ImplementationGuideWidget } from './components/implementation-guide-widget';
 import { ActionIconButton } from '@/components/ui/action-icon-button';
 import { FloatingAssistant } from '@/components/assistant/floating-assistant';
+import { EmployeeCodeBanner } from '@/components/employee-code-banner';
 
 interface CompanyProfile {
   name?: string;
@@ -111,6 +112,9 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      {/* Admin employee code banner */}
+      <EmployeeCodeBanner />
 
       {/* Subscription expiry banner */}
       {!isCompanyActive && role !== 'super_admin' && company && (
