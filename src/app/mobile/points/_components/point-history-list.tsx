@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useEffect } from 'react';
-import { useUser, useFirestore, useCollection, tenantCollection, useTenantWrite } from '@/firebase';
+import { useUser, useFirestore, useCollection, tenantCollection, useTenantWrite, useFetchCollection } from '@/firebase';
 import { query, where, orderBy, limit } from 'firebase/firestore';
 import { PointTransaction } from '@/types/points';
 import { format } from 'date-fns';
@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function PointHistoryList() {
     const { user } = useUser();
-    const { firestore, companyPath } = useTenantWrite();
+    const { firestore, companyPath, tCollection } = useTenantWrite();
 
     const q = useMemo(() =>
         (user && firestore && companyPath)
@@ -19,6 +19,19 @@ export function PointHistoryList() {
         , [user?.uid, firestore, companyPath]);
 
     const { data: transactions, isLoading, error } = useCollection<PointTransaction>(q);
+
+    // Ажилтны нэрийг харуулахад
+    const empQuery = useMemo(() =>
+        (firestore && companyPath) ? tCollection('employees') : null
+        , [firestore, companyPath, tCollection]);
+    const { data: employees } = useFetchCollection<{ id: string; firstName?: string; lastName?: string }>(empQuery);
+    const empMap = useMemo(() => {
+        const m = new Map<string, string>();
+        (employees || []).forEach(e =>
+            m.set(e.id, [e.firstName, e.lastName].filter(Boolean).join(' ').trim() || e.id)
+        );
+        return m;
+    }, [employees]);
 
     useEffect(() => {
         if (error) {
@@ -79,9 +92,22 @@ export function PointHistoryList() {
                             </div>
                             <div>
                                 <div className="font-semibold text-slate-700 text-sm">
-                                    {tx.type === 'RECEIVED' ? 'Оноо авсан' :
-                                        tx.type === 'GIVEN' ? 'Оноо бэлэглэсэн' :
-                                            tx.type === 'REDEEMED' ? 'Худалдан авалт' : tsLabel(tx.type)}
+                                    {tx.type === 'RECEIVED' && tx.fromUserId
+                                        ? `${empMap.get(tx.fromUserId) || 'Хэн нэгэн'}-аас талархал`
+                                        : tx.type === 'RECEIVED' && tx.projectId
+                                        ? tx.description || 'Төслийн оноо'
+                                        : tx.type === 'RECEIVED'
+                                        ? 'Оноо хүлээн авсан'
+                                        : tx.type === 'GIVEN' && tx.toUserIds?.length
+                                        ? (() => {
+                                            const names = tx.toUserIds!.map(id => empMap.get(id) || id).join(', ');
+                                            return tx.toUserIds!.length === 1 ? `${names}-д талархал` : `${names} нарт талархал`;
+                                          })()
+                                        : tx.type === 'GIVEN'
+                                        ? 'Оноо бэлэглэсэн'
+                                        : tx.type === 'REDEEMED'
+                                        ? (tx.description || 'Худалдан авалт')
+                                        : tsLabel(tx.type)}
                                 </div>
                                 <div className="text-[10px] text-slate-400">
                                     {dateLabel}

@@ -34,6 +34,9 @@ interface PointTx {
     projectId?: string;
     description?: string;
     fromUserId?: string;
+    toUserIds?: string[];
+    amountPerPerson?: number;
+    valueId?: string;
     createdAt?: { toDate?: () => Date } | string;
 }
 
@@ -483,7 +486,16 @@ export default function PointAdminPage() {
                                             const fromName = empMap.get(tx.fromUserId) || tx.fromUserId;
                                             label = `${fromName}-аас талархал`;
                                         } else if (tx.type === 'GIVEN') {
-                                            label = 'Талархал өгсөн';
+                                            if (tx.toUserIds && tx.toUserIds.length > 0) {
+                                                const names = tx.toUserIds
+                                                    .map(id => empMap.get(id) || id)
+                                                    .join(', ');
+                                                label = tx.toUserIds.length === 1
+                                                    ? `${names}-д талархал`
+                                                    : `${names} нарт талархал`;
+                                            } else {
+                                                label = 'Талархал өгсөн';
+                                            }
                                         } else if (tx.type === 'REDEEMED') {
                                             label = tx.description || 'Худалдан авалт';
                                         } else if (tx.type === 'ADJUSTMENT' || tx.type === 'PENALTY') {

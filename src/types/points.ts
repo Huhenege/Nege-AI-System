@@ -19,6 +19,11 @@ export interface PointTransaction {
     projectId?: string; // Project ID (for project-based point distributions)
     createdAt: string;
     description?: string; // Optional context
+    // Recognition-specific fields
+    fromUserId?: string;    // RECEIVED: хэнээс авсан
+    toUserIds?: string[];   // GIVEN: хэнд өгсөн; RECEIVED: хамт хүлээн авсан
+    amountPerPerson?: number; // GIVEN: хүн бүрт хэдэн оноо
+    valueId?: string;       // Холбогдох үнэт зүйл
 }
 
 export interface RecognitionPost {

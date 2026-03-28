@@ -304,7 +304,9 @@ export class PointsService {
                         amount: amountPerPerson,
                         type: 'RECEIVED',
                         refId: postRef.id,
-                        fromUserId: fromUserId,
+                        fromUserId,
+                        toUserIds,      // Хамт хүлээн авсан бусад хүмүүс
+                        valueId,        // Ямар үнэт зүйлээр
                         createdAt: serverTimestamp()
                     });
                 });
@@ -316,6 +318,8 @@ export class PointsService {
                     amount: -totalPointsNeeded,
                     type: 'GIVEN',
                     refId: postRef.id,
+                    toUserIds,          // Хэнд оноо өгсөн
+                    amountPerPerson,    // Хүн бүрт хэдэн оноо
                     createdAt: serverTimestamp()
                 });
             });
