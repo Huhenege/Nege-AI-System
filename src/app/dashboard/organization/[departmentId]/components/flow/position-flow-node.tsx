@@ -4,7 +4,7 @@ import { Plus, Copy, UserPlus, Eye, MoreVertical } from 'lucide-react';
 import { Position as PositionType } from '../../../types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { PositionStructureCard, PositionCardExternalLinkAction, isColorDark } from '@/components/organization/position-structure-card';
+import { PositionStructureCard, isColorDark } from '@/components/organization/position-structure-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -33,7 +33,13 @@ const isAppointingStatus = (s?: string): s is AppointingStatus => s === 'appoint
 // ─── Radial menu config ───────────────────────────────────────────────────────
 // Зургийн дизайнтай тохируулсан: товчнууд карт дээрх баруун дээд буланд
 // гарч ирэхдээ дээш (view), зүүн дээш (add), зүүн (duplicate) байрлана.
-const RADIAL_RADIUS = 44; // px — CSS variable биш тул нэг газраас удирдана
+const RADIAL_RADIUS = 44; // px
+const TRIGGER_SIZE  = 32; // trigger button хэмжээ (px)
+const BTN_SIZE      = 36; // радиал товчны хэмжээ (px)
+// Wrapper: trigger-г баруун доод буланд байрлуулж,
+// радиал товчнууд зүүн+дээш тийш гарна.
+// Wrapper хэмжээ = RADIAL_RADIUS + BTN_SIZE (товч бүрэн багтана) + TRIGGER_SIZE/2
+const WRAPPER_SIZE  = RADIAL_RADIUS + BTN_SIZE + TRIGGER_SIZE / 2; // ≈ 94px
 
 const ACTIONS = [
     {
@@ -80,7 +86,6 @@ interface RadialMenuProps {
 
 function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMenuProps) {
     const { onPositionClick, onAddChild, onDuplicate } = ctx;
-    const wrapperRef = useRef<HTMLDivElement>(null);
 
     const activeActions = ACTIONS.filter(a =>
         (a.key === 'view'      && onPositionClick) ||
@@ -90,39 +95,45 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
 
     if (activeActions.length === 0) return null;
 
-    // ── Flickering fix ────────────────────────────────────────────────────────
-    // Радиал товчнууд CSS transform-аар container-ийн hit area-с гадагш гарах
-    // тул хулгана товч руу шилжихэд container-с гарах mouseleave гарч
-    // close timer эхэлж flickering үүсдэг байсан.
+    // ── Layout тооцоолол ──────────────────────────────────────────────────────
+    // Wrapper нь WRAPPER_SIZE × WRAPPER_SIZE px тул бүх радиал товчийг
+    // хамрах hit area байна. Хулгана wrapper-ийн доторхи ямар ч цэгт байхад
+    // mouse event тасрахгүй → flickering байхгүй.
     //
-    // Шийдэл: mouseleave event-д relatedTarget (хулгана очих element) нь
-    // манай wrapper-ийн дотор байгаа эсэхийг шалгана. Дотор байвал — зөвхөн
-    // дотоод шилжилт тул хаахгүй.
-    const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
-        const related = e.relatedTarget as Node | null;
-        if (wrapperRef.current && related && wrapperRef.current.contains(related)) {
-            // Wrapper-ийн дотор хэвээр байна — хаахгүй
-            return;
-        }
-        onClose();
-    };
-
-    // Радиал товчны байрлал тооцоолол:
-    // Товчнууд "absolute top-0 left-0" байрлалтай (trigger-ийн төвтэй давхцана).
-    // CSS transform-аар final position руу шилжинэ.
-    // Trigger-ийн хэмжээ: 32×32px → центр offset = 16px
-    // Радиал товчны хэмжээ: 36×36px → центр offset = 18px
-    const TRIGGER_HALF = 16;  // 32px / 2
-    const BTN_HALF     = 18;  // 36px / 2
+    // Trigger: wrapper-ийн БАРУУН ДООД буланд байрлана.
+    // Радиал товчнууд: trigger-ийн төвөөс RADIAL_RADIUS зайд, зүүн+дээш тийш.
+    //
+    //   wrapper top-left = карт-ийн top-right буланд (top=3, right=3)
+    //   trigger top  = WRAPPER_SIZE - TRIGGER_SIZE  (доод тал)
+    //   trigger left = WRAPPER_SIZE - TRIGGER_SIZE  (баруун тал)
+    //
+    const triggerTop  = WRAPPER_SIZE - TRIGGER_SIZE;  // trigger-ийн top px wrapper дотор
+    const triggerLeft = WRAPPER_SIZE - TRIGGER_SIZE;  // trigger-ийн left px wrapper дотор
+    const triggerCX   = triggerLeft + TRIGGER_SIZE / 2; // trigger-ийн төвийн X
+    const triggerCY   = triggerTop  + TRIGGER_SIZE / 2; // trigger-ийн төвийн Y
 
     return (
         <TooltipProvider delayDuration={100}>
+            {/*
+             * Wrapper нь WRAPPER_SIZE × WRAPPER_SIZE px тул бүх товчийг хамрана.
+             * Карт-ийн баруун дээд буланд байрлуулахын тулд top/right-г
+             * wrapper-ийн хэмжээнд тохируулна:
+             *   top  = -(WRAPPER_SIZE - TRIGGER_SIZE) - card_padding (≈3px)
+             *   right = card_padding (≈3px)
+             */}
             <div
-                ref={wrapperRef}
-                className="absolute top-3 right-3 z-50"
-                style={{ overflow: 'visible' }}
+                className="absolute z-50"
+                style={{
+                    width:  WRAPPER_SIZE,
+                    height: WRAPPER_SIZE,
+                    // Trigger-ийн position карт дотор top:3, right:3 хэвээр байна
+                    top:   -(WRAPPER_SIZE - TRIGGER_SIZE) - 3,
+                    right: -3,
+                    // Pointer events: closed үед зөвхөн trigger-ийн area-д л ажиллана
+                    pointerEvents: 'auto',
+                }}
                 onMouseEnter={onOpen}
-                onMouseLeave={handleMouseLeave}
+                onMouseLeave={onClose}
             >
                 {/* ── Trigger ── */}
                 <Tooltip>
@@ -136,14 +147,19 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
                                 open ? onClose() : onOpen();
                             }}
                             className={cn(
-                                'relative z-10',
-                                'h-8 w-8 rounded-full flex items-center justify-center',
-                                'transition-all duration-200',
+                                'absolute flex items-center justify-center rounded-full',
+                                'transition-all duration-200 z-10',
                                 isDarkBg
                                     ? 'bg-white/20 hover:bg-white/35 text-white'
                                     : 'bg-black/10 hover:bg-black/20 text-slate-700',
                                 open && 'rotate-90',
                             )}
+                            style={{
+                                width:  TRIGGER_SIZE,
+                                height: TRIGGER_SIZE,
+                                top:    triggerTop,
+                                left:   triggerLeft,
+                            }}
                         >
                             <MoreVertical className="h-4 w-4" />
                         </button>
@@ -156,9 +172,9 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
                 {/* ── Radial action buttons ── */}
                 {activeActions.map(({ key, angle, Icon, label, run }, i) => {
                     const rad = (angle * Math.PI) / 180;
-                    // Trigger-ийн төвөөс (TRIGGER_HALF, TRIGGER_HALF) offset
-                    const tx = Math.cos(rad) * RADIAL_RADIUS;
-                    const ty = -Math.sin(rad) * RADIAL_RADIUS;
+                    // Trigger-ийн төвөөс RADIAL_RADIUS зайд байрлуулна
+                    const btnCX = triggerCX + Math.cos(rad) * RADIAL_RADIUS;
+                    const btnCY = triggerCY - Math.sin(rad) * RADIAL_RADIUS;
 
                     return (
                         <Tooltip key={key}>
@@ -166,23 +182,21 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
                                 <button
                                     type="button"
                                     aria-label={label}
-                                    onMouseEnter={onOpen}  // радиал товч руу шилжихэд цэс хэвээр байна
                                     className={cn(
-                                        'absolute',
-                                        'h-9 w-9 rounded-full',
+                                        'absolute flex items-center justify-center rounded-full',
                                         'bg-white hover:bg-slate-50 text-slate-700',
-                                        'flex items-center justify-center',
                                         'shadow-lg border border-slate-200',
                                         'transition-all duration-200',
                                         !open && 'pointer-events-none',
                                     )}
                                     style={{
-                                        // Trigger-ийн төв = (TRIGGER_HALF, TRIGGER_HALF)
-                                        // Товчны төвийг тэр цэгт тавьж offset-лэнэ
-                                        top: TRIGGER_HALF - BTN_HALF + ty,
-                                        left: TRIGGER_HALF - BTN_HALF + tx,
-                                        opacity: open ? 1 : 0,
-                                        transform: open ? 'scale(1)' : 'scale(0)',
+                                        width:  BTN_SIZE,
+                                        height: BTN_SIZE,
+                                        // Товчны төвийг (btnCX, btnCY)-д тавина
+                                        top:    btnCY - BTN_SIZE / 2,
+                                        left:   btnCX - BTN_SIZE / 2,
+                                        opacity:   open ? 1 : 0,
+                                        transform: open ? 'scale(1)' : 'scale(0.5)',
                                         transitionDelay: open ? `${i * 40}ms` : '0ms',
                                     }}
                                     onClick={(e) => {
@@ -294,14 +308,8 @@ export const PositionFlowNode = memo(({ data, selected }: NodeProps<PositionNode
                     employee={assignedEmployee as any}
                     completionPct={occupancyPct}
                     bottomLeftMeta={isApproved ? 'Батлагдсан' : 'Ноорог'}
-                    // ── Fix #2: placeholder div устгаж PositionCardExternalLinkAction ашиглав
-                    actions={
-                        hasActions
-                            ? <PositionCardExternalLinkAction positionId={id} isDarkBg={isDarkBg} />
-                            : null
-                    }
-                    actionsVisibility="always"
-                    // ── Fix #3: deprecated bottomSlot → footerActions болгов
+                    // RadialMenu wrapper нь карт дээр absolute байрлах тул
+                    // actions prop-г ашиглахгүй — хоосон зай үлдэхгүй
                     footerActions={
                         !assignedEmployee && isApproved ? (
                             <Button
