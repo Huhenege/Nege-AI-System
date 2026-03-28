@@ -238,8 +238,24 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
       isModuleEnabled(module: SaaSModule): boolean {
         if (state.role === 'super_admin') return true;
         if (!state.company) return false;
+
+        // Компани идэвхгүй бол зөвхөн суурь модулиуд
         if (!companyActive) return BASE_MODULES.includes(module);
-        if (state.company.modules?.[module]?.enabled === true) return true;
+
+        const moduleConfig = state.company.modules?.[module];
+
+        // Тодорхой disabled гэж тэмдэглэгдсэн бол — plan-аас үл хамаарна
+        if (moduleConfig?.enabled === false) return false;
+
+        // Тодорхой enabled гэж тэмдэглэгдсэн бол — plan-аас үл хамаарна (manual override)
+        if (moduleConfig?.enabled === true) return true;
+
+        // modules field байхгүй бол (хуучин company doc) → plan-аас тодорхойлно
+        // Энд hardcoded getPlanDefinition ашиглах нь зөв:
+        //   - company.limits нь plan-ийн snapshot тул limits тусдаа шинэчлэгдэнэ
+        //   - company.modules Firestore-д байхгүй тохиолдолд fallback болно
+        //   - Super admin dynamic pricing өөрчилсөн ч company.modules field
+        //     нь callback/billing-д шинэчлэгдэх тул энд зөвхөн "not set" case
         const def = getPlanDefinition(state.company.plan);
         return def.modules.includes(module);
       },

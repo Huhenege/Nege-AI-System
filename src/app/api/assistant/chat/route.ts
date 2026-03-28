@@ -27,7 +27,7 @@ async function fetchEmployeesServerSide(companyId: string): Promise<EmployeeInfo
 }
 
 export async function POST(req: NextRequest) {
-  const authResult = await requireTenantAuth(req, { rateLimit: 'ai' });
+  const authResult = await requireTenantAuth(req, { rateLimit: 'ai', module: 'ai_assistant' });
   if (authResult.response) return authResult.response;
   const { companyId, uid, role } = authResult.auth;
 

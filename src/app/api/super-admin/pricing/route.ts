@@ -78,8 +78,48 @@ export async function PUT(request: NextRequest) {
     updatedBy: authResult.uid,
   });
 
-  // Server-side cache flush — дараагийн хүсэлтэд шинэ план ачаална
+  // Server-side cache flush
   invalidatePricingCache();
+
+  // ── Хуучин компаниудад limits + modules шинэчлэх ────────────────────────
+  // Бүх идэвхтэй компаниудын limits-г шинэ план-д тохируулна.
+  // modules-г хөндөхгүй (manual override-г хүндэтгэнэ).
+  // Background-д ажиллуулна — request-г блоклохгүй.
+  (async () => {
+    try {
+      const companiesSnap = await db.collection('companies')
+        .where('status', 'in', ['active', 'trial'])
+        .select('plan', 'limits')
+        .get();
+
+      const planMap = new Map(body.plans.map(p => [p.id, p]));
+      const batch = db.batch();
+      let count = 0;
+
+      for (const doc of companiesSnap.docs) {
+        const companyPlan = doc.data().plan;
+        const newPlanDef = planMap.get(companyPlan);
+        if (!newPlanDef) continue;
+
+        batch.update(doc.ref, {
+          limits: { ...newPlanDef.limits },
+          updatedAt: new Date(),
+        });
+        count++;
+
+        // Firestore batch 500 хязгаар
+        if (count % 400 === 0) {
+          await batch.commit();
+        }
+      }
+
+      if (count % 400 !== 0) await batch.commit();
+
+      console.log(`[pricing] Updated limits for ${count} companies`);
+    } catch (e) {
+      console.error('[pricing] Background limits update failed:', e);
+    }
+  })();
 
   return NextResponse.json({ success: true });
 }

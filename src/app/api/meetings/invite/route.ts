@@ -12,7 +12,7 @@ const BodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-    const authResult = await requireTenantAuth(request, { rateLimit: 'standard' });
+    const authResult = await requireTenantAuth(request, { rateLimit: 'standard', module: 'meetings' });
     if (authResult.response) return authResult.response;
 
     const { auth } = authResult;

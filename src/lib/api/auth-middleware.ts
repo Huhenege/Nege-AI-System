@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdminAuth } from '@/lib/firebase-admin';
+import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { checkRateLimit, getCallerIdentifier, type RateLimitPreset, type RateLimitConfig } from './rate-limiter';
+import type { SaaSModule, ModuleConfig } from '@/types/company';
+import { getPlanDefinition, BASE_MODULES } from '@/types/company';
 
 export interface AuthContext {
   uid: string;
@@ -28,6 +30,10 @@ function extractToken(request: NextRequest | Request): string | null {
 
 export interface AuthOptions {
   rateLimit?: RateLimitPreset | RateLimitConfig;
+  /** Заасан модуль идэвхтэй эсэхийг server-side шалгана */
+  module?: SaaSModule;
+  /** Заасан лимитийн шалгалт: { key, currentCount } */
+  limitCheck?: { key: 'maxEmployees' | 'maxProjects' | 'maxDepartments' | 'maxStorageMB'; currentCount: number };
 }
 
 /**
@@ -69,6 +75,75 @@ export async function requireTenantAuth(
       const route = request instanceof NextRequest ? request.nextUrl.pathname : new URL(request.url).pathname;
       const rateLimited = await checkRateLimit(decoded.uid, route, options.rateLimit);
       if (rateLimited) return { error: 'Rate limited', response: rateLimited };
+    }
+
+    // ── Module check ─────────────────────────────────────────────────────────
+    if (options?.module && role !== 'super_admin') {
+      const db = getFirebaseAdminFirestore();
+      const companyDoc = await db.doc(`companies/${companyId}`).get();
+
+      if (companyDoc.exists) {
+        const company = companyDoc.data()!;
+        const mod = options.module;
+
+        const isActive =
+          company.status === 'active' ||
+          (company.status === 'trial' && (!company.subscription?.trialEndsAt || new Date(company.subscription.trialEndsAt) > new Date()));
+
+        if (!isActive && !BASE_MODULES.includes(mod)) {
+          return {
+            error: 'Module not available',
+            response: NextResponse.json({ error: 'Таны багцын хугацаа дууссан байна' }, { status: 403 }),
+          };
+        }
+
+        if (isActive) {
+          const moduleConfig = company.modules?.[mod] as ModuleConfig | undefined;
+
+          // Explicit disabled
+          if (moduleConfig?.enabled === false) {
+            return {
+              error: 'Module disabled',
+              response: NextResponse.json({ error: `'${mod}' модуль таны багцад идэвхгүй байна` }, { status: 403 }),
+            };
+          }
+
+          // Not explicitly enabled → check plan
+          if (!moduleConfig) {
+            const planDef = getPlanDefinition(company.plan);
+            if (!planDef.modules.includes(mod)) {
+              return {
+                error: 'Module not in plan',
+                response: NextResponse.json({ error: `'${mod}' модуль таны багцад ороогүй байна` }, { status: 403 }),
+              };
+            }
+          }
+        }
+      }
+    }
+
+    // ── Limit check ───────────────────────────────────────────────────────────
+    if (options?.limitCheck && role !== 'super_admin') {
+      const db = getFirebaseAdminFirestore();
+      const companyDoc = await db.doc(`companies/${companyId}`).get();
+
+      if (companyDoc.exists) {
+        const company = companyDoc.data()!;
+        const { key, currentCount } = options.limitCheck;
+        const limit = company.limits?.[key] ?? 0;
+
+        if (limit < 9999 && currentCount >= limit) {
+          return {
+            error: 'Limit exceeded',
+            response: NextResponse.json({
+              error: `Лимит хэтэрсэн байна. Одоогийн багцад ${limit}-аас дээш зөвшөөрөхгүй.`,
+              code: 'LIMIT_EXCEEDED',
+              limit,
+              current: currentCount,
+            }, { status: 403 }),
+          };
+        }
+      }
     }
 
     return { auth: { uid: decoded.uid, companyId, role } };
