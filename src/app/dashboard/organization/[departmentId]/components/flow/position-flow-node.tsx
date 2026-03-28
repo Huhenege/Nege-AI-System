@@ -80,8 +80,8 @@ interface RadialMenuProps {
 
 function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMenuProps) {
     const { onPositionClick, onAddChild, onDuplicate } = ctx;
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
-    // Ямар товч идэвхтэй байхыг тодорхойлно
     const activeActions = ACTIONS.filter(a =>
         (a.key === 'view'      && onPositionClick) ||
         (a.key === 'add'       && onAddChild) ||
@@ -90,20 +90,41 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
 
     if (activeActions.length === 0) return null;
 
+    // ── Flickering fix ────────────────────────────────────────────────────────
+    // Радиал товчнууд CSS transform-аар container-ийн hit area-с гадагш гарах
+    // тул хулгана товч руу шилжихэд container-с гарах mouseleave гарч
+    // close timer эхэлж flickering үүсдэг байсан.
+    //
+    // Шийдэл: mouseleave event-д relatedTarget (хулгана очих element) нь
+    // манай wrapper-ийн дотор байгаа эсэхийг шалгана. Дотор байвал — зөвхөн
+    // дотоод шилжилт тул хаахгүй.
+    const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+        const related = e.relatedTarget as Node | null;
+        if (wrapperRef.current && related && wrapperRef.current.contains(related)) {
+            // Wrapper-ийн дотор хэвээр байна — хаахгүй
+            return;
+        }
+        onClose();
+    };
+
+    // Радиал товчны байрлал тооцоолол:
+    // Товчнууд "absolute top-0 left-0" байрлалтай (trigger-ийн төвтэй давхцана).
+    // CSS transform-аар final position руу шилжинэ.
+    // Trigger-ийн хэмжээ: 32×32px → центр offset = 16px
+    // Радиал товчны хэмжээ: 36×36px → центр offset = 18px
+    const TRIGGER_HALF = 16;  // 32px / 2
+    const BTN_HALF     = 18;  // 36px / 2
+
     return (
         <TooltipProvider delayDuration={100}>
-            {/*
-             * Trigger container: hover + click хоёуланг дэмжинэ (touch-friendly).
-             * Байрлал: карт дээрх absolute top-right, overflow-visible тул
-             * радиал товчнууд карт хилийн гадна харагдана.
-             */}
             <div
+                ref={wrapperRef}
                 className="absolute top-3 right-3 z-50"
                 style={{ overflow: 'visible' }}
                 onMouseEnter={onOpen}
-                onMouseLeave={onClose}
+                onMouseLeave={handleMouseLeave}
             >
-                {/* Trigger button */}
+                {/* ── Trigger ── */}
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <button
@@ -112,10 +133,10 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
                             aria-expanded={open}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                // Click toggle — touch болон mouse хоёуланд ажиллана
                                 open ? onClose() : onOpen();
                             }}
                             className={cn(
+                                'relative z-10',
                                 'h-8 w-8 rounded-full flex items-center justify-center',
                                 'transition-all duration-200',
                                 isDarkBg
@@ -132,12 +153,12 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
                     </TooltipContent>
                 </Tooltip>
 
-                {/* Radial action buttons */}
+                {/* ── Radial action buttons ── */}
                 {activeActions.map(({ key, angle, Icon, label, run }, i) => {
                     const rad = (angle * Math.PI) / 180;
-                    // Triggerийн төвөөс харьцангуй offset
-                    const tx = open ? Math.cos(rad) * RADIAL_RADIUS : 0;
-                    const ty = open ? -Math.sin(rad) * RADIAL_RADIUS : 0;
+                    // Trigger-ийн төвөөс (TRIGGER_HALF, TRIGGER_HALF) offset
+                    const tx = Math.cos(rad) * RADIAL_RADIUS;
+                    const ty = -Math.sin(rad) * RADIAL_RADIUS;
 
                     return (
                         <Tooltip key={key}>
@@ -145,22 +166,23 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
                                 <button
                                     type="button"
                                     aria-label={label}
+                                    onMouseEnter={onOpen}  // радиал товч руу шилжихэд цэс хэвээр байна
                                     className={cn(
-                                        'absolute top-0 left-0',
-                                        // Trigger-ийн төвтэй тэнцүүлнэ (-16px = 32px/2)
-                                        '-translate-x-[calc(50%-16px)] -translate-y-[calc(50%-16px)]',
+                                        'absolute',
                                         'h-9 w-9 rounded-full',
                                         'bg-white hover:bg-slate-50 text-slate-700',
                                         'flex items-center justify-center',
                                         'shadow-lg border border-slate-200',
                                         'transition-all duration-200',
-                                        !open && 'pointer-events-none invisible',
+                                        !open && 'pointer-events-none',
                                     )}
                                     style={{
-                                        transform: open
-                                            ? `translate(calc(${tx}px - 50% + 16px), calc(${ty}px - 50% + 16px))`
-                                            : 'translate(0, 0) scale(0)',
+                                        // Trigger-ийн төв = (TRIGGER_HALF, TRIGGER_HALF)
+                                        // Товчны төвийг тэр цэгт тавьж offset-лэнэ
+                                        top: TRIGGER_HALF - BTN_HALF + ty,
+                                        left: TRIGGER_HALF - BTN_HALF + tx,
                                         opacity: open ? 1 : 0,
+                                        transform: open ? 'scale(1)' : 'scale(0)',
                                         transitionDelay: open ? `${i * 40}ms` : '0ms',
                                     }}
                                     onClick={(e) => {
