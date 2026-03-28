@@ -24,7 +24,8 @@ export type SaaSModule =
   | 'business_plan'
   | 'calendar'
   | 'meetings'
-  | 'ai_assistant';
+  | 'ai_assistant'
+  | 'official_letters';
 
 // Бүх планд суурь байх модулиуд — хасах боломжгүй
 export const BASE_MODULES: SaaSModule[] = ['company', 'organization', 'employees', 'projects'];
@@ -155,7 +156,7 @@ export const PLAN_DEFINITIONS: PlanDefinition[] = [
       'company', 'organization', 'employees', 'projects',
       'attendance', 'vacation', 'recruitment', 'onboarding', 'offboarding',
       'training', 'survey', 'points', 'employment_relations', 'skills',
-      'ai_assistant',
+      'official_letters', 'ai_assistant',
     ],
     description: 'Бүх модулийг агуулсан мэргэжлийн хувилбар',
   },
@@ -177,7 +178,7 @@ export const PLAN_DEFINITIONS: PlanDefinition[] = [
       'company', 'organization', 'employees', 'projects',
       'attendance', 'vacation', 'recruitment', 'onboarding', 'offboarding',
       'training', 'survey', 'points', 'employment_relations', 'skills',
-      'business_plan', 'calendar', 'meetings', 'ai_assistant',
+      'business_plan', 'calendar', 'meetings', 'official_letters', 'ai_assistant',
     ],
     description: 'Хязгааргүй, бүрэн тохируулах боломжтой',
   },
@@ -293,4 +294,5 @@ export const MODULE_LABELS: Record<SaaSModule, string> = {
   calendar: 'Календарь',
   meetings: 'Уулзалт',
   ai_assistant: 'AI Туслах',
+  official_letters: 'Албан бичиг',
 };

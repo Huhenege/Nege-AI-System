@@ -27,6 +27,7 @@ const MODULE_DISPLAY_NAMES: Record<SaaSModule, string> = {
   calendar: 'Календар',
   meetings: 'Уулзалт',
   ai_assistant: 'AI туслах',
+  official_letters: 'Албан бичиг',
 };
 
 interface ModuleGateProps {
