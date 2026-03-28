@@ -17,6 +17,7 @@ import { PointConfigManager } from './_components/point-config-manager';
 import { BudgetRequestManager } from './_components/budget-request-manager';
 import { RedemptionManager } from './_components/redemption-manager';
 import { Leaderboard } from './_components/leaderboard';
+import { PointsTrendChart } from './_components/points-trend-chart';
 import { formatDistanceToNow } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -427,6 +428,12 @@ export default function PointAdminPage() {
                             </Card>
                         </div>
                     </div>
+
+                    {/* ===== TREND CHART ===== */}
+                    <PointsTrendChart
+                        transactions={(transactions || []) as any}
+                        year={budgetData.configYear}
+                    />
 
                     {/* ===== CHARTS & TRANSACTIONS ===== */}
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
