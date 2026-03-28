@@ -23,7 +23,8 @@ import {
     onSnapshot,
     Firestore,
 } from 'firebase/firestore';
-import { WidgetId, DEFAULT_ORDER, getAllWidgetIds } from './catalog';
+import { WidgetId, DEFAULT_ORDER, getAllWidgetIds, getWidgetConfig } from './catalog';
+import type { SaaSModule } from '@/types/company';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,17 +42,39 @@ const LEGACY_STORAGE_KEY = 'dashboard-widgets';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function mergeWithNewWidgets(stored: DashboardWidgetsState): DashboardWidgetsState {
+function mergeWithNewWidgets(
+    stored: DashboardWidgetsState,
+    isModuleEnabled?: (m: SaaSModule) => boolean
+): DashboardWidgetsState {
     const allIds = getAllWidgetIds();
-    const knownIds = new Set([...stored.order, ...stored.hidden]);
-    const newWidgets = allIds.filter(id => !knownIds.has(id));
 
-    const validOrder = stored.order.filter(id => allIds.includes(id));
+    // Module-аар шүүх helper
+    const isLocked = (id: WidgetId): boolean => {
+        if (!isModuleEnabled) return false;
+        const cfg = getWidgetConfig(id);
+        if (!cfg?.module) return false;
+        return !isModuleEnabled(cfg.module);
+    };
+
+    const knownIds = new Set([...stored.order, ...stored.hidden]);
+
+    // Шинэ widget — locked биш, мэдэгдэхгүй байсан
+    const newWidgets = allIds.filter(id => !knownIds.has(id) && !isLocked(id));
+
+    // Аль хэдийн locked болсон widget-г order-аас хасна (hidden-д нэмэхгүй)
+    const validOrder = stored.order.filter(id => allIds.includes(id) && !isLocked(id));
     const validHidden = stored.hidden.filter(id => allIds.includes(id));
+
+    // Module идэвхжсэн боловч hidden-д хаягдсан widget-г хасна (харагдах болно)
+    // Locked widget hidden-д орохгүй — module идэвхжүүлэхэд автоматаар order-д орно
+    const finalHidden = validHidden.filter(id => !isLocked(id));
+
+    // Module идэвхжсэн, хэрэглэгч нуусан, одоо locked биш → hidden-д хэвээр байна (хэрэглэгчийн сонголт)
+    // Тиймээс finalHidden-г тэгж үлдээнэ
 
     return {
         order: newWidgets.length > 0 ? [...newWidgets, ...validOrder] : validOrder,
-        hidden: validHidden,
+        hidden: finalHidden,
     };
 }
 
@@ -65,10 +88,11 @@ interface UseDashboardWidgetsOptions {
     firestore: Firestore | null;
     companyPath: string | null;
     userId: string | null;
+    isModuleEnabled?: (m: SaaSModule) => boolean;
 }
 
 export function useDashboardWidgets(opts?: UseDashboardWidgetsOptions) {
-    const { firestore = null, companyPath = null, userId = null } = opts ?? {};
+    const { firestore = null, companyPath = null, userId = null, isModuleEnabled } = opts ?? {};
 
     const [state, setState] = useState<DashboardWidgetsState>(DEFAULT_STATE);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -76,6 +100,9 @@ export function useDashboardWidgets(opts?: UseDashboardWidgetsOptions) {
     // Firestore-д write дарааллах — ачаалах үед давхар write-с сэргийлэх
     const isMigratingRef = useRef(false);
     const isInitializedRef = useRef(false);
+    // isModuleEnabled-г ref-д хадгалж dependency-с хасна (re-render loop-с сэргийлнэ)
+    const isModuleEnabledRef = useRef(isModuleEnabled);
+    useEffect(() => { isModuleEnabledRef.current = isModuleEnabled; }, [isModuleEnabled]);
 
     // ── Firestore-оос ачаалах + realtime sync ────────────────────────────────
     useEffect(() => {
@@ -86,7 +113,7 @@ export function useDashboardWidgets(opts?: UseDashboardWidgetsOptions) {
                     const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
                     if (raw) {
                         const parsed = JSON.parse(raw) as DashboardWidgetsState;
-                        setState(mergeWithNewWidgets(parsed));
+                        setState(mergeWithNewWidgets(parsed, isModuleEnabledRef.current));
                     }
                 } catch { /* ignore */ }
             }
@@ -108,7 +135,7 @@ export function useDashboardWidgets(opts?: UseDashboardWidgetsOptions) {
             }
 
             const data = snap.data() as DashboardWidgetsState;
-            const merged = mergeWithNewWidgets(data);
+            const merged = mergeWithNewWidgets(data, isModuleEnabledRef.current);
             setState(merged);
             isInitializedRef.current = true;
             setIsLoaded(true);
@@ -135,7 +162,7 @@ export function useDashboardWidgets(opts?: UseDashboardWidgetsOptions) {
                 : null;
 
             const initial = legacy
-                ? mergeWithNewWidgets(JSON.parse(legacy) as DashboardWidgetsState)
+                ? mergeWithNewWidgets(JSON.parse(legacy) as DashboardWidgetsState, isModuleEnabledRef.current)
                 : DEFAULT_STATE;
 
             const ref = getDocRef(fs, cp, uid);

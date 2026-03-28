@@ -569,6 +569,7 @@ const OrganizationChart = () => {
         firestore: firestore ?? null,
         companyPath: companyPath ?? null,
         userId: user?.uid ?? null,
+        isModuleEnabled,
     });
 
     const onLeaveCount = useMemo(() => {
