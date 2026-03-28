@@ -136,38 +136,31 @@ function RadialMenu({ open, isDarkBg, ctx, onOpen, onClose, onAction }: RadialMe
                 onMouseLeave={onClose}
             >
                 {/* ── Trigger ── */}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <button
-                            type="button"
-                            aria-label="Үйлдлүүд"
-                            aria-expanded={open}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                open ? onClose() : onOpen();
-                            }}
-                            className={cn(
-                                'absolute flex items-center justify-center rounded-full',
-                                'transition-all duration-200 z-10',
-                                isDarkBg
-                                    ? 'bg-white/20 hover:bg-white/35 text-white'
-                                    : 'bg-black/10 hover:bg-black/20 text-slate-700',
-                                open && 'rotate-90',
-                            )}
-                            style={{
-                                width:  TRIGGER_SIZE,
-                                height: TRIGGER_SIZE,
-                                top:    triggerTop,
-                                left:   triggerLeft,
-                            }}
-                        >
-                            <MoreVertical className="h-4 w-4" />
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">
-                        <span className="text-xs font-semibold">Үйлдлүүд</span>
-                    </TooltipContent>
-                </Tooltip>
+                <button
+                    type="button"
+                    aria-label="Үйлдлүүд"
+                    aria-expanded={open}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        open ? onClose() : onOpen();
+                    }}
+                    className={cn(
+                        'absolute flex items-center justify-center rounded-full',
+                        'transition-all duration-200 z-10',
+                        isDarkBg
+                            ? 'bg-white/20 hover:bg-white/35 text-white'
+                            : 'bg-black/10 hover:bg-black/20 text-slate-700',
+                        open && 'rotate-90',
+                    )}
+                    style={{
+                        width:  TRIGGER_SIZE,
+                        height: TRIGGER_SIZE,
+                        top:    triggerTop,
+                        left:   triggerLeft,
+                    }}
+                >
+                    <MoreVertical className="h-4 w-4" />
+                </button>
 
                 {/* ── Radial action buttons ── */}
                 {activeActions.map(({ key, angle, Icon, label, run }, i) => {
