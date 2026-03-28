@@ -14,6 +14,7 @@ import {
   Building2,
   CreditCard,
   Package,
+  Ticket,
   LogOut,
   ChevronRight,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { href: '/super-admin/companies', label: 'Байгууллагууд', icon: Building2 },
   { href: '/super-admin/pricing', label: 'Багцын тохиргоо', icon: Package },
   { href: '/super-admin/billing', label: 'Төлбөр', icon: CreditCard },
+  { href: '/super-admin/coupons', label: 'Хөнгөлтийн код', icon: Ticket },
 ];
 
 function SuperAdminShell({ children }: { children: React.ReactNode }) {

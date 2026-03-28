@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { createInvoice } from '@/lib/billing/qpay-client';
 import { getDynamicPlanDefinitions } from '@/lib/pricing/get-pricing-plans';
-import type { TenantClaims, CompanyPlan } from '@/types/company';
+import type { TenantClaims, CompanyPlan, Coupon } from '@/types/company';
 import { checkRateLimit, getCallerIdentifier } from '@/lib/api/rate-limiter';
 import { audit } from '@/lib/audit';
 
@@ -29,9 +29,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Admin required' }, { status: 403 });
     }
 
-    const { plan, billingCycle } = (await request.json()) as {
+    const { plan, billingCycle, couponCode } = (await request.json()) as {
       plan: CompanyPlan;
       billingCycle?: 'monthly' | 'yearly';
+      couponCode?: string;
     };
 
     const dynamicPlans = await getDynamicPlanDefinitions();
@@ -41,24 +42,65 @@ export async function POST(request: NextRequest) {
     }
 
     const cycle = billingCycle || 'monthly';
-    const amount = cycle === 'yearly' ? planDef.price * 10 : planDef.price;
+    const baseAmount = cycle === 'yearly' ? planDef.price * 10 : planDef.price;
+    const db = getFirebaseAdminFirestore();
+
+    // ── Coupon хөнгөлт тооцоолох ──
+    let discountAmount = 0;
+    let finalAmount = baseAmount;
+    let appliedCoupon: Coupon | null = null;
+
+    if (couponCode) {
+      const code = couponCode.trim().toUpperCase();
+      const couponSnap = await db.doc(`platform/coupons/${code}`).get();
+
+      if (couponSnap.exists) {
+        const coupon = couponSnap.data() as Coupon;
+        const now = new Date();
+        const usageSnap = await db.doc(`companies/${claims.companyId}/coupon_usage/${code}`).get();
+
+        const isValid =
+          coupon.isActive &&
+          (!coupon.validFrom || new Date(coupon.validFrom) <= now) &&
+          (!coupon.validUntil || new Date(coupon.validUntil) >= now) &&
+          (coupon.maxUses === null || coupon.usedCount < coupon.maxUses) &&
+          (coupon.applicablePlans === null || coupon.applicablePlans.includes(plan)) &&
+          !usageSnap.exists;
+
+        if (isValid) {
+          appliedCoupon = coupon;
+          discountAmount = coupon.type === 'percent'
+            ? Math.round(baseAmount * (coupon.value / 100))
+            : Math.min(coupon.value, baseAmount);
+          finalAmount = Math.max(0, baseAmount - discountAmount);
+        }
+      }
+    }
+
+    const amount = finalAmount;
     const invoiceNo = `NEGE-${claims.companyId}-${Date.now()}`;
+
+    const description = appliedCoupon
+      ? `Nege Systems - ${planDef.nameMN} багц (${cycle === 'yearly' ? 'жилийн' : 'сарын'}) — ${appliedCoupon.code} хөнгөлт`
+      : `Nege Systems - ${planDef.nameMN} багц (${cycle === 'yearly' ? 'жилийн' : 'сарын'})`;
 
     const invoice = await createInvoice({
       senderInvoiceNo: invoiceNo,
       receiverCode: claims.companyId,
-      description: `Nege Systems - ${planDef.nameMN} багц (${cycle === 'yearly' ? 'жилийн' : 'сарын'})`,
-      amount,
+      description,
+      amount: amount || 1, // QPay-д 0 дүн дамжуулах боломжгүй
     });
 
-    // Save invoice record
-    const db = getFirebaseAdminFirestore();
+    // ── Invoice хадгалах ──
     await db.collection(`companies/${claims.companyId}/invoices`).doc(invoiceNo).set({
       invoiceNo,
       qpayInvoiceId: invoice.invoice_id,
       plan,
       billingCycle: cycle,
+      originalAmount: baseAmount,
+      discountAmount,
       amount,
+      couponCode: appliedCoupon?.code ?? null,
       currency: 'MNT',
       status: 'pending',
       createdAt: new Date(),
@@ -69,8 +111,8 @@ export async function POST(request: NextRequest) {
       action: 'create',
       resource: 'billing',
       resourceId: invoiceNo,
-      description: `${planDef.nameMN} багц нэхэмжлэл үүсгэсэн (${amount.toLocaleString()}₮)`,
-      metadata: { plan, billingCycle: cycle, amount },
+      description: `${planDef.nameMN} нэхэмжлэл үүсгэсэн (${amount.toLocaleString()}₮${discountAmount > 0 ? `, хөнгөлт: ${discountAmount.toLocaleString()}₮` : ''})`,
+      metadata: { plan, billingCycle: cycle, amount, discountAmount, couponCode: appliedCoupon?.code },
     });
 
     return NextResponse.json({
@@ -80,6 +122,9 @@ export async function POST(request: NextRequest) {
       shortUrl: invoice.qPay_shortUrl,
       urls: invoice.urls,
       amount,
+      originalAmount: baseAmount,
+      discountAmount,
+      couponApplied: appliedCoupon ? { code: appliedCoupon.code, description: appliedCoupon.description } : null,
     });
   } catch (e: unknown) {
     console.error('[billing/create-invoice]', e);

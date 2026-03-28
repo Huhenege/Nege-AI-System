@@ -15,10 +15,10 @@ import {
   type CompanyPlan,
 } from '@/types/company';
 import { usePricingPlans } from '@/hooks/use-pricing-plans';
-import { Check, Loader2, Sparkles, QrCode, Receipt, Smartphone, AlertTriangle, ChevronDown, X } from 'lucide-react';
+import { Check, Loader2, Sparkles, QrCode, Receipt, Smartphone, AlertTriangle, ChevronDown, X, Tag, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import type { SaaSModule } from '@/types/company';
+import type { SaaSModule, CouponValidationResult } from '@/types/company';
 import { MODULE_LABELS } from '@/types/company';
 
 interface DowngradeImpact {
@@ -79,6 +79,11 @@ export default function BillingPage() {
   const [downgradeImpact, setDowngradeImpact] = useState<DowngradeImpact | null>(null);
   const [isCheckingDowngrade, setIsCheckingDowngrade] = useState(false);
   const [isDowngrading, setIsDowngrading] = useState(false);
+  // Coupon state
+  const [couponInput, setCouponInput] = useState('');
+  const [couponResult, setCouponResult] = useState<CouponValidationResult | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [activeCouponPlan, setActiveCouponPlan] = useState<CompanyPlan | null>(null);
   const { plans, getPlanLabel, isLoading: plansLoading } = usePricingPlans();
 
   const invoicesQuery = useMemoFirebase(
@@ -108,7 +113,11 @@ export default function BillingPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ plan, billingCycle: 'monthly' }),
+        body: JSON.stringify({
+          plan,
+          billingCycle: 'monthly',
+          couponCode: (couponResult?.valid && activeCouponPlan === plan) ? couponInput.trim() : undefined,
+        }),
       });
 
       if (!res.ok) {
@@ -170,6 +179,27 @@ export default function BillingPage() {
       toast({ title: 'Алдаа', description: err instanceof Error ? err.message : 'Downgrade амжилтгүй', variant: 'destructive' });
     } finally {
       setIsDowngrading(false);
+    }
+  };
+
+  // ── Coupon handlers ───────────────────────────────────────────────
+  const handleValidateCoupon = async (plan: CompanyPlan) => {
+    if (!user || !couponInput.trim()) return;
+    setIsValidatingCoupon(true);
+    setCouponResult(null);
+    setActiveCouponPlan(plan);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(
+        `/api/billing/coupon/validate?code=${encodeURIComponent(couponInput.trim())}&plan=${plan}&billingCycle=monthly`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      setCouponResult(data as CouponValidationResult);
+    } catch {
+      setCouponResult({ valid: false, error: 'Шалгахад алдаа гарлаа' } as any);
+    } finally {
+      setIsValidatingCoupon(false);
     }
   };
 
@@ -334,18 +364,58 @@ export default function BillingPage() {
                       Одоогийн багц
                     </Button>
                   ) : isUpgrade ? (
-                    <Button
-                      className="w-full"
-                      onClick={() => handleUpgrade(plan.id)}
-                      disabled={isCreating || plan.id === 'free'}
-                    >
-                      {isCreating && selectedPlan === plan.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                      ) : (
-                        <Sparkles className="h-4 w-4 mr-1" />
+                    <div className="space-y-2">
+                      {/* Coupon input */}
+                      <div className="flex gap-1.5">
+                        <input
+                          placeholder="Хөнгөлтийн код"
+                          value={couponInput}
+                          onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponResult(null); }}
+                          className="flex-1 h-8 rounded-md border border-input bg-background px-2.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs"
+                          disabled={!couponInput.trim() || isValidatingCoupon}
+                          onClick={() => handleValidateCoupon(plan.id)}>
+                          {isValidatingCoupon && activeCouponPlan === plan.id
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Tag className="h-3 w-3" />}
+                        </Button>
+                      </div>
+
+                      {/* Coupon result */}
+                      {couponResult && activeCouponPlan === plan.id && (
+                        couponResult.valid ? (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 rounded-md px-2.5 py-1.5">
+                            <Gift className="h-3.5 w-3.5 shrink-0" />
+                            <span>
+                              {couponResult.description} —{' '}
+                              <span className="line-through text-muted-foreground">₮{couponResult.originalAmount.toLocaleString()}</span>{' '}
+                              <strong>₮{couponResult.finalAmount.toLocaleString()}</strong>
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 rounded-md px-2.5 py-1.5">
+                            <X className="h-3.5 w-3.5 shrink-0" />
+                            {couponResult.error}
+                          </div>
+                        )
                       )}
-                      Сунгах
-                    </Button>
+
+                      <Button
+                        className="w-full"
+                        onClick={() => handleUpgrade(plan.id)}
+                        disabled={isCreating || plan.id === 'free'}
+                      >
+                        {isCreating && selectedPlan === plan.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-1" />
+                        )}
+                        {couponResult?.valid && activeCouponPlan === plan.id
+                          ? `₮${couponResult.finalAmount.toLocaleString()} — Сунгах`
+                          : 'Сунгах'}
+                      </Button>
+                    </div>
                   ) : plan.id !== currentPlan ? (
                     <Button
                       variant="outline"

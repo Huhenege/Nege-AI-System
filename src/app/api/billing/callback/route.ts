@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { checkPayment } from '@/lib/billing/qpay-client';
-import { type SaaSModule, type ModuleConfig } from '@/types/company';
+import { type SaaSModule, type ModuleConfig, type CouponUsage } from '@/types/company';
 import { getDynamicPlanDefinition } from '@/lib/pricing/get-pricing-plans';
 
 function extractCompanyId(invoiceNo: string): string | null {
@@ -87,6 +88,30 @@ async function processPaymentCallback(invoiceNo: string): Promise<{ status: stri
       'subscription.paymentStatus': 'paid',
       updatedAt: now,
     });
+
+    // ── Coupon usage бүртгэх + usedCount++ ──
+    if (invoiceData.couponCode) {
+      const code = invoiceData.couponCode as string;
+      const companyId = companyPath.split('/')[1];
+
+      const usage: CouponUsage = {
+        code,
+        companyId,
+        usedAt: now,
+        invoiceNo,
+        discountAmount: invoiceData.discountAmount ?? 0,
+        originalAmount: invoiceData.originalAmount ?? invoiceData.amount,
+        finalAmount: invoiceData.amount,
+      };
+
+      // coupon_usage бүртгэх
+      await db.doc(`companies/${companyId}/coupon_usage/${code}`).set(usage);
+
+      // usedCount++ — race condition-с хамгаалахын тулд FieldValue.increment
+      await db.doc(`platform/coupons/${code}`).update({
+        usedCount: FieldValue.increment(1),
+      });
+    }
 
     return { status: 'paid', plan: invoiceData.plan };
   }

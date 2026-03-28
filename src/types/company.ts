@@ -232,6 +232,48 @@ export const COMPANY_PLAN_LABELS: Record<CompanyPlan, string> = {
   enterprise: 'Аж ахуйн нэгж',
 };
 
+// ─── Coupon ────────────────────────────────────────────────────────
+
+export type CouponType = 'percent' | 'fixed';
+
+export interface Coupon {
+  code: string;
+  type: CouponType;
+  value: number;                      // percent → 1-100, fixed → мөнгөн дүн (MNT)
+  description: string;
+  isActive: boolean;
+  maxUses: number | null;             // null = хязгааргүй
+  usedCount: number;
+  validFrom: string;                  // ISO date
+  validUntil: string | null;          // null = хугацаагүй
+  applicablePlans: CompanyPlan[] | null; // null = бүх план
+  createdAt: any;
+  createdBy: string;
+  updatedAt?: any;
+}
+
+export interface CouponUsage {
+  code: string;
+  companyId: string;
+  usedAt: any;
+  invoiceNo: string;
+  discountAmount: number;
+  originalAmount: number;
+  finalAmount: number;
+}
+
+export interface CouponValidationResult {
+  valid: boolean;
+  code: string;
+  type: CouponType;
+  value: number;
+  discountAmount: number;
+  originalAmount: number;
+  finalAmount: number;
+  description: string;
+  error?: string;
+}
+
 export const MODULE_LABELS: Record<SaaSModule, string> = {
   company: 'Компани',
   organization: 'Бүтэц',
