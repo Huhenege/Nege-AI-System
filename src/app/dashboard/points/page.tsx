@@ -15,6 +15,7 @@ import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { RewardManager } from './_components/reward-manager';
 import { PointConfigManager } from './_components/point-config-manager';
 import { BudgetRequestManager } from './_components/budget-request-manager';
+import { RedemptionManager } from './_components/redemption-manager';
 import { formatDistanceToNow } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -520,18 +521,7 @@ export default function PointAdminPage() {
                 </TabsContent>
 
                 <TabsContent value="requests" className="animate-in fade-in slide-in-from-bottom-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Худалдан авалтын хүсэлтүүд</CardTitle>
-                            <CardDescription>Ажилчдын оноогоороо захиалсан бараа бүтээгдэхүүний жагсаалт.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-3xl">
-                                <History className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                                <p>Одоогоор хүсэлт ирээгүй байна.</p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <RedemptionManager />
                 </TabsContent>
 
                 <TabsContent value="budget-requests" className="animate-in fade-in slide-in-from-bottom-2">
