@@ -124,5 +124,13 @@ service firebase.storage {
         && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
         && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
     }
+
+    // Албан бичгийн лого — multi-tenant, companyId-тай
+    match /official_letters/{companyId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.token.companyId == companyId;
+      allow write: if request.auth != null && request.auth.token.companyId == companyId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
   }
 }

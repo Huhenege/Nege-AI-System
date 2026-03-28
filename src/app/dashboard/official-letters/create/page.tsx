@@ -88,6 +88,14 @@ export default function CreateOfficialLetterPage() {
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast({ title: 'Зөвхөн зураг оруулна уу', variant: 'destructive' });
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            toast({ title: 'Зургийн хэмжээ 2MB-с хэтрэхгүй байх ёстой', variant: 'destructive' });
+            return;
+        }
         const reader = new FileReader();
         reader.onloadend = () => setConfig(prev => ({ ...prev, orgLogo: reader.result as string }));
         reader.readAsDataURL(file);
@@ -139,13 +147,20 @@ export default function CreateOfficialLetterPage() {
             const newConfig = { ...config, docIndex: config.docIndex || letterNumber };
 
             // Logo-г Storage-д хадгалах (base64 → URL)
-            let logoUrl = config.orgLogo;
+            let logoUrl: string | null = config.orgLogo ?? null;
             if (logoUrl && logoUrl.startsWith('data:') && app) {
-                const storage = getStorage(app);
-                const sRef = storageRef(storage, `official_letters/${user.uid}/${Date.now()}_logo`);
-                await uploadString(sRef, logoUrl, 'data_url');
-                logoUrl = await getDownloadURL(sRef);
-                newConfig.orgLogo = logoUrl;
+                try {
+                    const storage = getStorage(app);
+                    const companyId = companyPath?.split('/')[1] ?? user.uid;
+                    const sRef = storageRef(storage, `official_letters/${companyId}/${Date.now()}_logo`);
+                    await uploadString(sRef, logoUrl, 'data_url');
+                    logoUrl = await getDownloadURL(sRef);
+                    newConfig.orgLogo = logoUrl;
+                } catch {
+                    // Upload бүтэлдвэл logo-г null болгон хадгалах
+                    newConfig.orgLogo = null;
+                    toast({ title: 'Лого хадгалахад алдаа гарлаа', description: 'Бичиг логогүйгээр хадгалагдана', variant: 'destructive' });
+                }
             }
 
             await addDoc(tCollection('official_letters'), {

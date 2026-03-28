@@ -1,30 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAuth } from '@/lib/api/auth-middleware';
 import { Resend } from 'resend';
+import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import type { OfficialLetterConfig } from '@/app/dashboard/official-letters/types';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
+ * HTML injection хамгаалалт — бүх user input-г escape хийнэ
+ */
+function escapeHtml(str: string): string {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
  * POST /api/official-letters/send-email
  * Албан бичгийг имэйлээр илгээнэ
+ * Config-г client-с авахгүй, letterId ашиглан Firestore-с verify хийнэ
  */
 export async function POST(request: NextRequest) {
     const authResult = await requireTenantAuth(request, { module: 'official_letters' });
     if ('response' in authResult && authResult.response) return authResult.response;
 
-    const { toEmail, config, letterId } = await request.json() as {
+    const { toEmail, letterId } = await request.json() as {
         toEmail: string;
-        config: OfficialLetterConfig;
         letterId: string;
     };
 
-    if (!toEmail || !config) {
-        return NextResponse.json({ error: 'toEmail болон config шаардлагатай' }, { status: 400 });
+    // Email format validation (server-side)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!toEmail || !emailRegex.test(toEmail)) {
+        return NextResponse.json({ error: 'Имэйл хаяг буруу байна' }, { status: 400 });
+    }
+    if (!letterId) {
+        return NextResponse.json({ error: 'letterId шаардлагатай' }, { status: 400 });
+    }
+
+    // Firestore-с config авах — client-с авахгүй (injection хамгаалалт)
+    const { companyId } = authResult.auth;
+    const db = getFirebaseAdminFirestore();
+    const letterRef = db.doc(`companies/${companyId}/official_letters/${letterId}`);
+    const letterSnap = await letterRef.get();
+
+    if (!letterSnap.exists) {
+        return NextResponse.json({ error: 'Баримт олдсонгүй' }, { status: 404 });
+    }
+
+    const letterData = letterSnap.data()!;
+    const config = letterData.config as OfficialLetterConfig;
+
+    if (!config) {
+        return NextResponse.json({ error: 'Баримтын тохиргоо алдаатай байна' }, { status: 400 });
     }
 
     const formattedDate = config.docDate ? config.docDate.replace(/-/g, '.') : '';
-    const subject = `[${config.docIndex || 'АБ'}] ${config.subject || 'Албан бичиг'} — ${config.orgName}`;
+    const subject = `[${escapeHtml(config.docIndex || 'АБ')}] ${escapeHtml(config.subject || 'Албан бичиг')} — ${escapeHtml(config.orgName)}`;
 
     const htmlBody = `
 <!DOCTYPE html>
@@ -44,27 +79,27 @@ export async function POST(request: NextRequest) {
 </style></head>
 <body>
   <div class="header">
-    <div class="org-name">${config.orgName}</div>
-    <div class="tagline">${config.orgTagline}</div>
+    <div class="org-name">${escapeHtml(config.orgName)}</div>
+    <div class="tagline">${escapeHtml(config.orgTagline)}</div>
     <div class="contacts">
-      ${config.address}<br/>
-      Утас: ${config.phone} | И-мэйл: ${config.email}${config.web ? ` | Вэб: ${config.web}` : ''}
+      ${escapeHtml(config.address)}<br/>
+      Утас: ${escapeHtml(config.phone)} | И-мэйл: ${escapeHtml(config.email)}${config.web ? ` | Вэб: ${escapeHtml(config.web)}` : ''}
     </div>
   </div>
   <div class="meta">
-    <strong>Огноо:</strong> ${formattedDate}&nbsp;&nbsp;&nbsp;
-    <strong>№:</strong> ${config.docIndex || '—'}<br/>
-    ${config.tanaiRef ? `<strong>Танай:</strong> ${config.tanaiRef}&nbsp;&nbsp;<strong>№:</strong> ${config.tanaiNo || '—'}<br/>` : ''}
-    <strong>Хэнд:</strong> ${config.addresseeOrg} — ${config.addresseeName}
+    <strong>Огноо:</strong> ${escapeHtml(formattedDate)}&nbsp;&nbsp;&nbsp;
+    <strong>№:</strong> ${escapeHtml(config.docIndex || '—')}<br/>
+    ${config.tanaiRef ? `<strong>Танай:</strong> ${escapeHtml(config.tanaiRef)}&nbsp;&nbsp;<strong>№:</strong> ${escapeHtml(config.tanaiNo || '—')}<br/>` : ''}
+    <strong>Хэнд:</strong> ${escapeHtml(config.addresseeOrg)} — ${escapeHtml(config.addresseeName)}
   </div>
-  <div class="subject">${config.subject}</div>
+  <div class="subject">${escapeHtml(config.subject)}</div>
   <div class="content">
-    ${config.content.split('\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('')}
+    ${config.content.split('\n').filter(p => p.trim()).map(p => `<p>${escapeHtml(p)}</p>`).join('')}
   </div>
   <div class="signature">
-    <span>${config.signPosition}</span>
+    <span>${escapeHtml(config.signPosition)}</span>
     <span>_______________</span>
-    <span>${config.signName}</span>
+    <span>${escapeHtml(config.signName)}</span>
   </div>
   <div class="footer">Энэ имэйл Nege Management System-ээс автоматаар илгээгдсэн.</div>
 </body>
