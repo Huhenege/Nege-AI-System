@@ -83,11 +83,13 @@ function EmployeeCodeConfigForm({
 }) {
   const { toast } = useToast();
   const { user } = useUser();
+  // tDoc нь tenant-scoped ref үүсгэдэг — codeConfigRef-г мөн tDoc-оор авна
   const { firestore, tDoc } = useTenantWrite();
 
-  const codeConfigRef = useMemoFirebase(
-    ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null),
-    []
+  // useMemoFirebase-н оронд tDoc ашиглан нэгдсэн firestore instance-аар ref үүсгэнэ
+  const codeConfigRef = React.useMemo(
+    () => (firestore ? tDoc('company', 'employeeCodeConfig') : null),
+    [firestore, tDoc]
   );
 
   const form = useForm<EmployeeCodeFormValues>({

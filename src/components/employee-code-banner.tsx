@@ -13,7 +13,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { runTransaction } from 'firebase/firestore';
 import { AlertTriangle, Loader2, Hash } from 'lucide-react';
-import { useUser, useFetchDoc, useMemoFirebase, tenantDoc, useTenantWrite } from '@/firebase';
+import { useUser, useFetchDoc, useTenantWrite } from '@/firebase';
 import { useTenant } from '@/contexts/tenant-context';
 import { generateCode } from '@/lib/code-generator';
 
@@ -35,19 +35,17 @@ export function EmployeeCodeBanner() {
     const [assigning, setAssigning] = React.useState(false);
     const [done, setDone] = React.useState(false);
 
-    // Admin-ийн employee doc
-    const adminDocRef = useMemoFirebase(
-        ({ firestore, companyPath }) =>
-            firestore && user?.uid ? tenantDoc(firestore, companyPath, 'employees', user.uid) : null,
-        [user?.uid]
+    // tDoc нь tenant-scoped ref үүсгэдэг — firestore instance нэгдмэл байна
+    const adminDocRef = React.useMemo(
+        () => (firestore && user?.uid ? tDoc('employees', user.uid) : null),
+        [firestore, user?.uid, tDoc]
     );
     const { data: adminDoc, isLoading: adminLoading } = useFetchDoc<EmployeeDoc>(adminDocRef as any);
 
     // Employee code config
-    const configRef = useMemoFirebase(
-        ({ firestore, companyPath }) =>
-            firestore ? tenantDoc(firestore, companyPath, 'company', 'employeeCodeConfig') : null,
-        []
+    const configRef = React.useMemo(
+        () => (firestore ? tDoc('company', 'employeeCodeConfig') : null),
+        [firestore, tDoc]
     );
     const { data: codeConfig } = useFetchDoc<CodeConfig>(configRef as any);
 
