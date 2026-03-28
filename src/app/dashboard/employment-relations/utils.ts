@@ -105,12 +105,55 @@ export function getReplacementMap(data: {
         establishedDate: cp.establishedDate || cp.foundedDate || '',
     };
 
+    // position — nested salary/benefits/experience path normalize
+    const pos = data.position || {};
+    // compensation.salaryRange эсвэл salaryRange хоёуланг дэмжинэ
+    const compSalary = pos.compensation?.salaryRange || pos.salaryRange || {};
+    // salarySteps-ийн идэвхтэй шатлал
+    const activeStep = pos.salarySteps?.items?.[pos.salarySteps?.activeIndex ?? -1];
+    const computedPosition = {
+        ...pos,
+        salaryRange: {
+            min: compSalary.min ?? 0,
+            mid: compSalary.mid ?? 0,
+            max: compSalary.max ?? 0,
+            currency: compSalary.currency || pos.salarySteps?.currency || 'MNT',
+            period: compSalary.period || 'monthly',
+        },
+        salaryStepName: activeStep?.name || '',
+        salaryStepValue: activeStep?.value ?? '',
+        benefits: {
+            vacationDays: pos.benefits?.vacationDays ?? '',
+            isRemoteAllowed: pos.benefits?.isRemoteAllowed ? 'Тийм' : 'Үгүй',
+            flexibleHours: pos.benefits?.flexibleHours ? 'Тийм' : 'Үгүй',
+        },
+        budget: {
+            yearlyBudget: pos.budget?.yearlyBudget ?? '',
+            currency: pos.budget?.currency || 'MNT',
+        },
+        experience: {
+            totalYears: pos.experience?.totalYears ?? '',
+            educationLevel: pos.experience?.educationLevel || '',
+            leadershipYears: pos.experience?.leadershipYears ?? '',
+        },
+    };
+
+    // department — managerId → managerName computed
+    const dept = data.department || {};
+    const computedDepartment = {
+        ...dept,
+        // managerName нь dept doc-д шууд хадгалагдвал ашиглана,
+        // үгүй бол managerId-аас tatах боломжгүй (async) тул хоосон
+        managerName: dept.managerName || dept.managerFullName || '',
+        managerPositionName: dept.managerPositionName || dept.managerPositionTitle || '',
+    };
+
     ALL_DYNAMIC_FIELDS.forEach(field => {
         const context = {
             company: computedCompany,
             employee: computedEmployee,
-            position: data.position,
-            department: data.department,
+            position: computedPosition,
+            department: computedDepartment,
             questionnaire: data.questionnaire,
             system: data.system,
             appointment: data.appointment,

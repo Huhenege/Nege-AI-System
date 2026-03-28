@@ -164,6 +164,20 @@ export default function CreateDocumentPage() {
             const deptData = departments?.find(d => d.id === selectedDepartment);
             const posData = positions?.find(p => p.id === selectedPosition);
 
+            // Department manager computed — managerId → employee нэр татна
+            let enrichedDept = deptData ? { ...deptData } : undefined;
+            if (enrichedDept?.managerId && !enrichedDept.managerName) {
+                try {
+                    const mgrSnap = await getDoc(tDoc('employees', enrichedDept.managerId));
+                    if (mgrSnap.exists()) {
+                        const mgr = mgrSnap.data();
+                        const mgrPos = positions?.find(p => p.id === mgr.positionId);
+                        enrichedDept.managerName = [mgr.lastName, mgr.firstName].filter(Boolean).join(' ');
+                        enrichedDept.managerPositionName = mgrPos?.title || mgr.jobTitle || '';
+                    }
+                } catch { /* manager байхгүй ч хэвийн */ }
+            }
+
             // Questionnaire — ажилтны нэмэлт мэдээлэл (РД, гэрийн хаяг, төрсөн огноо)
             let questionnaireData: any = null;
             try {
@@ -174,7 +188,7 @@ export default function CreateDocumentPage() {
             // Generate content
             const content = generateDocumentContent(selectedTemplateData?.content || '', {
                 employee: { id: empDoc.id, ...empDoc.data() },
-                department: deptData,
+                department: enrichedDept,
                 position: posData,
                 company: companyProfile,
                 questionnaire: questionnaireData,

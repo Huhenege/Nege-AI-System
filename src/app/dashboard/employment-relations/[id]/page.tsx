@@ -111,7 +111,26 @@ export default function DocumentDetailPage() {
         }).catch(() => { /* questionnaire байхгүй ч хэвийн */ });
     }, [firestore, document?.employeeId, tDoc]);
 
-    // UI States
+    // Department enriched with manager name
+    const enrichedDepartment = React.useMemo(() => {
+        const dept = departments?.find(d => d.id === selectedDept);
+        if (!dept) return undefined;
+        if (dept.managerName) return dept; // аль хэдийн байна
+        // managerId-аас employeesList-д хайна
+        if (dept.managerId && employeesList) {
+            const mgr = employeesList.find((e: any) => e.id === dept.managerId);
+            if (mgr) {
+                const mgrPos = positions?.find((p: any) => p.id === mgr.positionId);
+                return {
+                    ...dept,
+                    managerName: [mgr.lastName, mgr.firstName].filter(Boolean).join(' '),
+                    managerPositionName: mgrPos?.title || mgr.jobTitle || '',
+                };
+            }
+        }
+        return dept;
+    }, [departments, selectedDept, employeesList, positions]);
+
     // UI States
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -598,7 +617,7 @@ export default function DocumentDetailPage() {
                                         dangerouslySetInnerHTML={{
                                             __html: sanitizeHtml(generateDocumentContent(editContent || document.content, {
                                                 employee: selectedEmployee,
-                                                department: departments?.find(d => d.id === selectedDept),
+                                                department: enrichedDepartment,
                                                 position: positions?.find(p => p.id === selectedPos),
                                                 company: companyProfile,
                                                 questionnaire: questionnaireData,
@@ -657,7 +676,7 @@ export default function DocumentDetailPage() {
                             onChange={setEditContent}
                             resolvers={getReplacementMap({
                                 employee: selectedEmployee,
-                                department: departments?.find(d => d.id === selectedDept),
+                                department: enrichedDepartment,
                                 position: positions?.find(p => p.id === selectedPos),
                                 company: companyProfile,
                                 questionnaire: questionnaireData,
