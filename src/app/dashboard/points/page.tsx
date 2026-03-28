@@ -16,6 +16,7 @@ import { RewardManager } from './_components/reward-manager';
 import { PointConfigManager } from './_components/point-config-manager';
 import { BudgetRequestManager } from './_components/budget-request-manager';
 import { RedemptionManager } from './_components/redemption-manager';
+import { Leaderboard } from './_components/leaderboard';
 import { formatDistanceToNow } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -221,6 +222,7 @@ export default function PointAdminPage() {
                     orientation="horizontal"
                     items={[
                         { value: 'overview', label: 'Ерөнхий мэдээлэл' },
+                        { value: 'leaderboard', label: 'Рейтинг' },
                         { value: 'rewards', label: 'Дэлгүүр удирдах' },
                         { value: 'requests', label: 'Захиалгууд' },
                         { value: 'budget-requests', label: 'Төсвийн хүсэлтүүд' },
@@ -514,6 +516,10 @@ export default function PointAdminPage() {
                             </CardContent>
                         </Card>
                     </div>
+                </TabsContent>
+
+                <TabsContent value="leaderboard" className="animate-in fade-in slide-in-from-bottom-2">
+                    <Leaderboard />
                 </TabsContent>
 
                 <TabsContent value="rewards" className="animate-in fade-in slide-in-from-bottom-2">

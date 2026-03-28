@@ -61,6 +61,17 @@ service cloud.firestore {
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'questionnaireLocked'])
         );
         allow delete: if isCompanyAdmin(companyId);
+
+        // Point profile subcollection
+        match /point_profile/{profileId} {
+          allow read: if belongsToCompany(companyId);
+          allow write: if isCompanyAdmin(companyId);
+        }
+      }
+
+      // collectionGroup query-д зориулсан top-level rule
+      match /{path=**}/point_profile/{profileId} {
+        allow read: if request.auth != null;
       }
 
       match /departments/{departmentId} {
