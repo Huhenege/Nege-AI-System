@@ -148,6 +148,26 @@ service cloud.firestore {
         allow write: if isCompanyAdmin(companyId);
       }
 
+      // Албан бичиг
+      match /official_letters/{letterId} {
+        allow read: if belongsToCompany(companyId);
+        allow create: if belongsToCompany(companyId);
+        allow update: if belongsToCompany(companyId);
+        allow delete: if isCompanyAdmin(companyId);
+      }
+
+      // Албан бичгийн загварууд
+      match /official_letter_templates/{templateId} {
+        allow read: if belongsToCompany(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
+      // Дугаарлалтын тохиргоо
+      match /official_letter_config/{docId} {
+        allow read: if belongsToCompany(companyId);
+        allow write: if isCompanyAdmin(companyId);
+      }
+
       match /workCalendars/{calendarId} {
         allow read: if belongsToCompany(companyId);
         allow create: if isCompanyAdmin(companyId);
@@ -188,6 +208,12 @@ service cloud.firestore {
         allow read: if isCompanyAdmin(companyId);
         allow write: if isCompanyAdmin(companyId);
       }
+    }
+
+    // ─── Collection group queries ──────────────────────────────────────
+    match /{path=**}/vacationRequests/{requestId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // ─── Platform-level collections (Super Admin only) ─────────────────

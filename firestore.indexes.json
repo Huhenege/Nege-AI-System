@@ -1,41 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "meetings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "date", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "meetings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "date", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "companies",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "name_lower",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "companies",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "ownerId",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "documents",
       "queryScope": "COLLECTION",
       "fields": [
@@ -112,9 +77,33 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "official_letters",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
+    {
+      "collectionGroup": "vacationRequests",
+      "fieldPath": "startDate",
+      "indexes": [
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
     {
       "collectionGroup": "questionnaire",
       "fieldPath": "registrationNumber",

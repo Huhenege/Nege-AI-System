@@ -1,0 +1,57 @@
+/* official-letters.css — LetterPaper component styles */
+.ob-paper {
+    background: #ffffff;
+    position: relative;
+    color: #000000;
+    font-family: var(--ob-font-family, 'Times New Roman', serif);
+    font-size: var(--ob-body-size, 12pt);
+    display: flex;
+    flex-direction: column;
+    --ob-blue: #000000;
+    box-shadow: 0 25px 50px -18px rgba(0,0,0,0.25);
+    page-break-after: always;
+}
+.ob-paper:last-child { page-break-after: auto; }
+.ob-paper * { box-shadow: none !important; }
+.ob-paper p { color: #000000; font-size: inherit; }
+.ob-doc-header { margin-bottom: 1.5rem; color: var(--ob-blue); }
+.ob-header-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: flex-start; }
+.ob-header-left { text-align: center; position: relative; padding: 0.35rem 0.75rem 0; }
+.ob-header-right { text-align: center; position: relative; padding: 0.35rem 0.75rem 0; }
+.ob-paper--a5 .ob-header-row { grid-template-columns: 1fr; }
+.ob-paper--a5 .ob-meta-block { width: 100%; }
+.ob-doc-addressee { margin: 1.25rem 0 1rem; font-size: 0.9em; line-height: 1.4; }
+.ob-paper--a5 .ob-doc-addressee { text-align: center; }
+.ob-corner { position: absolute; width: 12px; height: 12px; border: 2px solid #c7c7c7; }
+.ob-corner--tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.ob-corner--tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.ob-doc-logo { max-height: 48px; margin: 0 auto 0.3rem; display: block; }
+.ob-header-tagline { font-size: 0.75em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 0.15rem; margin-bottom: 0.6rem; color: var(--ob-blue); }
+.ob-doc-org-name { font-size: 1.4em; font-weight: 800; text-transform: uppercase; margin-bottom: 0.15rem; color: var(--ob-blue); }
+.ob-header-contacts { font-size: 0.8em; color: var(--ob-blue); line-height: 1.35; }
+.ob-header-contacts div { margin: 0.1rem 0; }
+.ob-header-recipient { font-size: 0.85em; font-weight: 700; text-transform: uppercase; color: var(--ob-blue); }
+.ob-header-recipient-name { font-size: 0.8em; margin-top: 0.2rem; color: var(--ob-blue); }
+.ob-meta-block { margin-top: 0.8rem; text-align: left; width: calc(50% - 0.75rem); margin-right: auto; color: var(--ob-blue); }
+.ob-meta-row { display: flex; align-items: flex-end; justify-content: flex-start; gap: 0.25rem; font-size: 0.8em; width: 100%; }
+.ob-meta-row + .ob-meta-row { margin-top: 0.2rem; }
+.ob-meta-label { font-weight: 700; white-space: nowrap; }
+.ob-meta-fill { border-bottom: 1px solid var(--ob-blue); display: inline-block; text-align: center; padding: 0 0.2rem; flex: 1 1 0; min-width: 0; }
+.ob-meta-fill--date { flex: 0.9 1 0; }
+.ob-meta-fill--wide { flex: 1 1 0; }
+.ob-doc-subject { margin: 1.5rem 0 1.2rem; position: relative; text-align: center; font-weight: 700; text-transform: uppercase; color: inherit; letter-spacing: 0.03em; width: calc(50% - 0.75rem); margin-right: auto; font-size: 0.95em; }
+.ob-doc-subject-text { display: inline-block; padding: 0.2rem 1rem; }
+.ob-subject-corner { position: absolute; width: 14px; height: 14px; border: 2px solid #c7c7c7; top: 0; }
+.ob-subject-corner--left { left: 0; border-right: 0; border-bottom: 0; }
+.ob-subject-corner--right { right: 0; border-left: 0; border-bottom: 0; }
+.ob-doc-content { font-size: 1em; line-height: var(--ob-line-height, 1.3); text-align: justify; color: inherit; }
+.ob-doc-content p { margin-bottom: 0.9rem; text-indent: 1.25cm; }
+.ob-doc-content p:last-child { margin-bottom: 0; }
+.ob-doc-signature { margin-top: calc(3 * var(--ob-line-height, 1.3) * 1em); }
+.ob-sig-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; font-weight: 700; font-size: 0.95em; }
+.ob-sig-line-wrap { flex: 1; text-align: center; font-weight: 400; }
+.ob-sig-line { border-bottom: 1px solid #1f2937; height: 0; margin-bottom: 0.25rem; }
+.ob-sig-label { font-size: 0.75em; text-transform: uppercase; color: inherit; letter-spacing: 0.02em; }
+.ob-page-number { position: absolute; bottom: 2mm; left: 0; width: 100%; text-align: center; font-size: 0.75em; color: #000000; }
+.ob-printing .ob-paper { box-shadow: none !important; overflow: hidden; margin: 0 auto; break-after: page; }
+.ob-printing .ob-paper:last-child { break-after: auto; }
