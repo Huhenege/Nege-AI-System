@@ -179,9 +179,10 @@ service cloud.firestore {
       }
 
       // Employee documents (HR file storage)
+      // Ажилтан өөрийн баримтыг нэмж чадна; засах/устгах нь зөвхөн admin
       match /documents/{documentId} {
         allow read: if belongsToCompany(companyId);
-        allow create: if isCompanyAdmin(companyId);
+        allow create: if belongsToCompany(companyId);
         allow update: if isCompanyAdmin(companyId);
         allow delete: if isCompanyAdmin(companyId);
       }

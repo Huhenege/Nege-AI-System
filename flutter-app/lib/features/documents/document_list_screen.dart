@@ -22,7 +22,7 @@ final employeeDocumentsProvider =
   return tenant
       .collection('documents')
       .where('metadata.employeeId', isEqualTo: authUser.uid)
-      .orderBy('createdAt', descending: true)
+      .orderBy('uploadDate', descending: true)
       .snapshots()
       .map((snap) => snap.docs
           .map((d) => EmployeeDocument.fromFirestore(d.data(), d.id))
