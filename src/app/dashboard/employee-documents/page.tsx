@@ -60,7 +60,7 @@ function formatFileSize(bytes?: number): string {
 
 // ─── Document Row ─────────────────────────────────────────────────────────────
 
-function DocumentRow({ doc }: { doc: Document }) {
+function DocumentRow({ doc, employeeName }: { doc: Document; employeeName?: string }) {
     const Icon = CATEGORY_ICONS[doc.documentType] ?? CATEGORY_ICONS['Бусад'];
 
     return (
@@ -79,6 +79,9 @@ function DocumentRow({ doc }: { doc: Document }) {
             </TableCell>
             <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                 {format(new Date(doc.uploadDate), 'yyyy.MM.dd')}
+            </TableCell>
+            <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
+                {employeeName ?? '—'}
             </TableCell>
             <TableCell className="text-right hidden md:table-cell text-muted-foreground text-sm">
                 {formatFileSize(doc.fileSize)}
@@ -139,7 +142,7 @@ function UploadDialog({ open, onOpenChange, onUploaded }: UploadDialogProps) {
             // 1. Upload to Firebase Storage (tenant-scoped path)
             const storageRef = ref(
                 storage,
-                `employee-documents/${companyId}/${Date.now()}_${file.name}`
+                `documents/${assignedEmployeeId || companyId}/${Date.now()}_${file.name}`
             );
             await uploadBytes(storageRef, file);
             const url = await getDownloadURL(storageRef);
@@ -154,8 +157,9 @@ function UploadDialog({ open, onOpenChange, onUploaded }: UploadDialogProps) {
                 mimeType: file.type,
                 uploadDate: new Date().toISOString(),
                 uploadedBy: user?.uid ?? null,
-                assignedEmployeeId: assignedEmployeeId || null,
-                metadata: {},
+                metadata: {
+                    ...(assignedEmployeeId ? { employeeId: assignedEmployeeId } : {}),
+                },
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
             });
@@ -306,6 +310,21 @@ export default function DocumentsPage() {
     );
     const { data: documents, isLoading, error } = useCollection<Document>(documentsQuery);
 
+    const employeesQuery = useMemoFirebase(
+        ({ firestore, companyPath }) =>
+            firestore ? tenantCollection(firestore, companyPath, 'employees') : null,
+        []
+    );
+    const { data: employees } = useCollection<Employee>(employeesQuery);
+
+    const employeeMap = React.useMemo(() => {
+        const map = new Map<string, string>();
+        (employees ?? []).forEach(emp => {
+            map.set(emp.id, `${emp.lastName} ${emp.firstName}`.trim());
+        });
+        return map;
+    }, [employees]);
+
     const filtered = React.useMemo(() => {
         if (!documents) return [];
         if (!searchQuery.trim()) return documents;
@@ -362,6 +381,7 @@ export default function DocumentsPage() {
                                 <TableHead>Нэр</TableHead>
                                 <TableHead className="hidden sm:table-cell">Ангилал</TableHead>
                                 <TableHead className="hidden md:table-cell">Огноо</TableHead>
+                                <TableHead className="hidden lg:table-cell">Ажилтан</TableHead>
                                 <TableHead className="text-right hidden md:table-cell">Хэмжээ</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -376,13 +396,14 @@ export default function DocumentsPage() {
                                     </TableCell>
                                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
                                     <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell className="text-right hidden md:table-cell"><Skeleton className="ml-auto h-4 w-16" /></TableCell>
                                 </TableRow>
                             ))}
 
                             {error && (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="py-8 text-center text-destructive">
+                                    <TableCell colSpan={5} className="py-8 text-center text-destructive">
                                         Алдаа гарлаа: {error.message}
                                     </TableCell>
                                 </TableRow>
@@ -390,14 +411,14 @@ export default function DocumentsPage() {
 
                             {!isLoading && !error && filtered.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
+                                    <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
                                         {searchQuery ? 'Хайлтад тохирох баримт олдсонгүй' : 'Баримт бичиг байхгүй байна'}
                                     </TableCell>
                                 </TableRow>
                             )}
 
                             {!isLoading && !error && filtered.map((doc) => (
-                                <DocumentRow key={doc.id} doc={doc} />
+                                <DocumentRow key={doc.id} doc={doc} employeeName={employeeMap.get(doc.metadata?.employeeId as string)} />
                             ))}
                         </TableBody>
                     </Table>

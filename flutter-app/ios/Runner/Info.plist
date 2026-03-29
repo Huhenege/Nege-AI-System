@@ -47,6 +47,14 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Баримт бичиг байршуулахад зургийн сангаас файл сонгох шаардлагатай</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Баримт бичиг байршуулахад баримтын хавтаснаас файл сонгох шаардлагатай</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ирц бүртгэхийн тулд таны байршлыг ашиглана.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Ирц бүртгэхийн тулд таны байршлыг ашиглана.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
