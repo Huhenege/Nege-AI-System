@@ -18,6 +18,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { File, Upload, Settings, Loader2, Search } from 'lucide-react';
+import { AddActionButton } from '@/components/ui/add-action-button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import {
@@ -356,10 +357,11 @@ export default function DocumentsPage() {
                             variant="outline"
                             className="bg-white hover:bg-slate-50"
                         />
-                        <Button onClick={() => setIsUploadOpen(true)}>
-                            <Upload className="h-4 w-4 mr-2" />
-                            Байршуулах
-                        </Button>
+                        <AddActionButton
+                            label="Баримт нэмэх"
+                            description="Шинэ баримт бичиг байршуулах"
+                            onClick={() => setIsUploadOpen(true)}
+                        />
                     </div>
                 </CardHeader>
 
