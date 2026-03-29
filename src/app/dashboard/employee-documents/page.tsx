@@ -23,8 +23,10 @@ import { format } from 'date-fns';
 import {
     useCollection, useFirebase, useMemoFirebase, tenantCollection, useTenantWrite,
 } from '@/firebase';
-import { addDoc, Timestamp } from 'firebase/firestore';
+import { addDoc, Timestamp, query, orderBy } from 'firebase/firestore';
+import { Employee } from '@/types';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useTenant } from '@/contexts/tenant-context';
 import type { Document, DocumentCategory } from './data';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -97,6 +99,7 @@ function UploadDialog({ open, onOpenChange, onUploaded }: UploadDialogProps) {
     const { storage } = useFirebase();
     const { tCollection } = useTenantWrite();
     const { user } = useUser();
+    const { companyId } = useTenant();
     const { toast } = useToast();
 
     const [title, setTitle] = useState('');
@@ -104,13 +107,22 @@ function UploadDialog({ open, onOpenChange, onUploaded }: UploadDialogProps) {
     const [category, setCategory] = useState<DocumentCategory>('Бусад');
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [assignedEmployeeId, setAssignedEmployeeId] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const employeesQuery = useMemoFirebase(
+        ({ firestore, companyPath }) =>
+            firestore ? query(tenantCollection(firestore, companyPath, 'employees'), orderBy('lastName')) : null,
+        []
+    );
+    const { data: employees } = useCollection<Employee>(employeesQuery);
 
     const reset = () => {
         setTitle('');
         setDescription('');
         setCategory('Бусад');
         setFile(null);
+        setAssignedEmployeeId('');
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -121,13 +133,13 @@ function UploadDialog({ open, onOpenChange, onUploaded }: UploadDialogProps) {
     };
 
     const handleUpload = async () => {
-        if (!file || !storage || !title.trim()) return;
+        if (!file || !storage || !title.trim() || !companyId) return;
         setIsUploading(true);
         try {
-            // 1. Upload to Firebase Storage
+            // 1. Upload to Firebase Storage (tenant-scoped path)
             const storageRef = ref(
                 storage,
-                `employee-documents/${Date.now()}_${file.name}`
+                `employee-documents/${companyId}/${Date.now()}_${file.name}`
             );
             await uploadBytes(storageRef, file);
             const url = await getDownloadURL(storageRef);
@@ -142,6 +154,7 @@ function UploadDialog({ open, onOpenChange, onUploaded }: UploadDialogProps) {
                 mimeType: file.type,
                 uploadDate: new Date().toISOString(),
                 uploadedBy: user?.uid ?? null,
+                assignedEmployeeId: assignedEmployeeId || null,
                 metadata: {},
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
@@ -225,6 +238,24 @@ function UploadDialog({ open, onOpenChange, onUploaded }: UploadDialogProps) {
                             <SelectContent>
                                 {CATEGORIES.map((c) => (
                                     <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Assigned Employee */}
+                    <div className="space-y-2">
+                        <Label>Холбоотой ажилтан (заавал биш)</Label>
+                        <Select value={assignedEmployeeId} onValueChange={setAssignedEmployeeId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Ажилтан сонгох..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">— Сонгохгүй —</SelectItem>
+                                {(employees ?? []).map((emp) => (
+                                    <SelectItem key={emp.id} value={emp.id}>
+                                        {emp.lastName} {emp.firstName}
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>

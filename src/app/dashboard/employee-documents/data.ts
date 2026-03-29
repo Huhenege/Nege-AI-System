@@ -17,5 +17,6 @@ export type Document = {
     uploadDate: string;      // ISO date string
     uploadedBy?: string;     // uid of the uploader
     documentType: DocumentCategory;
+    assignedEmployeeId?: string | null;
     metadata?: Record<string, unknown>;
 };
